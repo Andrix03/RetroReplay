@@ -65,13 +65,18 @@ subprojects {
 		nests side != null ? ploceus.nests(project.nests_build, side) : ploceus.nests(project.nests_build)
 		mappings ploceus.featherMappings(project.feather_build)
 
-		if (side != null) {
-			// only what the mod uses: OSL's networking sends a handshake payload right after
-			// login that vanilla 1.2.5 servers reject, so the client could not join them
-			ploceus.dependOslModule(rootProject.osl_version, side, 'entrypoints')
-			ploceus.dependOslModule(rootProject.osl_version, side, 'core')
-		} else {
-			ploceus.dependOsl(rootProject.osl_version)
+		// only what the mod uses, the same in dev as in a player's game: OSL's networking sends
+		// a handshake payload right after login that vanilla 1.2.5 servers reject
+		for (module in ['entrypoints', 'core']) {
+			if (side != null) {
+				ploceus.dependOslModule(rootProject.osl_version, side, module)
+			} else {
+				ploceus.dependOslModule(rootProject.osl_version, module)
+			}
+		}
+		// and inside the jar (Fabric Loader loads nested jars): a player installs one file
+		configurations.modImplementation.dependencies.findAll { it.group == 'net.ornithemc.osl-gen2' }.each {
+			include "${it.group}:${it.name}:${it.version}"
 		}
 	}
 

@@ -1,8 +1,8 @@
 # RetroReplay
 
-Replay recording, playback and (soon) camera paths and rendering for old Minecraft Java
-versions that Replay Mod does not support. Built on Ornithe (Fabric Loader + Mixin for old
-versions).
+Replay Mod for the old Minecraft Java versions it does not support: recording, playback,
+camera paths and video rendering, with Replay Mod's interface and .mcpr files. Built on
+Ornithe (Fabric Loader + Mixin for old versions).
 
 ## Versions
 
@@ -10,11 +10,20 @@ versions).
 
 ## Install
 
-An Ornithe (gen2) Fabric Loader instance of the Minecraft version, with the RetroReplay jar
-of that version and two OSL modules in `mods/`: `osl-core` and `osl-entrypoints`. On 1.0.0,
-1.1 and 1.2.5 do not add `osl-networking`: it sends a handshake right after login that
-vanilla servers of those versions answer by dropping the connection, and singleplayer runs
-on one (see below).
+1. Install Ornithe with the [Ornithe installer](https://ornithemc.net/download): choose the
+   Minecraft version and Fabric Loader. It can make a profile for the official launcher or an
+   instance for Prism Launcher / MultiMC.
+2. Download the RetroReplay jar of that exact version from the
+   [releases](https://github.com/Andrix03/RetroReplay/releases) (`retroreplay-<version>+mc<minecraft>.jar`)
+   and put it in the `mods/` folder of that profile or instance. Nothing else is needed: the two
+   OSL modules it uses (`osl-core`, `osl-entrypoints`) are inside the jar.
+3. Start the game. The Replay Viewer is the button with the Replay Mod logo next to
+   "Multiplayer" (or "Minecraft Realms") in the main menu; recording starts by itself when
+   you join a world.
+
+On 1.0.0, 1.1 and 1.2.5 do not add `osl-networking` yourself: it sends a handshake right after
+login that vanilla servers of those versions answer by dropping the connection, and
+singleplayer runs on one (see below).
 
 ## Status
 
@@ -74,8 +83,10 @@ Self-tests: `RETROREPLAY_AUTORECORD=1` records a short session in the world `rr_
 `RETROREPLAY_AUTOPLAY=1` opens the newest recording and takes screenshots into
 `versions/<version>/run/screenshots`.
 
-Code shared by every version is in `src/`, by 1.3+ in `src-integrated/`, by the versions
-before 1.3 in `src-split/`; `versions/<version>/src/` holds only what differs.
+Code shared by every version is in `src/`, by 1.3 - 1.6.4 in `src-integrated/`, by the versions
+before 1.3 in `src-split/`; `versions/<version>/src/` holds only what differs (1.7.10, on
+Netty, has its own network layer there). Releases: pushing a `v<version>` tag builds every
+jar and publishes them on GitHub (`.github/workflows/release.yml`, notes from `CHANGELOG.md`).
 
 ## License and credits
 

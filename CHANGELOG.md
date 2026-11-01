@@ -1,0 +1,28 @@
+# Changelog
+
+## 0.1.0
+
+First public pre-release. Replay Mod's features on the Minecraft Java versions it does not
+support: 1.0.0, 1.1, 1.2.5, 1.3.2, 1.4.7, 1.5.2, 1.6.4 and 1.7.10. Download the jar of your
+exact Minecraft version and put it in `mods/` of an Ornithe (Fabric Loader) instance; the OSL
+modules it needs are inside it. See the README for the install steps.
+
+- Recording of singleplayer and multiplayer sessions to `.mcpr` files, your own player
+  included, with Replay Mod's "RECORDING" indicator and event markers (M).
+- Singleplayer on 1.0.0 - 1.2.5 runs on the matching vanilla server in the background (those
+  versions have no packets to record otherwise); pausing pauses the world.
+- Replay Viewer: load, rename, delete, open folder; interrupted recordings are recovered.
+- Playback: free camera, pause, speed, timeline, jumps; spectating players; player overview.
+- Camera paths as in Replay Mod: position, time and spectator keyframes, interpolation
+  choices, keyframe editor, undo / redo, path preview, saved presets, copy and paste, roll.
+- Video rendering at any resolution (1080p by default) through ffmpeg (Replay Mod's presets:
+  MP4, WebM, MKV and more) or as PNG images, with a render queue.
+- Paths, markers and presets are saved inside the replay file.
+
+Known limits:
+
+- Not tested yet with Prism Launcher / MultiMC instances (tested with launcher-style starts).
+- On 1.0.0 - 1.2.5 changing the difficulty from the in-game options does not reach the
+  background server.
+- Jumping back far in a long replay takes a few seconds on the oldest versions (the world is
+  rebuilt from the start).

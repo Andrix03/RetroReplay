@@ -1,0 +1,50 @@
+# A `v<version>` tag (pushed on main) builds every version's jar and publishes them as a GitHub
+# release, its notes taken from the version's section of CHANGELOG.md. Versions below 1.0.0 are
+# marked as pre-releases. The tag must match `version` in gradle.properties.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+      - uses: gradle/actions/setup-gradle@v5
+      - name: Check the tag against gradle.properties
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version=$(sed -n 's/^version *= *//p' gradle.properties)
+          if [ "v$version" != "$TAG" ]; then
+            echo "Tag $TAG does not match version $version in gradle.properties"
+            exit 1
+          fi
+      - run: ./gradlew build
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#v}"
+          awk -v v="$version" '/^## /{p = ($2 == v); next} p' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            echo "No section '## $version' in CHANGELOG.md"
+            exit 1
+          fi
+          mkdir dist
+          cp versions/*/build/libs/retroreplay-"$version"+mc*.jar dist/
+          rm -f dist/*-sources.jar
+          ls -l dist
+          pre=""
+          case "$version" in 0.*) pre="--prerelease" ;; esac
+          gh release create "$TAG" dist/*.jar --title "RetroReplay $version" --notes-file notes.md $pre
