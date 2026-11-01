@@ -3,6 +3,7 @@ package io.github.andrix03.retroreplay.replay;
 import io.github.andrix03.retroreplay.RetroReplay;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
 import net.minecraft.client.entity.living.player.LocalClientPlayerEntity;
 import net.minecraft.client.gui.screen.menu.GameMenuScreen;
 import net.minecraft.client.gui.screen.menu.TitleScreen;
@@ -49,6 +50,7 @@ public final class DevAutorecord {
 		}
 		LocalClientPlayerEntity player = minecraft.player;
 		if (minecraft.screen instanceof GameMenuScreen && System.nanoTime() - pauseStart > 3_000_000_000L) {
+			Screenshot.take(minecraft.gameDir, "autorecord_paused.png", minecraft.width, minecraft.height);
 			RetroReplay.LOGGER.info("Autorecord: closing the pause menu");
 			minecraft.openScreen(null);
 		}
@@ -56,6 +58,9 @@ public final class DevAutorecord {
 			return;
 		}
 		ticks++;
+		if (ticks == 60) {
+			Screenshot.take(minecraft.gameDir, "autorecord_recording.png", minecraft.width, minecraft.height);
+		}
 		if (ticks == 120 && pauseStart == 0) {
 			// 3 s in the pause menu: the recording clock must not count them
 			RetroReplay.LOGGER.info("Autorecord: opening the pause menu");

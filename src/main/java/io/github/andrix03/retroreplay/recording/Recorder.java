@@ -68,6 +68,10 @@ public final class Recorder {
 		return current != null;
 	}
 
+	public static synchronized boolean isPaused() {
+		return current != null && current.pausedSince != 0;
+	}
+
 	public static synchronized void record(Packet packet) {
 		if (current != null) {
 			current.write(packet);

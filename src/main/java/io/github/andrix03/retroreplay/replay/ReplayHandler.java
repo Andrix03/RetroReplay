@@ -15,10 +15,12 @@ import java.util.zip.ZipFile;
 import org.lwjgl.input.Keyboard;
 
 import io.github.andrix03.retroreplay.RetroReplay;
+import io.github.andrix03.retroreplay.gui.ReplayOverlayScreen;
 import io.github.andrix03.retroreplay.mixin.MinecraftAccessor;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.living.player.LocalClientPlayerEntity;
+import net.minecraft.client.gui.screen.game.ChatScreen;
 import net.minecraft.client.gui.screen.menu.multiplayer.DownloadingTerrainScreen;
 import net.minecraft.client.network.handler.ClientNetworkHandler;
 import net.minecraft.network.LocalConnection;
@@ -33,7 +35,9 @@ import net.minecraft.server.integrated.IntegratedServer;
  */
 public final class ReplayHandler {
 
-	private static final double[] SPEEDS = { 0.1, 0.25, 0.5, 1, 2, 4, 8 };
+	/** Replay Mod's speed slider: 37 steps, 0.1x to 1x by 0.1, then up to 7.75x by 0.25. */
+	public static final int SPEED_STEPS = 37;
+	public static final int DEFAULT_SPEED_STEP = 9;
 
 	/**
 	 * The camera gets its own entity id, so the recorded player (spawned by the packets
@@ -45,7 +49,6 @@ public final class ReplayHandler {
 
 	private static ReplayHandler active;
 	private static boolean starting;
-	private static boolean hideGuiBefore;
 
 	private final File file;
 	private final int[] times;
@@ -54,7 +57,7 @@ public final class ReplayHandler {
 	private int index;
 	private double timeMs;
 	private long lastNanos;
-	private int speedIndex = 3;
+	private int speedStep = DEFAULT_SPEED_STEP;
 	private boolean paused;
 	private boolean positioned;
 	/** Camera x, feet y, z, yaw, pitch to restore after a seek rebuilt the world. */
@@ -66,6 +69,43 @@ public final class ReplayHandler {
 		this.file = file;
 		this.times = times;
 		this.packets = packets;
+	}
+
+	public static ReplayHandler get() {
+		return active;
+	}
+
+	public static double speed(int step) {
+		return step < 10 ? (step + 1) / 10.0 : 1 + (step - 9) * 0.25;
+	}
+
+	public boolean isPaused() {
+		return paused;
+	}
+
+	public void togglePause() {
+		paused = !paused;
+	}
+
+	public int getSpeedStep() {
+		return speedStep;
+	}
+
+	public void setSpeedStep(int step) {
+		speedStep = Math.max(0, Math.min(SPEED_STEPS - 1, step));
+	}
+
+	public double getTime() {
+		return timeMs;
+	}
+
+	public int getDuration() {
+		return duration();
+	}
+
+	/** Jumps there at the end of this tick (going back rebuilds the world). */
+	public void jumpTo(double target) {
+		pendingSeek = Math.max(0, Math.min(target, duration()));
 	}
 
 	public static boolean isStarting() {
@@ -86,8 +126,6 @@ public final class ReplayHandler {
 		}
 		Minecraft minecraft = Minecraft.getInstance();
 		minecraft.setWorld(null);
-		hideGuiBefore = minecraft.options.hideGui;
-		minecraft.options.hideGui = true;
 		start(handler);
 		RetroReplay.LOGGER.info("Replay opened: " + file.getName() + " (" + handler.times.length + " packets)");
 	}
@@ -125,7 +163,7 @@ public final class ReplayHandler {
 			return;
 		}
 		ReplayHandler fresh = new ReplayHandler(file, times, packets);
-		fresh.speedIndex = speedIndex;
+		fresh.speedStep = speedStep;
 		fresh.paused = paused;
 		fresh.timeMs = target;
 		if (minecraft.player != null) {
@@ -150,7 +188,6 @@ public final class ReplayHandler {
 		if (active != null && !starting) {
 			RetroReplay.LOGGER.info("Replay closed: " + active.file.getName());
 			active = null;
-			Minecraft.getInstance().options.hideGui = hideGuiBefore;
 		}
 	}
 
@@ -173,28 +210,29 @@ public final class ReplayHandler {
 		Minecraft minecraft = Minecraft.getInstance();
 		long now = System.nanoTime();
 		if (!paused) {
-			timeMs += (now - lastNanos) / 1_000_000.0 * SPEEDS[speedIndex];
+			timeMs = Math.min(timeMs + (now - lastNanos) / 1_000_000.0 * speed(speedStep), duration());
 		}
 		lastNanos = now;
 
+		if (minecraft.screen instanceof ChatScreen) {
+			// chat is useless in a replay: its key frees the mouse for the replay controls instead
+			minecraft.openScreen(new ReplayOverlayScreen());
+		}
 		if (minecraft.screen == null) {
 			if (pressed(Keyboard.KEY_P)) {
-				paused = !paused;
-				chat(paused ? "Replay paused" : "Replay playing");
+				togglePause();
 			}
-			if (pressed(Keyboard.KEY_RBRACKET) && speedIndex < SPEEDS.length - 1) {
-				speedIndex++;
-				chat("Replay speed " + SPEEDS[speedIndex] + "x");
+			if (pressed(Keyboard.KEY_RBRACKET)) {
+				setSpeedStep(speedStep + 1);
 			}
-			if (pressed(Keyboard.KEY_LBRACKET) && speedIndex > 0) {
-				speedIndex--;
-				chat("Replay speed " + SPEEDS[speedIndex] + "x");
+			if (pressed(Keyboard.KEY_LBRACKET)) {
+				setSpeedStep(speedStep - 1);
 			}
 			if (pressed(Keyboard.KEY_LEFT)) {
-				pendingSeek = Math.max(0, timeMs - SEEK_STEP_MS);
+				jumpTo(timeMs - SEEK_STEP_MS);
 			}
 			if (pressed(Keyboard.KEY_RIGHT)) {
-				pendingSeek = timeMs + SEEK_STEP_MS;
+				jumpTo(timeMs + SEEK_STEP_MS);
 			}
 		}
 		double devSeek = DevAutoplay.seekRequest(timeMs);
@@ -273,10 +311,6 @@ public final class ReplayHandler {
 		boolean was = keyWasDown[key];
 		keyWasDown[key] = down;
 		return down && !was;
-	}
-
-	private static void chat(String message) {
-		Minecraft.getInstance().gui.getChat().addMessage(message);
 	}
 
 	private static ReplayHandler load(File file) throws IOException {

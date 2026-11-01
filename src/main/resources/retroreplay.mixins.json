@@ -7,11 +7,15 @@
 	],
 	"client": [
 		"ClientNetworkHandlerMixin",
+		"GameGuiMixin",
+		"GameMenuScreenMixin",
+		"GameRendererMixin",
 		"LocalConnectionMixin",
 		"MinecraftAccessor",
 		"MinecraftMixin",
 		"RemoteConnectionMixin",
-		"TitleScreenMixin"
+		"TitleScreenMixin",
+		"ToastGuiMixin"
 	],
 	"server": [
 	],

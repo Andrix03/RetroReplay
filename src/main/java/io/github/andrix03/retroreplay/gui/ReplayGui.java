@@ -1,0 +1,118 @@
+package io.github.andrix03.retroreplay.gui;
+
+import org.lwjgl.opengl.GL11;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiElement;
+import net.minecraft.client.render.vertex.Tesselator;
+import net.minecraft.client.resource.Identifier;
+
+/**
+ * Drawing helpers with Replay Mod's own textures (replay_gui.png from Replay Mod, gui.png from
+ * jGui), so the screens look like Replay Mod's on newer versions.
+ */
+public final class ReplayGui {
+
+	public static final Identifier REPLAY_GUI = new Identifier("retroreplay", "textures/replay_gui.png");
+	public static final Identifier JGUI = new Identifier("retroreplay", "textures/jgui.png");
+	public static final Identifier LOGO = new Identifier("retroreplay", "textures/logo_button.png");
+	public static final Identifier WIDGETS = new Identifier("textures/gui/widgets.png");
+
+	public static final int WHITE = 0xFFFFFFFF;
+	public static final int LIGHT_GRAY = 0xFFC0C0C0;
+	public static final int HALF_TRANSPARENT = 0x80000000;
+
+	private static final GuiElement DRAW = new GuiElement();
+
+	private ReplayGui() {
+	}
+
+	public static void bind(Identifier texture) {
+		GL11.glColor4f(1, 1, 1, 1);
+		Minecraft.getInstance().getTextureManager().bind(texture);
+	}
+
+	/** A part of the bound 256x256 texture at 1:1 scale. */
+	public static void texture(int x, int y, int u, int v, int width, int height) {
+		GL11.glEnable(GL11.GL_BLEND);
+		GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+		DRAW.drawTexture(x, y, u, v, width, height);
+	}
+
+	/** The whole bound texture stretched over a rectangle (used for the logo). */
+	public static void stretched(int x, int y, int width, int height) {
+		GL11.glEnable(GL11.GL_BLEND);
+		Tesselator t = Tesselator.INSTANCE;
+		t.begin();
+		t.vertex(x, y + height, 0, 0, 1);
+		t.vertex(x + width, y + height, 0, 1, 1);
+		t.vertex(x + width, y, 0, 1, 0);
+		t.vertex(x, y, 0, 0, 0);
+		t.end();
+	}
+
+	/** jGui's Utils.drawDynamicRect: a 9-slice of the bound texture, edges and middle tiled. */
+	public static void dynamicRect(int x, int y, int width, int height, int u, int v, int texW, int texH, int top, int bottom, int left, int right) {
+		int midTexW = texW - left - right;
+		int midTexH = texH - top - bottom;
+		int midW = width - left - right;
+		int midH = height - top - bottom;
+		texture(x, y, u, v, left, top);
+		texture(x + width - right, y, u + texW - right, v, right, top);
+		texture(x, y + height - bottom, u, v + texH - bottom, left, bottom);
+		texture(x + width - right, y + height - bottom, u + texW - right, v + texH - bottom, right, bottom);
+		for (int dx = 0; dx < midW; dx += midTexW) {
+			int w = Math.min(midTexW, midW - dx);
+			texture(x + left + dx, y, u + left, v, w, top);
+			texture(x + left + dx, y + height - bottom, u + left, v + texH - bottom, w, bottom);
+			for (int dy = 0; dy < midH; dy += midTexH) {
+				texture(x + left + dx, y + top + dy, u + left, v + top, w, Math.min(midTexH, midH - dy));
+			}
+		}
+		for (int dy = 0; dy < midH; dy += midTexH) {
+			int h = Math.min(midTexH, midH - dy);
+			texture(x, y + top + dy, u, v + top, left, h);
+			texture(x + width - right, y + top + dy, u + texW - right, v + top, right, h);
+		}
+	}
+
+	/** A vanilla button background (widgets.png), the same way ButtonWidget draws it. */
+	public static void button(int x, int y, int width, int height, boolean hovered) {
+		bind(WIDGETS);
+		int v = 46 + (hovered ? 2 : 1) * 20;
+		texture(x, y, 0, v, width / 2, height);
+		texture(x + width / 2, y, 200 - width / 2, v, width / 2, height);
+	}
+
+	/** A vanilla slider: disabled-button track plus the 8 px knob. */
+	public static void slider(int x, int y, int width, int height, double value, String text, boolean hovered) {
+		bind(WIDGETS);
+		texture(x, y, 0, 46, width / 2, height);
+		texture(x + width / 2, y, 200 - width / 2, 46, width / 2, height);
+		int knob = x + (int) (value * (width - 8));
+		texture(knob, y, 0, 66, 4, 20);
+		texture(knob + 4, y, 196, 66, 4, 20);
+		centered(text, x + width / 2, y + (height - 8) / 2, hovered ? 0xFFFFFFA0 : 0xFFE0E0E0);
+	}
+
+	public static void fill(int x1, int y1, int x2, int y2, int color) {
+		GuiElement.fill(x1, y1, x2, y2, color);
+	}
+
+	public static void text(String text, int x, int y, int color) {
+		DRAW.drawString(Minecraft.getInstance().textRenderer, text, x, y, color);
+	}
+
+	public static void centered(String text, int x, int y, int color) {
+		DRAW.drawCenteredString(Minecraft.getInstance().textRenderer, text, x, y, color);
+	}
+
+	public static int width(String text) {
+		return Minecraft.getInstance().textRenderer.getWidth(text);
+	}
+
+	public static String formatTime(long ms) {
+		long s = ms / 1000;
+		return s / 60 + ":" + (s % 60 < 10 ? "0" : "") + s % 60;
+	}
+}
