@@ -30,11 +30,20 @@ on one (see below).
   replay's moment, Delete removes the selected one, C clears all, Ctrl+Z / Ctrl+Y undo and
   redo, H shows the path in the world. Click to select, drag to move, double click to edit,
   right click to go there. The play button plays the path (Ctrl: from the start, Shift:
-  ignoring time keyframes). Paths are saved inside the replay file.
-- Rendering: the render button renders the path frame by frame at the window's size, with
-  Replay Mod's presets (MP4, WebM, lossless MKV) through ffmpeg, or as PNG images without it.
-  ffmpeg is found on the PATH or in `.minecraft/ffmpeg/bin`; videos go to
-  `.minecraft/replay_videos`. Esc cancels; progress is shown in the window title.
+  ignoring time keyframes). V moves the cursor to the replay's moment (sync timeline).
+  The keyframe editor also picks the interpolation: Catmull-Rom, cubic or linear.
+  J / L roll the camera, K levels it. X opens the keyframe repository: paths saved by name.
+  Paths, presets and markers are saved inside the replay file.
+- Spectating: B opens the player overview, a click views the world through that player's
+  eyes, Shift leaves. I while spectating adds a spectator keyframe: between two of them the
+  path follows the player (blue on the timeline).
+- Event markers: M while recording or in a replay; on the replay bar a click jumps to one,
+  a double click names or deletes it.
+- Rendering: the render button renders the path frame by frame, at 1920x1080 by default
+  (720p, 1440p, 4K or the window's size), with Replay Mod's presets (MP4, WebM, lossless
+  MKV) through ffmpeg, or as PNG images without it. ffmpeg is found on the PATH or in
+  `.minecraft/ffmpeg/bin`; videos go to `.minecraft/replay_videos`. Esc cancels; progress is
+  shown in the window title.
 
 ### Singleplayer before 1.3
 
