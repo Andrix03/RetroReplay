@@ -17,21 +17,17 @@ import org.lwjgl.input.Keyboard;
 import io.github.andrix03.retroreplay.RetroReplay;
 import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.gui.ReplayOverlayScreen;
-import io.github.andrix03.retroreplay.mixin.MinecraftAccessor;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screen.game.ChatScreen;
 import net.minecraft.client.gui.screen.menu.multiplayer.DownloadingTerrainScreen;
-import net.minecraft.client.network.handler.ClientNetworkHandler;
-import net.minecraft.network.LocalConnection;
 import net.minecraft.network.packet.LoginPacket;
 import net.minecraft.network.packet.Packet;
-import net.minecraft.server.integrated.IntegratedServer;
 
 /**
- * Plays a recording back: a ClientNetworkHandler is built like for singleplayer, but its
- * LocalConnection is bound to a sink instead of the integrated server, and the recorded
- * packets are fed into it at their recorded times. The local player is the free camera.
+ * Plays a recording back: a ClientNetworkHandler is built with nothing on the other end
+ * (ReplayConnection, per version) and the recorded packets are fed into it at their
+ * recorded times. The local player is the free camera.
  */
 public final class ReplayHandler {
 
@@ -53,7 +49,7 @@ public final class ReplayHandler {
 	private final File file;
 	private final int[] times;
 	private final byte[][] packets;
-	private LocalConnection client;
+	private ReplayConnection client;
 	private int index;
 	private double timeMs;
 	private long lastNanos;
@@ -124,21 +120,20 @@ public final class ReplayHandler {
 			RetroReplay.LOGGER.error("Cannot open replay " + file, e);
 			return;
 		}
-		Minecraft minecraft = Minecraft.getInstance();
+		Minecraft minecraft = Mc.minecraft();
 		minecraft.setWorld(null);
 		start(handler);
-		RetroReplay.LOGGER.info("Replay opened: " + file.getName() + " (" + handler.times.length + " packets)");
+		if (active == handler) {
+			RetroReplay.LOGGER.info("Replay opened: " + file.getName() + " (" + handler.times.length + " packets)");
+		}
 	}
 
 	private static void start(ReplayHandler handler) {
-		Minecraft minecraft = Minecraft.getInstance();
+		Minecraft minecraft = Mc.minecraft();
 		active = handler;
 		starting = true;
-		ClientNetworkHandler networkHandler;
 		try {
-			networkHandler = new ClientNetworkHandler(minecraft, (IntegratedServer) null);
-			((MinecraftAccessor) minecraft).retroreplay$setConnection(networkHandler.getConnection());
-			handler.client = (LocalConnection) networkHandler.getConnection();
+			handler.client = ReplayConnection.open(minecraft);
 		} catch (Exception e) {
 			active = null;
 			RetroReplay.LOGGER.error("Cannot start replay", e);
@@ -148,7 +143,7 @@ public final class ReplayHandler {
 		}
 		handler.lastNanos = System.nanoTime();
 		// without a world the client expects a screen until the login packet builds one
-		minecraft.openScreen(new DownloadingTerrainScreen(networkHandler));
+		minecraft.openScreen(new DownloadingTerrainScreen(handler.client.handler));
 	}
 
 	/**
@@ -156,7 +151,7 @@ public final class ReplayHandler {
 	 * and every packet up to the target is fed at once. The camera keeps its place.
 	 */
 	private void seek(double target) {
-		Minecraft minecraft = Minecraft.getInstance();
+		Minecraft minecraft = Mc.minecraft();
 		target = Math.max(0, Math.min(target, duration()));
 		if (target >= timeMs) {
 			timeMs = target;
@@ -177,11 +172,6 @@ public final class ReplayHandler {
 
 	private int duration() {
 		return times.length == 0 ? 0 : times[times.length - 1];
-	}
-
-	/** Called when the client binds its connection: give it a sink as the other end. */
-	public static void bind(LocalConnection clientConnection) {
-		Mc.newSinkConnection().bind(clientConnection);
 	}
 
 	public static void stop() {
@@ -207,7 +197,7 @@ public final class ReplayHandler {
 	}
 
 	private void update() {
-		Minecraft minecraft = Minecraft.getInstance();
+		Minecraft minecraft = Mc.minecraft();
 		long now = System.nanoTime();
 		if (!paused) {
 			timeMs = Math.min(timeMs + (now - lastNanos) / 1_000_000.0 * speed(speedStep), duration());
@@ -266,7 +256,7 @@ public final class ReplayHandler {
 		if (drop(id, data)) {
 			return;
 		}
-		Minecraft minecraft = Minecraft.getInstance();
+		Minecraft minecraft = Mc.minecraft();
 		Packet packet = Mc.createPacket(id);
 		if (packet == null) {
 			return;
@@ -285,6 +275,7 @@ public final class ReplayHandler {
 
 	private boolean drop(int id, byte[] data) {
 		switch (id) {
+			case 0x02: // handshake (before 1.3): would log in to minecraft.net for online servers
 			case 0x08: // health: no death screen for the camera
 			case 0xCA: // abilities: keep the camera flying
 			case 0xFA: // custom payload: mod handshakes and trade/book screens, nothing to show
@@ -361,7 +352,7 @@ public final class ReplayHandler {
 
 	/** The newest .mcpr in the recordings folder, or null. */
 	public static File latestRecording() {
-		File[] files = new File(Minecraft.getInstance().gameDir, "replay_recordings").listFiles((dir, name) -> name.endsWith(".mcpr"));
+		File[] files = new File(Mc.minecraft().gameDir, "replay_recordings").listFiles((dir, name) -> name.endsWith(".mcpr"));
 		File latest = null;
 		if (files != null) {
 			for (File f : files) {

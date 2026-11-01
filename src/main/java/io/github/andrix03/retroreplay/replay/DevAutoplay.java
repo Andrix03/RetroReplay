@@ -1,5 +1,6 @@
 package io.github.andrix03.retroreplay.replay;
 
+import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.RetroReplay;
 import io.github.andrix03.retroreplay.gui.ReplayViewerScreen;
 
@@ -43,7 +44,7 @@ public final class DevAutoplay {
 		if (!ENABLED || !armed) {
 			return;
 		}
-		Minecraft minecraft = Minecraft.getInstance();
+		Minecraft minecraft = Mc.minecraft();
 		long waited = (System.nanoTime() - stageStart) / 1_000_000L;
 		if (stage == 1 && minecraft.screen instanceof TitleScreen && waited > 1500) {
 			shot(minecraft, "title");

@@ -21,6 +21,10 @@ public final class Mc {
 	private Mc() {
 	}
 
+	public static Minecraft minecraft() {
+		return Minecraft.getInstance();
+	}
+
 	/** One of "replay_gui", "jgui", "logo", "widgets". */
 	public static void bindTexture(String name) {
 		Identifier texture = name.equals("replay_gui") ? REPLAY_GUI : name.equals("jgui") ? JGUI : name.equals("logo") ? LOGO : WIDGETS;
@@ -38,6 +42,11 @@ public final class Mc {
 
 	public static Packet createPacket(int id) {
 		return Packet.create(Minecraft.getInstance().getLogger(), id);
+	}
+
+	/** Dev self-test only: opens (or creates, seed 1234) a survival singleplayer world. */
+	public static void startSelftestWorld(String name) {
+		minecraft().startGame(name, name, new net.minecraft.world.WorldSettings(1234L, net.minecraft.world.WorldSettings.GameMode.SURVIVAL, true, false, net.minecraft.world.gen.WorldGeneratorType.DEFAULT));
 	}
 
 	/** Dev self-test only. */

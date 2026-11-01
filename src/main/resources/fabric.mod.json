@@ -16,7 +16,8 @@
 		]
 	},
 	"mixins": [
-		"retroreplay.mixins.json"
+		"retroreplay.mixins.json",
+		"retroreplay.version.mixins.json"
 	],
 	"depends": {
 		"fabricloader": ">=0.17.3",

@@ -4,7 +4,6 @@ import org.lwjgl.opengl.GL11;
 
 import io.github.andrix03.retroreplay.compat.Mc;
 
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiElement;
 import net.minecraft.client.render.vertex.Tesselator;
 
@@ -101,15 +100,15 @@ public final class ReplayGui {
 	}
 
 	public static void text(String text, int x, int y, int color) {
-		DRAW.drawString(Minecraft.getInstance().textRenderer, text, x, y, color);
+		DRAW.drawString(Mc.minecraft().textRenderer, text, x, y, color);
 	}
 
 	public static void centered(String text, int x, int y, int color) {
-		DRAW.drawCenteredString(Minecraft.getInstance().textRenderer, text, x, y, color);
+		DRAW.drawCenteredString(Mc.minecraft().textRenderer, text, x, y, color);
 	}
 
 	public static int width(String text) {
-		return Minecraft.getInstance().textRenderer.getWidth(text);
+		return Mc.minecraft().textRenderer.getWidth(text);
 	}
 
 	public static String formatTime(long ms) {

@@ -6,6 +6,8 @@ plugins {
 // Every Minecraft version is a subproject (versions/<mc>, see settings.gradle). Code and
 // resources shared by all versions live in the root src/; a version adds only the files
 // that differ in versions/<mc>/src/ (the same class must never exist in both places).
+// src-integrated/ holds what every version with an integrated server (1.3+) shares, src-split/
+// what the versions before it share (separate client and server jars).
 subprojects {
 	apply plugin: 'fabric-loom'
 	apply plugin: 'ploceus'
@@ -16,11 +18,22 @@ subprojects {
 	version = "${rootProject.version}+mc${project.minecraft_version}"
 	group = rootProject.maven_group
 
+	// Before 1.3 the client and the server are separate jars (game_side = client): map only that one.
+	def side = project.findProperty('game_side')
+
 	sourceSets {
 		main {
 			java.srcDirs = [rootProject.file('src/main/java'), 'src/main/java']
 			resources.srcDirs = [rootProject.file('src/main/resources'), 'src/main/resources']
+			def shared = side == null ? 'src-integrated' : 'src-split'
+			java.srcDir rootProject.file("${shared}/main/java")
+			resources.srcDir rootProject.file("${shared}/main/resources")
 		}
+	}
+
+	if (side != null) {
+		loom.clientOnlyMinecraftJar()
+		ploceus.clientOnlyMappings()
 	}
 
 	dependencies {
@@ -28,15 +41,22 @@ subprojects {
 		modImplementation "net.fabricmc:fabric-loader:${rootProject.loader_version}"
 
 		if (project.raven_build != "0") {
-			exceptions ploceus.raven(project.raven_build)
+			exceptions side != null ? ploceus.raven(project.raven_build, side) : ploceus.raven(project.raven_build)
 		}
 		if (project.sparrow_build != "0") {
-			signatures ploceus.sparrow(project.sparrow_build)
+			signatures side != null ? ploceus.sparrow(project.sparrow_build, side) : ploceus.sparrow(project.sparrow_build)
 		}
-		nests ploceus.nests(project.nests_build)
+		nests side != null ? ploceus.nests(project.nests_build, side) : ploceus.nests(project.nests_build)
 		mappings ploceus.featherMappings(project.feather_build)
 
-		ploceus.dependOsl(rootProject.osl_version)
+		if (side != null) {
+			// only what the mod uses: OSL's networking sends a handshake payload right after
+			// login that vanilla 1.2.5 servers reject, so the client could not join them
+			ploceus.dependOslModule(rootProject.osl_version, side, 'entrypoints')
+			ploceus.dependOslModule(rootProject.osl_version, side, 'core')
+		} else {
+			ploceus.dependOsl(rootProject.osl_version)
+		}
 	}
 
 	processResources {

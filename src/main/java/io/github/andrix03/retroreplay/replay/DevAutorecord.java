@@ -7,8 +7,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screen.menu.GameMenuScreen;
 import net.minecraft.client.gui.screen.menu.TitleScreen;
-import net.minecraft.world.WorldSettings;
-import net.minecraft.world.gen.WorldGeneratorType;
 
 /**
  * Development self-test, only when RETROREPLAY_AUTORECORD is set: opens the singleplayer
@@ -39,7 +37,7 @@ public final class DevAutorecord {
 		if (!ENABLED || finished) {
 			return;
 		}
-		Minecraft minecraft = Minecraft.getInstance();
+		Minecraft minecraft = Mc.minecraft();
 		if (!started) {
 			// the first title screen opens before the game has finished starting up: wait a second
 			if (minecraft.screen instanceof TitleScreen && ++titleTicks > 20) {
@@ -50,8 +48,7 @@ public final class DevAutorecord {
 					minecraft.openScreen(Mc.connectScreen(minecraft.screen, hostPort[0], Integer.parseInt(hostPort[1])));
 				} else {
 					RetroReplay.LOGGER.info("Autorecord: opening rr_selftest");
-					minecraft.startGame("rr_selftest", "rr_selftest",
-						new WorldSettings(1234L, WorldSettings.GameMode.SURVIVAL, true, false, WorldGeneratorType.DEFAULT));
+					Mc.startSelftestWorld("rr_selftest");
 				}
 			}
 			return;

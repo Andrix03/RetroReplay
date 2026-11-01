@@ -3,13 +3,13 @@ package io.github.andrix03.retroreplay.gui;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
-import net.minecraft.client.gui.screen.Screen;
+import io.github.andrix03.retroreplay.compat.NoPauseScreen;
 
 /**
  * Frees the mouse during a replay so the replay bar can be clicked; the bar itself is drawn by
  * the HUD hook. The camera stands still while this is open, the replay keeps playing.
  */
-public class ReplayOverlayScreen extends Screen {
+public class ReplayOverlayScreen extends NoPauseScreen {
 
 	@Override
 	public void render(int mouseX, int mouseY, float tickDelta) {
@@ -32,10 +32,5 @@ public class ReplayOverlayScreen extends Screen {
 		if (key == Keyboard.KEY_ESCAPE || key == minecraft.options.chatKey.keyCode) {
 			minecraft.openScreen(null);
 		}
-	}
-
-	@Override
-	public boolean shouldPauseGame() {
-		return false;
 	}
 }

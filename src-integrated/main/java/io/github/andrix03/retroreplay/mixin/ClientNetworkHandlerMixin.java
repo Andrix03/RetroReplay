@@ -8,6 +8,7 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import io.github.andrix03.retroreplay.recording.Recorder;
+import io.github.andrix03.retroreplay.replay.ReplayConnection;
 import io.github.andrix03.retroreplay.replay.ReplayHandler;
 
 import net.minecraft.client.network.handler.ClientNetworkHandler;
@@ -46,7 +47,7 @@ public class ClientNetworkHandlerMixin {
 	@Redirect(method = "<init>(Lnet/minecraft/client/Minecraft;Lnet/minecraft/server/integrated/IntegratedServer;)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/integrated/IntegratedConnectionListener;setConnection(Lnet/minecraft/network/LocalConnection;Ljava/lang/String;)V"))
 	private void retroreplay$bindConnection(IntegratedConnectionListener listener, LocalConnection connection, String playerName) {
 		if (ReplayHandler.isStarting()) {
-			ReplayHandler.bind(connection);
+			ReplayConnection.bind(connection);
 		} else {
 			listener.setConnection(connection, playerName);
 		}

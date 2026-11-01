@@ -14,7 +14,6 @@ import java.util.Set;
 import io.github.andrix03.retroreplay.RetroReplay;
 import io.github.andrix03.retroreplay.compat.Mc;
 
-import net.minecraft.client.Minecraft;
 import net.minecraft.network.packet.Packet;
 
 /**
@@ -52,7 +51,7 @@ public final class Recorder {
 
 	public static synchronized void start(boolean singleplayer, String serverName) {
 		stop();
-		File folder = new File(Minecraft.getInstance().gameDir, "replay_recordings");
+		File folder = new File(Mc.minecraft().gameDir, "replay_recordings");
 		if (!folder.isDirectory() && !folder.mkdirs()) {
 			RetroReplay.LOGGER.error("Cannot create " + folder);
 			return;
