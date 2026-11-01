@@ -1,11 +1,14 @@
 {
 	"required": true,
 	"minVersion": "0.8",
-	"package": "com.example.example_mod.mixin",
+	"package": "io.github.andrix03.retroreplay.mixin",
 	"compatibilityLevel": "JAVA_8",
 	"mixins": [
 	],
 	"client": [
+		"ClientNetworkHandlerMixin",
+		"LocalConnectionMixin",
+		"RemoteConnectionMixin",
 		"TitleScreenMixin"
 	],
 	"server": [
