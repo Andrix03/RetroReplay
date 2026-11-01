@@ -32,7 +32,8 @@ on one (see below).
   right click to go there. The play button plays the path (Ctrl: from the start, Shift:
   ignoring time keyframes). V moves the cursor to the replay's moment (sync timeline).
   The keyframe editor also picks the interpolation: Catmull-Rom, cubic or linear.
-  J / L roll the camera, K levels it. X opens the keyframe repository: paths saved by name.
+  J / L roll the camera, K levels it. X opens the keyframe repository: paths saved by name,
+  copied and pasted between replays as text, or added to the render queue.
   Paths, presets and markers are saved inside the replay file.
 - Spectating: B opens the player overview, a click views the world through that player's
   eyes, Shift leaves. I while spectating adds a spectator keyframe: between two of them the
@@ -43,7 +44,8 @@ on one (see below).
   (720p, 1440p, 4K or the window's size), with Replay Mod's presets (MP4, WebM, lossless
   MKV) through ffmpeg, or as PNG images without it. ffmpeg is found on the PATH or in
   `.minecraft/ffmpeg/bin`; videos go to `.minecraft/replay_videos`. Esc cancels; progress is
-  shown in the window title.
+  shown in the window title. "Add to Queue" collects videos (each with a copy of its path),
+  "Render Queue" renders them one after another.
 
 ### Singleplayer before 1.3
 
