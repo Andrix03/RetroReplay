@@ -7,6 +7,8 @@ import org.lwjgl.input.Keyboard;
 
 import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.compat.NoPauseScreen;
+import io.github.andrix03.retroreplay.pathing.CameraPath;
+import io.github.andrix03.retroreplay.pathing.PathStore;
 import io.github.andrix03.retroreplay.pathing.PathingState;
 
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -14,8 +16,8 @@ import net.minecraft.client.gui.widget.TextFieldWidget;
 
 /**
  * Replay Mod's keyframe repository (X): camera paths saved under a name in this replay. A click
- * on a name selects it; Save As (the name typed below), Overwrite, Load, Rename, Remove: 75 px
- * buttons like Replay Mod's.
+ * on a name selects it; Save As (the name typed below), Overwrite, Load, Copy, Rename, Remove,
+ * Paste: 75 px buttons like Replay Mod's. Copy / Paste move paths between replays as text.
  */
 public class KeyframeRepositoryScreen extends NoPauseScreen {
 
@@ -25,6 +27,8 @@ public class KeyframeRepositoryScreen extends NoPauseScreen {
 	private static final int RENAME = 1003;
 	private static final int REMOVE = 1004;
 	private static final int CLOSE = 1005;
+	private static final int COPY = 1006;
+	private static final int PASTE = 1007;
 
 	private final PathingState state;
 	private final List<String> names = new ArrayList<>();
@@ -54,17 +58,19 @@ public class KeyframeRepositoryScreen extends NoPauseScreen {
 		nameField = Mc.textField(this, width / 2 - 100, height - 78, 200, 20);
 		nameField.setText(text);
 		nameField.setFocused(true);
-		int x = width / 2 - (75 * 3 + 2 * 5) / 2;
+		int x = width / 2 - (75 * 4 + 3 * 5) / 2;
 		buttons.add(new ButtonWidget(SAVE_AS, x, height - 52, 75, 20, "Save As..."));
 		ButtonWidget overwrite = new ButtonWidget(OVERWRITE, x + 80, height - 52, 75, 20, "Overwrite");
 		ButtonWidget load = new ButtonWidget(LOAD, x + 160, height - 52, 75, 20, "Load");
+		ButtonWidget copy = new ButtonWidget(COPY, x + 240, height - 52, 75, 20, "Copy");
 		ButtonWidget rename = new ButtonWidget(RENAME, x, height - 28, 75, 20, "Rename");
 		ButtonWidget remove = new ButtonWidget(REMOVE, x + 80, height - 28, 75, 20, "Remove");
-		for (ButtonWidget button : new ButtonWidget[] { overwrite, load, rename, remove }) {
+		for (ButtonWidget button : new ButtonWidget[] { overwrite, load, copy, rename, remove }) {
 			button.active = selected != null;
 			buttons.add(button);
 		}
-		buttons.add(new ButtonWidget(CLOSE, x + 160, height - 28, 75, 20, "Close"));
+		buttons.add(new ButtonWidget(PASTE, x + 160, height - 28, 75, 20, "Paste"));
+		buttons.add(new ButtonWidget(CLOSE, x + 240, height - 28, 75, 20, "Close"));
 	}
 
 	@Override
@@ -106,6 +112,27 @@ public class KeyframeRepositoryScreen extends NoPauseScreen {
 			case REMOVE:
 				state.presets.remove(selected);
 				selected = null;
+				break;
+			case COPY:
+				// like Replay Mod: the path as text, to paste into another replay
+				Clipboard.set(state.presets.all().get(selected));
+				message = "\"" + selected + "\" copied";
+				break;
+			case PASTE:
+				String pasted = Clipboard.get();
+				if (pasted == null || !pasted.contains("\"positions\"")) {
+					message = "The clipboard holds no camera path";
+					return;
+				}
+				CameraPath path = new CameraPath();
+				PathStore.fromJson(pasted, path);
+				String name = typed.isEmpty() ? "Pasted" : typed;
+				for (int n = 2; state.presets.all().containsKey(name); n++) {
+					name = (typed.isEmpty() ? "Pasted" : typed) + " " + n;
+				}
+				state.presets.put(name, path);
+				selected = name;
+				message = "Pasted as \"" + name + "\"";
 				break;
 			case CLOSE:
 				minecraft.openScreen(new ReplayOverlayScreen());

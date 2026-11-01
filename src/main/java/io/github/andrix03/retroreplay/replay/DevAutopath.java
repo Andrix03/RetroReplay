@@ -126,6 +126,15 @@ public final class DevAutopath {
 					PathingState state = PathingState.current();
 					CameraPath copy = new CameraPath();
 					state.presets.load("Autopath", copy);
+					// Copy then Paste, as the repository buttons do
+					java.awt.datatransfer.StringSelection text = new java.awt.datatransfer.StringSelection(state.presets.all().get("Autopath"));
+					java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(text, text);
+					try {
+						String back = (String) java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().getData(java.awt.datatransfer.DataFlavor.stringFlavor);
+						RetroReplay.LOGGER.info("Autopath: clipboard round trip " + (back.equals(state.presets.all().get("Autopath")) ? "ok" : "different"));
+					} catch (Exception e) {
+						RetroReplay.LOGGER.error("Autopath: clipboard failed", e);
+					}
 					RetroReplay.LOGGER.info("Autopath: preset holds " + copy.positions().size() + " position and " + copy.times().size() + " time keyframes");
 					stage = 3;
 					waitTicks = 0;
