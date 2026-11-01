@@ -5,7 +5,10 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import org.lwjgl.opengl.GL11;
+
 import io.github.andrix03.retroreplay.compat.Mc;
+import io.github.andrix03.retroreplay.pathing.CameraRoll;
 import io.github.andrix03.retroreplay.pathing.PathPlayer;
 import io.github.andrix03.retroreplay.pathing.PathPreview;
 import io.github.andrix03.retroreplay.render.VideoRenderer;
@@ -47,6 +50,14 @@ public class GameRendererMixin {
 	private void retroreplay$fovWhileSpectating(CallbackInfo ci) {
 		if (Mc.cameraEntity() != Mc.minecraft().player) {
 			ci.cancel();
+		}
+	}
+
+	/** Replay Mod's camera roll: turns the whole view around the eye's axis. */
+	@Inject(method = "transformCamera", at = @At("HEAD"))
+	private void retroreplay$roll(float tickDelta, CallbackInfo ci) {
+		if (ReplayHandler.isActive() && CameraRoll.get() != 0) {
+			GL11.glRotatef(CameraRoll.get(), 0, 0, 1);
 		}
 	}
 

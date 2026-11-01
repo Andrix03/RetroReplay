@@ -61,7 +61,7 @@ public final class DevAutopath {
 					RetroReplay.LOGGER.info("Autopath: the replay came with " + state.path.positions().size() + " position and "
 						+ state.path.times().size() + " time keyframes and markers at " + state.markers.all().keySet());
 					CameraPath.Position a = PathPlayer.cameraPosition();
-					CameraPath.Position b = new CameraPath.Position(a.x + 10, a.y + 2, a.z, a.yaw + 90, a.pitch, 0);
+					CameraPath.Position b = new CameraPath.Position(a.x + 10, a.y + 2, a.z, a.yaw + 90, a.pitch, 30); // rolled 30 degrees
 					state.path.putPosition(0, a);
 					state.path.putPosition(2000, new CameraPath.Position(a.x + 5, a.y + 3, a.z + 4, a.yaw + 45, a.pitch, 0));
 					state.path.putPosition(4000, b);
@@ -193,6 +193,7 @@ public final class DevAutopath {
 				}
 				if (!PathPlayer.isActive()) {
 					check(minecraft, "end", 4000);
+					RetroReplay.LOGGER.info("Autopath: camera roll at the end " + io.github.andrix03.retroreplay.pathing.CameraRoll.get() + " (keyframe 30)");
 					shot(minecraft, "path_end");
 					next();
 				}

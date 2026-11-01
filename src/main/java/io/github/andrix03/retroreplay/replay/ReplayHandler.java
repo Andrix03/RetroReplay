@@ -19,6 +19,7 @@ import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.gui.PathingOverlay;
 import io.github.andrix03.retroreplay.gui.PlayerOverviewScreen;
 import io.github.andrix03.retroreplay.gui.ReplayOverlayScreen;
+import io.github.andrix03.retroreplay.pathing.CameraRoll;
 import io.github.andrix03.retroreplay.pathing.PathPlayer;
 import io.github.andrix03.retroreplay.pathing.PathPreview;
 import io.github.andrix03.retroreplay.pathing.PathingState;
@@ -199,6 +200,7 @@ public final class ReplayHandler {
 		if (active != null && !starting) {
 			PathPlayer.stop();
 			Spectator.clear();
+			CameraRoll.reset();
 			PathingState.saveCurrent();
 			RetroReplay.LOGGER.info("Replay closed: " + active.file.getName());
 			active = null;
@@ -263,6 +265,13 @@ public final class ReplayHandler {
 			}
 			if (pressed(Keyboard.KEY_H)) {
 				PathPreview.toggle();
+			}
+			if (!PathPlayer.isActive() && !Spectator.isSpectating()) {
+				// Replay Mod's roll keys: J / L while held, K back to level
+				CameraRoll.turn((Keyboard.isKeyDown(Keyboard.KEY_L) ? 1 : 0) - (Keyboard.isKeyDown(Keyboard.KEY_J) ? 1 : 0));
+				if (pressed(Keyboard.KEY_K)) {
+					CameraRoll.reset();
+				}
 			}
 			if (pressed(Keyboard.KEY_X)) {
 				PathingOverlay.openRepository();

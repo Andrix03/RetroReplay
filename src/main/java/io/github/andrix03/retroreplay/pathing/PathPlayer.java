@@ -99,6 +99,7 @@ public final class PathPlayer {
 	public static void applyCamera(CameraPath path, long time) {
 		int spectated = path.spectatedAt(time);
 		if (spectated != CameraPath.Position.NO_ENTITY) {
+			CameraRoll.reset(); // through someone's eyes the view is level
 			Spectator.spectate(spectated);
 			if (Spectator.find(spectated) != null) {
 				return;
@@ -119,6 +120,7 @@ public final class PathPlayer {
 			return;
 		}
 		minecraft.player.setPositionAndAngles(position.x, position.y, position.z, position.yaw, position.pitch);
+		CameraRoll.set(position.roll);
 		minecraft.player.prevX = minecraft.player.lastX = minecraft.player.x;
 		minecraft.player.prevY = minecraft.player.lastY = minecraft.player.y;
 		minecraft.player.prevZ = minecraft.player.lastZ = minecraft.player.z;
@@ -133,6 +135,6 @@ public final class PathPlayer {
 	public static CameraPath.Position cameraPosition() {
 		Minecraft minecraft = Mc.minecraft();
 		return new CameraPath.Position(minecraft.player.x, minecraft.player.y - minecraft.player.eyeHeight, minecraft.player.z,
-			minecraft.player.yaw, minecraft.player.pitch, 0);
+			minecraft.player.yaw, minecraft.player.pitch, CameraRoll.get());
 	}
 }
