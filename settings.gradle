@@ -20,6 +20,7 @@ pluginManagement {
 rootProject.name = 'retroreplay'
 
 // one Gradle project per Minecraft version; shared code in src/, version-only files in versions/<mc>/src/
-include '1.6.4', '1.5.2'
+include '1.6.4', '1.5.2', '1.4.7'
 project(':1.6.4').projectDir = file('versions/1.6.4')
 project(':1.5.2').projectDir = file('versions/1.5.2')
+project(':1.4.7').projectDir = file('versions/1.4.7')

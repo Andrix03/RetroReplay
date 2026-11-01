@@ -1,6 +1,10 @@
 package io.github.andrix03.retroreplay.compat;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.menu.multiplayer.ConnectScreen;
+import net.minecraft.network.LocalConnection;
+import net.minecraft.network.packet.Packet;
 
 /** What differs between Minecraft versions, for the shared code. This is the 1.5.2 one. */
 public final class Mc {
@@ -21,5 +25,23 @@ public final class Mc {
 			: name.equals("logo") ? "/assets/retroreplay/textures/logo_button.png"
 			: "/gui/gui.png";
 		Minecraft.getInstance().textureManager.bind(path);
+	}
+
+	/** The "server" end of a replay: whatever the client sends is dropped. */
+	public static LocalConnection newSinkConnection() {
+		return new LocalConnection(Minecraft.getInstance().getLogger(), null) {
+			@Override
+			public void accept(Packet packet) {
+			}
+		};
+	}
+
+	public static Packet createPacket(int id) {
+		return Packet.create(Minecraft.getInstance().getLogger(), id);
+	}
+
+	/** Dev self-test only. */
+	public static Screen connectScreen(Screen parent, String host, int port) {
+		return new ConnectScreen(parent, Minecraft.getInstance(), host, port);
 	}
 }

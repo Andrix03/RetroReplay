@@ -1,12 +1,12 @@
 package io.github.andrix03.retroreplay.replay;
 
 import io.github.andrix03.retroreplay.RetroReplay;
+import io.github.andrix03.retroreplay.compat.Mc;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screen.menu.GameMenuScreen;
 import net.minecraft.client.gui.screen.menu.TitleScreen;
-import net.minecraft.client.gui.screen.menu.multiplayer.ConnectScreen;
 import net.minecraft.world.WorldSettings;
 import net.minecraft.world.gen.WorldGeneratorType;
 
@@ -47,7 +47,7 @@ public final class DevAutorecord {
 				if (SERVER != null) {
 					RetroReplay.LOGGER.info("Autorecord: connecting to " + SERVER);
 					String[] hostPort = SERVER.split(":");
-					minecraft.openScreen(new ConnectScreen(minecraft.screen, minecraft, hostPort[0], Integer.parseInt(hostPort[1])));
+					minecraft.openScreen(Mc.connectScreen(minecraft.screen, hostPort[0], Integer.parseInt(hostPort[1])));
 				} else {
 					RetroReplay.LOGGER.info("Autorecord: opening rr_selftest");
 					minecraft.startGame("rr_selftest", "rr_selftest",

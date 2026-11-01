@@ -181,7 +181,7 @@ public final class ReplayHandler {
 
 	/** Called when the client binds its connection: give it a sink as the other end. */
 	public static void bind(LocalConnection clientConnection) {
-		new SinkConnection(Minecraft.getInstance().getLogger()).bind(clientConnection);
+		Mc.newSinkConnection().bind(clientConnection);
 	}
 
 	public static void stop() {
@@ -267,7 +267,7 @@ public final class ReplayHandler {
 			return;
 		}
 		Minecraft minecraft = Minecraft.getInstance();
-		Packet packet = Packet.create(minecraft.getLogger(), id);
+		Packet packet = Mc.createPacket(id);
 		if (packet == null) {
 			return;
 		}
