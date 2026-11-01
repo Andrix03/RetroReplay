@@ -29,6 +29,19 @@ subprojects {
 			java.srcDir rootProject.file("${shared}/main/java")
 			resources.srcDir rootProject.file("${shared}/main/resources")
 		}
+		test {
+			// pure logic only (pathing): the same tests run in every version project
+			java.srcDirs = [rootProject.file('src/test/java')]
+		}
+	}
+
+	dependencies {
+		testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+		testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.2'
+	}
+
+	tasks.withType(Test).configureEach {
+		useJUnitPlatform()
 	}
 
 	if (side != null) {
