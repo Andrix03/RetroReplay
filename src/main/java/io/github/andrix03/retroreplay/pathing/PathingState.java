@@ -23,6 +23,7 @@ public final class PathingState {
 	public final File replay;
 	public final CameraPath path = new CameraPath();
 	public final Markers markers = new Markers();
+	public final PathPresets presets = new PathPresets();
 	/** The marker clicked last on the replay bar, or -1. */
 	public int selectedMarker = -1;
 	public long cursor;
@@ -86,10 +87,14 @@ public final class PathingState {
 			if (markerJson != null) {
 				markers.readJson(markerJson);
 			}
+			String presetJson = PathStore.readEntry(replay, PathPresets.ENTRY);
+			if (presetJson != null) {
+				presets.readJson(presetJson);
+			}
 		} catch (IOException e) {
 			RetroReplay.LOGGER.error("Cannot read the camera path of " + replay, e);
 		}
-		savedJson = PathStore.toJson(path) + markers.toJson();
+		savedJson = savedForm();
 	}
 
 	/** The state of this replay, a fresh one (with the path saved in it) when another replay was open before. */
@@ -106,7 +111,7 @@ public final class PathingState {
 		if (state == null) {
 			return;
 		}
-		String json = PathStore.toJson(state.path) + state.markers.toJson();
+		String json = state.savedForm();
 		if (json.equals(state.savedJson)) {
 			return;
 		}
@@ -114,12 +119,18 @@ public final class PathingState {
 			java.util.Map<String, String> entries = new java.util.HashMap<>();
 			entries.put(PathStore.ENTRY, state.path.isEmpty() ? null : PathStore.toJson(state.path));
 			entries.put(Markers.ENTRY, state.markers.isEmpty() ? null : state.markers.toJson());
+			entries.put(PathPresets.ENTRY, state.presets.isEmpty() ? null : state.presets.toJson());
 			PathStore.saveEntries(state.replay, entries);
 			state.savedJson = json;
 			RetroReplay.LOGGER.info("Camera path and markers saved in " + state.replay.getName());
 		} catch (IOException e) {
 			RetroReplay.LOGGER.error("Cannot save the camera path in " + state.replay, e);
 		}
+	}
+
+	/** Everything saved in the replay file, to notice changes. */
+	private String savedForm() {
+		return PathStore.toJson(path) + markers.toJson() + presets.toJson();
 	}
 
 	public static PathingState current() {

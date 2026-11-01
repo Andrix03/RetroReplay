@@ -264,6 +264,9 @@ public final class ReplayHandler {
 			if (pressed(Keyboard.KEY_H)) {
 				PathPreview.toggle();
 			}
+			if (pressed(Keyboard.KEY_X)) {
+				PathingOverlay.openRepository();
+			}
 			if (pressed(Keyboard.KEY_V)) {
 				PathingOverlay.syncTimeline();
 			}

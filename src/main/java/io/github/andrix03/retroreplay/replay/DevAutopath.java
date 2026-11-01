@@ -113,6 +113,20 @@ public final class DevAutopath {
 					CameraPath.Position a = state.path.positions().firstEntry().getValue();
 					state.cursor = 1000;
 					PathPlayer.placeCamera(new CameraPath.Position(a.x + 5, a.y + 8, a.z - 10, 0, 35, 0));
+					state.presets.put("Autopath", state.path);
+					minecraft.openScreen(new io.github.andrix03.retroreplay.gui.KeyframeRepositoryScreen(state));
+					stage = 9;
+					waitTicks = 0;
+				}
+				break;
+			case 9:
+				if (waitTicks > 15) {
+					shot(minecraft, "repository");
+					minecraft.openScreen(null);
+					PathingState state = PathingState.current();
+					CameraPath copy = new CameraPath();
+					state.presets.load("Autopath", copy);
+					RetroReplay.LOGGER.info("Autopath: preset holds " + copy.positions().size() + " position and " + copy.times().size() + " time keyframes");
 					stage = 3;
 					waitTicks = 0;
 				}

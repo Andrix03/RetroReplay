@@ -503,6 +503,14 @@ public final class PathingOverlay {
 		return keyframe.getKey() + Math.round(replayPassed / speed);
 	}
 
+	/** X: Replay Mod's keyframe repository. */
+	public static void openRepository() {
+		PathingState state = state();
+		if (state != null && !PathPlayer.isActive()) {
+			Mc.minecraft().openScreen(new KeyframeRepositoryScreen(state));
+		}
+	}
+
 	/** M in a replay: an event marker at the replay's current time. */
 	public static void addMarker() {
 		PathingState state = state();
