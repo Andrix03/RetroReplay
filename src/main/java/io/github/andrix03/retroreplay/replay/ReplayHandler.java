@@ -20,6 +20,7 @@ import io.github.andrix03.retroreplay.gui.PathingOverlay;
 import io.github.andrix03.retroreplay.gui.ReplayOverlayScreen;
 import io.github.andrix03.retroreplay.pathing.PathPlayer;
 import io.github.andrix03.retroreplay.pathing.PathPreview;
+import io.github.andrix03.retroreplay.render.VideoRenderer;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screen.game.ChatScreen;
@@ -216,7 +217,7 @@ public final class ReplayHandler {
 	private void update() {
 		Minecraft minecraft = Mc.minecraft();
 		long now = System.nanoTime();
-		if (!paused && !PathPlayer.isActive()) { // a playing camera path sets the time itself
+		if (!paused && !PathPlayer.isActive() && !VideoRenderer.isRendering()) { // a camera path sets the time itself
 			timeMs = Math.min(timeMs + (now - lastNanos) / 1_000_000.0 * speed(speedStep), duration());
 		}
 		lastNanos = now;

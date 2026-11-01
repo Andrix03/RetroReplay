@@ -8,6 +8,7 @@ import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.pathing.CameraPath;
 import io.github.andrix03.retroreplay.pathing.PathPlayer;
 import io.github.andrix03.retroreplay.pathing.PathingState;
+import io.github.andrix03.retroreplay.render.VideoRenderer;
 import io.github.andrix03.retroreplay.replay.ReplayHandler;
 
 /**
@@ -89,6 +90,11 @@ public final class PathingOverlay {
 		ReplayGui.texture(TIMELINE_X + 11, BELOW_Y, 40, 30, 9, 9);
 		drawScrollbar(state, TIMELINE_X + 22, timelineW - 22);
 
+		String rendered = VideoRenderer.takeResult();
+		if (rendered != null) {
+			show(rendered);
+			messageUntil += 5000;
+		}
 		if (message != null && System.currentTimeMillis() < messageUntil) {
 			ReplayGui.text(message, PLAY_X, BELOW_Y + 12, ReplayGui.WHITE);
 		}
@@ -230,7 +236,12 @@ public final class PathingOverlay {
 			return true;
 		}
 		if (button == 0 && inside(mouseX, mouseY, RENDER_X, ROW_Y, 20, 20)) {
-			show("Rendering is not available yet");
+			String problem = state.path.playbackProblem(false);
+			if (problem != null) {
+				show(problem);
+			} else {
+				Mc.minecraft().openScreen(new RenderSettingsScreen());
+			}
 			return true;
 		}
 		if (button == 0 && inside(mouseX, mouseY, POSITION_X, ROW_Y, 20, 20)) {

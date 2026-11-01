@@ -8,6 +8,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.pathing.PathPlayer;
 import io.github.andrix03.retroreplay.pathing.PathPreview;
+import io.github.andrix03.retroreplay.render.VideoRenderer;
 import io.github.andrix03.retroreplay.replay.ReplayHandler;
 
 import net.minecraft.client.render.GameRenderer;
@@ -24,8 +25,12 @@ public class GameRendererMixin {
 	}
 
 	/** A playing camera path moves the camera every frame, not every tick, so it is smooth. */
-	@Inject(method = "render", at = @At("HEAD"))
+	@Inject(method = "render", at = @At("HEAD"), cancellable = true)
 	private void retroreplay$playPath(float tickDelta, CallbackInfo ci) {
+		if (VideoRenderer.onFrame()) {
+			ci.cancel(); // a whole video was rendered instead of this frame
+			return;
+		}
 		PathPlayer.onFrame();
 	}
 

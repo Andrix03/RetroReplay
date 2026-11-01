@@ -8,6 +8,7 @@ import org.lwjgl.opengl.GL11;
 
 import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.gui.ReplayGui;
+import io.github.andrix03.retroreplay.render.VideoRenderer;
 import io.github.andrix03.retroreplay.replay.ReplayHandler;
 
 import net.minecraft.client.Minecraft;
@@ -38,7 +39,7 @@ public final class PathPreview {
 	public static void render(float tickDelta) {
 		ReplayHandler replay = ReplayHandler.get();
 		Minecraft minecraft = Mc.minecraft();
-		if (!enabled || replay == null || PathPlayer.isActive() || minecraft.player == null) {
+		if (!enabled || replay == null || PathPlayer.isActive() || VideoRenderer.isRendering() || minecraft.player == null) {
 			return;
 		}
 		PathingState state = PathingState.of(replay.getFile());

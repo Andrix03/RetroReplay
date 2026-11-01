@@ -10,6 +10,7 @@
 		"GameMenuScreenMixin",
 		"GameRendererMixin",
 		"MinecraftAccessor",
+		"WorldRendererAccessor",
 		"MinecraftMixin",
 		"RemoteConnectionMixin",
 		"TitleScreenMixin",

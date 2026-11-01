@@ -11,6 +11,7 @@ import io.github.andrix03.retroreplay.gui.RecordingIndicator;
 import io.github.andrix03.retroreplay.gui.ReplayOverlay;
 import io.github.andrix03.retroreplay.gui.ReplayOverlayScreen;
 import io.github.andrix03.retroreplay.recording.Recorder;
+import io.github.andrix03.retroreplay.render.VideoRenderer;
 import io.github.andrix03.retroreplay.replay.ReplayHandler;
 
 import net.minecraft.client.Minecraft;
@@ -30,7 +31,7 @@ public class GameGuiMixin {
 		if (ReplayHandler.isActive()) {
 			ci.cancel();
 			minecraft.gameRenderer.setupGuiState();
-			if (!(minecraft.screen instanceof ReplayOverlayScreen)) {
+			if (!(minecraft.screen instanceof ReplayOverlayScreen) && !VideoRenderer.isRendering()) {
 				ReplayOverlay.render(new Window(minecraft.options, minecraft.width, minecraft.height).getWidth(), 0, 0, false);
 			}
 		}

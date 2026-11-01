@@ -1,11 +1,16 @@
 package io.github.andrix03.retroreplay.replay;
 
+import java.io.File;
+
 import io.github.andrix03.retroreplay.RetroReplay;
 import io.github.andrix03.retroreplay.compat.Mc;
+import io.github.andrix03.retroreplay.gui.RenderSettingsScreen;
 import io.github.andrix03.retroreplay.gui.ReplayOverlayScreen;
 import io.github.andrix03.retroreplay.pathing.CameraPath;
 import io.github.andrix03.retroreplay.pathing.PathPlayer;
 import io.github.andrix03.retroreplay.pathing.PathingState;
+import io.github.andrix03.retroreplay.render.RenderSettings;
+import io.github.andrix03.retroreplay.render.VideoRenderer;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
@@ -23,6 +28,9 @@ public final class DevAutopath {
 	private static int stage;
 	private static int waitTicks;
 	private static boolean checkedMiddle;
+	/** "png" or "mp4": render the path instead of playing it. */
+	private static final String RENDER = System.getenv("RETROREPLAY_AUTORENDER");
+	private static long renderStart;
 
 	private DevAutopath() {
 	}
@@ -77,9 +85,41 @@ public final class DevAutopath {
 				}
 				if (waitTicks > 10) {
 					shot(minecraft, "path_preview");
+					if (RENDER != null) {
+						minecraft.openScreen(new RenderSettingsScreen());
+						stage = 7;
+						waitTicks = 0;
+						break;
+					}
 					String problem = PathPlayer.start(PathingState.current(), false, true);
 					RetroReplay.LOGGER.info("Autopath: path started" + (problem == null ? "" : ": " + problem));
 					next();
+				}
+				break;
+			case 7:
+				if (waitTicks > 15) {
+					shot(minecraft, "render_settings");
+					minecraft.openScreen(null);
+					RenderSettings settings = new RenderSettings();
+					settings.preset = RENDER.equals("mp4") ? RenderSettings.Preset.MP4_CUSTOM : RenderSettings.Preset.PNG;
+					settings.fps = 30;
+					File folder = new File(minecraft.gameDir, "replay_videos");
+					settings.output = RENDER.equals("mp4") ? new File(folder, "autorender.mp4") : new File(folder, "autorender");
+					RetroReplay.LOGGER.info("Autopath: rendering " + settings.preset.title);
+					renderStart = System.currentTimeMillis();
+					VideoRenderer.schedule(settings);
+					stage = 6;
+					waitTicks = 0;
+				}
+				break;
+			case 6:
+				if (!VideoRenderer.isRendering() && waitTicks > 5) {
+					File out = new File(minecraft.gameDir, "replay_videos/" + (RENDER.equals("mp4") ? "autorender.mp4" : "autorender"));
+					String[] frames = out.isDirectory() ? out.list() : null;
+					RetroReplay.LOGGER.info("Autopath: render done in " + (System.currentTimeMillis() - renderStart) + " ms, output "
+						+ out.getName() + (frames != null ? " with " + frames.length + " frames" : " of " + out.length() + " bytes"));
+					stage = 5;
+					waitTicks = 0;
 				}
 				break;
 			case 4:
