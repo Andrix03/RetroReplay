@@ -8,6 +8,14 @@ versions).
 
 1.0.0, 1.1, 1.2.5, 1.3.2, 1.4.7, 1.5.2, 1.6.4 (one jar per version).
 
+## Install
+
+An Ornithe (gen2) Fabric Loader instance of the Minecraft version, with the RetroReplay jar
+of that version and two OSL modules in `mods/`: `osl-core` and `osl-entrypoints`. On 1.0.0,
+1.1 and 1.2.5 do not add `osl-networking`: it sends a handshake right after login that
+vanilla servers of those versions answer by dropping the connection, and singleplayer runs
+on one (see below).
+
 ## Status
 
 - Records singleplayer and multiplayer sessions to `.minecraft/replay_recordings/*.mcpr`,

@@ -1,11 +1,20 @@
 package io.github.andrix03.retroreplay.compat;
 
+import java.io.IOException;
+import java.io.InputStream;
+
+import javax.imageio.ImageIO;
+
+import io.github.andrix03.retroreplay.RetroReplay;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.menu.multiplayer.ConnectScreen;
+import net.minecraft.client.render.texture.DynamicTexture;
+import net.minecraft.client.render.texture.TextureManager;
+import net.minecraft.client.resource.Identifier;
 import net.minecraft.network.LocalConnection;
 import net.minecraft.network.packet.Packet;
-import net.minecraft.client.resource.Identifier;
 
 /** What differs between Minecraft versions, for the shared code. This is the 1.6.4 one. */
 public final class Mc {
@@ -25,10 +34,24 @@ public final class Mc {
 		return Minecraft.getInstance();
 	}
 
-	/** One of "replay_gui", "jgui", "logo", "widgets". */
+	/**
+	 * One of "replay_gui", "jgui", "logo", "widgets". The resource manager does not see mod
+	 * files without a resource loader mod, so the mod's own textures are read from its jar
+	 * and registered once.
+	 */
 	public static void bindTexture(String name) {
 		Identifier texture = name.equals("replay_gui") ? REPLAY_GUI : name.equals("jgui") ? JGUI : name.equals("logo") ? LOGO : WIDGETS;
-		Minecraft.getInstance().getTextureManager().bind(texture);
+		TextureManager textures = Minecraft.getInstance().getTextureManager();
+		if (texture != WIDGETS && textures.get(texture) == null) {
+			String path = "/assets/retroreplay/" + texture.getPath();
+			try (InputStream in = Mc.class.getResourceAsStream(path)) {
+				textures.register(texture, new DynamicTexture(ImageIO.read(in)));
+			} catch (IOException | IllegalArgumentException e) {
+				RetroReplay.LOGGER.error("Cannot load " + path, e);
+				return;
+			}
+		}
+		textures.bind(texture);
 	}
 
 	/** The "server" end of a replay: whatever the client sends is dropped. */
