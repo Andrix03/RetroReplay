@@ -1,6 +1,7 @@
 package io.github.andrix03.retroreplay.gui;
 
 import org.lwjgl.input.Keyboard;
+import org.lwjgl.input.Mouse;
 
 import net.minecraft.client.gui.screen.Screen;
 
@@ -12,6 +13,10 @@ public class ReplayOverlayScreen extends Screen {
 
 	@Override
 	public void render(int mouseX, int mouseY, float tickDelta) {
+		// dragging the speed slider (polled: old versions have no mouseDragged)
+		if (Mouse.isButtonDown(0)) {
+			ReplayOverlay.drag(mouseX, mouseY, width);
+		}
 		ReplayOverlay.render(width, mouseX, mouseY, true);
 	}
 
@@ -20,11 +25,6 @@ public class ReplayOverlayScreen extends Screen {
 		if (button != 0 || !ReplayOverlay.click(mouseX, mouseY, width)) {
 			minecraft.openScreen(null);
 		}
-	}
-
-	@Override
-	protected void mouseDragged(int mouseX, int mouseY, int button, long duration) {
-		ReplayOverlay.drag(mouseX, mouseY, width);
 	}
 
 	@Override
