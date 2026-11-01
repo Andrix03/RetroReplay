@@ -84,6 +84,12 @@ public final class ReplayGui {
 		texture(x + width / 2, y, 200 - width / 2, v, width / 2, height);
 	}
 
+	/** A button background of any size: the vanilla button 9-sliced (for the 9x9 zoom buttons). */
+	public static void smallButton(int x, int y, int width, int height, boolean hovered) {
+		bind(WIDGETS);
+		dynamicRect(x, y, width, height, 0, 46 + (hovered ? 2 : 1) * 20, 200, 20, 2, 3, 2, 2);
+	}
+
 	/** A vanilla slider: disabled-button track plus the 8 px knob. */
 	public static void slider(int x, int y, int width, int height, double value, String text, boolean hovered) {
 		bind(WIDGETS);

@@ -56,6 +56,7 @@ public final class ReplayOverlay {
 			ReplayGui.fill(mouseX + 6, mouseY + 6, mouseX + 12 + w, mouseY + 18, 0xF0100010);
 			ReplayGui.text(time, mouseX + 9, mouseY + 8, ReplayGui.WHITE);
 		}
+		PathingOverlay.render(width, mouseX, mouseY, mouseFree);
 	}
 
 	/** jGui draws a line every few seconds, a longer one each larger interval. */
@@ -81,10 +82,16 @@ public final class ReplayOverlay {
 		}
 	}
 
-	/** Handles a click while the mouse is free; returns true when the bar used it. */
-	public static boolean click(int mouseX, int mouseY, int width) {
+	/** Handles a click while the mouse is free; returns true when the bar or the pathing row used it. */
+	public static boolean click(int mouseX, int mouseY, int width, int button) {
 		ReplayHandler replay = ReplayHandler.get();
 		if (replay == null) {
+			return false;
+		}
+		if (PathingOverlay.click(mouseX, mouseY, width, button)) {
+			return true;
+		}
+		if (button != 0) {
 			return false;
 		}
 		if (inside(mouseX, mouseY, PLAY_X, TOP, 20, 20)) {

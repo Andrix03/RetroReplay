@@ -6,6 +6,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import io.github.andrix03.retroreplay.recording.LocalPlayerRecorder;
+import io.github.andrix03.retroreplay.replay.DevAutopath;
 import io.github.andrix03.retroreplay.replay.DevAutoplay;
 import io.github.andrix03.retroreplay.replay.DevAutorecord;
 import io.github.andrix03.retroreplay.replay.ReplayHandler;
@@ -25,6 +26,7 @@ public class MinecraftMixin {
 		ReplayHandler.tickEnd();
 		DevAutorecord.tick();
 		DevAutoplay.tick();
+		DevAutopath.tick();
 		LocalPlayerRecorder.tick();
 	}
 }

@@ -16,7 +16,9 @@ import org.lwjgl.input.Keyboard;
 
 import io.github.andrix03.retroreplay.RetroReplay;
 import io.github.andrix03.retroreplay.compat.Mc;
+import io.github.andrix03.retroreplay.gui.PathingOverlay;
 import io.github.andrix03.retroreplay.gui.ReplayOverlayScreen;
+import io.github.andrix03.retroreplay.pathing.PathPlayer;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screen.game.ChatScreen;
@@ -102,6 +104,20 @@ public final class ReplayHandler {
 	/** Jumps there at the end of this tick (going back rebuilds the world). */
 	public void jumpTo(double target) {
 		pendingSeek = Math.max(0, Math.min(target, duration()));
+	}
+
+	/** A playing camera path sets the replay time: forwards plays the packets, backwards seeks. */
+	public void setTimeFromPath(double target) {
+		target = Math.max(0, Math.min(target, duration()));
+		if (target < timeMs - 1) {
+			jumpTo(target);
+		} else {
+			timeMs = target;
+		}
+	}
+
+	public File getFile() {
+		return file;
 	}
 
 	public static boolean isStarting() {
@@ -199,7 +215,7 @@ public final class ReplayHandler {
 	private void update() {
 		Minecraft minecraft = Mc.minecraft();
 		long now = System.nanoTime();
-		if (!paused) {
+		if (!paused && !PathPlayer.isActive()) { // a playing camera path sets the time itself
 			timeMs = Math.min(timeMs + (now - lastNanos) / 1_000_000.0 * speed(speedStep), duration());
 		}
 		lastNanos = now;
@@ -223,6 +239,19 @@ public final class ReplayHandler {
 			}
 			if (pressed(Keyboard.KEY_RIGHT)) {
 				jumpTo(timeMs + SEEK_STEP_MS);
+			}
+			// Replay Mod's pathing keys
+			if (pressed(Keyboard.KEY_I)) {
+				PathingOverlay.togglePositionKeyframe();
+			}
+			if (pressed(Keyboard.KEY_O)) {
+				PathingOverlay.toggleTimeKeyframe();
+			}
+			if (pressed(Keyboard.KEY_DELETE)) {
+				PathingOverlay.removeSelected();
+			}
+			if (pressed(Keyboard.KEY_C)) {
+				PathingOverlay.clearKeyframes();
 			}
 		}
 		double devSeek = DevAutoplay.seekRequest(timeMs);

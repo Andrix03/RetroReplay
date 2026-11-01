@@ -6,6 +6,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import io.github.andrix03.retroreplay.compat.Mc;
+import io.github.andrix03.retroreplay.pathing.PathPlayer;
 import io.github.andrix03.retroreplay.replay.ReplayHandler;
 
 import net.minecraft.client.render.GameRenderer;
@@ -19,6 +20,12 @@ public class GameRendererMixin {
 		if (ReplayHandler.isActive()) {
 			ci.cancel();
 		}
+	}
+
+	/** A playing camera path moves the camera every frame, not every tick, so it is smooth. */
+	@Inject(method = "render", at = @At("HEAD"))
+	private void retroreplay$playPath(float tickDelta, CallbackInfo ci) {
+		PathPlayer.onFrame();
 	}
 
 	@Inject(method = "pick", at = @At("TAIL"))
