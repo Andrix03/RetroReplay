@@ -123,10 +123,9 @@ public final class DevAutopath {
 					shot(minecraft, "render_settings");
 					minecraft.openScreen(null);
 					RenderSettings settings = new RenderSettings();
-					settings.preset = RENDER.equals("mp4") ? RenderSettings.Preset.MP4_CUSTOM : RenderSettings.Preset.PNG;
+					settings.preset = renderPreset();
 					settings.fps = 30;
-					File folder = new File(minecraft.gameDir, "replay_videos");
-					settings.output = RENDER.equals("mp4") ? new File(folder, "autorender.mp4") : new File(folder, "autorender");
+					settings.output = renderOutput(minecraft);
 					RetroReplay.LOGGER.info("Autopath: rendering " + settings.preset.title);
 					renderStart = System.currentTimeMillis();
 					VideoRenderer.schedule(settings);
@@ -136,7 +135,7 @@ public final class DevAutopath {
 				break;
 			case 6:
 				if (!VideoRenderer.isRendering() && waitTicks > 5) {
-					File out = new File(minecraft.gameDir, "replay_videos/" + (RENDER.equals("mp4") ? "autorender.mp4" : "autorender"));
+					File out = renderOutput(minecraft);
 					String[] frames = out.isDirectory() ? out.list() : null;
 					RetroReplay.LOGGER.info("Autopath: render done in " + (System.currentTimeMillis() - renderStart) + " ms, output "
 						+ out.getName() + (frames != null ? " with " + frames.length + " frames" : " of " + out.length() + " bytes"));
@@ -176,6 +175,29 @@ public final class DevAutopath {
 		RetroReplay.LOGGER.info(String.format("Autopath %s at %d ms: camera %.2f,%.2f,%.2f yaw %.1f, path %.2f,%.2f,%.2f yaw %.1f, error %.3f, replay %d ms (path %d ms)",
 			name, time, actual.x, actual.y, actual.z, actual.yaw, expected.x, expected.y, expected.z, expected.yaw, error,
 			(int) ReplayHandler.get().getTime(), state.path.replayTimeAt(time)));
+	}
+
+	/** RETROREPLAY_AUTORENDER: png, mp4, potato, webm or mkv. */
+	private static RenderSettings.Preset renderPreset() {
+		switch (RENDER) {
+			case "mp4":
+				return RenderSettings.Preset.MP4_CUSTOM;
+			case "potato":
+				return RenderSettings.Preset.MP4_POTATO;
+			case "webm":
+				return RenderSettings.Preset.WEBM_CUSTOM;
+			case "mkv":
+				return RenderSettings.Preset.MKV_LOSSLESS;
+			default:
+				return RenderSettings.Preset.PNG;
+		}
+	}
+
+	private static File renderOutput(Minecraft minecraft) {
+		RenderSettings.Preset preset = renderPreset();
+		String name = "autorender_" + RENDER;
+		File folder = new File(minecraft.gameDir, "replay_videos");
+		return preset == RenderSettings.Preset.PNG ? new File(folder, name) : new File(folder, name + "." + preset.extension);
 	}
 
 	private static void next() {

@@ -25,6 +25,16 @@ on one (see below).
 - In a replay: free flying camera, play/pause, speed slider, timeline (click to jump),
   "Exit Replay" in the pause menu. Keys: P pause, [ ] speed, Left/Right jump 10 s,
   T (chat key) frees the mouse for the replay bar.
+- Camera paths like Replay Mod's: a keyframe row under the replay bar with a 10 minute
+  timeline. I adds or removes a position keyframe at the camera, O a time keyframe at the
+  replay's moment, Delete removes the selected one, C clears all, Ctrl+Z / Ctrl+Y undo and
+  redo, H shows the path in the world. Click to select, drag to move, double click to edit,
+  right click to go there. The play button plays the path (Ctrl: from the start, Shift:
+  ignoring time keyframes). Paths are saved inside the replay file.
+- Rendering: the render button renders the path frame by frame at the window's size, with
+  Replay Mod's presets (MP4, WebM, lossless MKV) through ffmpeg, or as PNG images without it.
+  ffmpeg is found on the PATH or in `.minecraft/ffmpeg/bin`; videos go to
+  `.minecraft/replay_videos`. Esc cancels; progress is shown in the window title.
 
 ### Singleplayer before 1.3
 

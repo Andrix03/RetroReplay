@@ -90,7 +90,18 @@ public final class CameraPath {
 		if (positions.size() < 2) {
 			return "At least two position keyframes are required";
 		}
-		if (!ignoreTime && times.size() < 2) {
+		if (ignoreTime) {
+			return null;
+		}
+		// like Replay Mod: the replay can only play forwards along the path
+		int last = 0;
+		for (int replayTime : times.values()) {
+			if (replayTime < last) {
+				return "Time keyframes must not go backwards in time (red on the timeline)";
+			}
+			last = replayTime;
+		}
+		if (times.size() < 2) {
 			return "At least two time keyframes are required";
 		}
 		return null;

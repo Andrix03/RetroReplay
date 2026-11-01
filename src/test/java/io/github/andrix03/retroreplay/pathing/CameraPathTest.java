@@ -51,6 +51,17 @@ class CameraPathTest {
 	}
 
 	@Test
+	void timeGoingBackwardsCannotPlay() {
+		CameraPath path = new CameraPath();
+		path.putPosition(0, new CameraPath.Position(0, 64, 0, 0, 0, 0));
+		path.putPosition(2000, new CameraPath.Position(1, 64, 0, 0, 0, 0));
+		path.putTime(0, 7000);
+		path.putTime(2000, 3000);
+		assertNotNull(path.playbackProblem(false));
+		assertNull(path.playbackProblem(true)); // Shift ignores time keyframes
+	}
+
+	@Test
 	void playbackNeedsTwoKeyframesOfEachKind() {
 		CameraPath path = new CameraPath();
 		path.putPosition(0, new CameraPath.Position(0, 64, 0, 0, 0, 0));
