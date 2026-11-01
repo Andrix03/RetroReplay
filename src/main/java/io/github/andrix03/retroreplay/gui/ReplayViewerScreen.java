@@ -15,6 +15,7 @@ import org.lwjgl.Sys;
 import org.lwjgl.input.Mouse;
 
 import io.github.andrix03.retroreplay.RetroReplay;
+import io.github.andrix03.retroreplay.recording.Recorder;
 import io.github.andrix03.retroreplay.replay.ReplayHandler;
 
 import net.minecraft.client.gui.screen.ConfirmScreen;
@@ -56,6 +57,7 @@ public class ReplayViewerScreen extends Screen {
 
 	private void reload() {
 		entries.clear();
+		Recorder.recoverLeftovers(folder());
 		File[] files = folder().listFiles((dir, name) -> name.endsWith(".mcpr"));
 		if (files != null) {
 			for (File file : files) {

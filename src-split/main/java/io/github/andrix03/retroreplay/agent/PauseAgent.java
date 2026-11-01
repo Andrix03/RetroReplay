@@ -76,9 +76,15 @@ public final class PauseAgent {
 					}
 				}
 			} catch (IOException e) {
-				// the client is gone: fall through and let the server run
+				// the client is gone, same as the end of the input
 			}
+			// the game closed or crashed without stopping us: save the world and stop
 			PauseClock.setPaused(false);
+			try {
+				write(toServer, "stop\n");
+			} catch (IOException e) {
+				Runtime.getRuntime().halt(1);
+			}
 		}, "RetroReplay console filter");
 		reader.setDaemon(true);
 		reader.start();

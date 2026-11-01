@@ -18,6 +18,10 @@ public final class DevAutorecord {
 	public static final boolean ENABLED = System.getenv("RETROREPLAY_AUTORECORD") != null;
 	/** host:port to record a multiplayer session instead of the singleplayer test world. */
 	private static final String SERVER = System.getenv("RETROREPLAY_AUTORECORD_SERVER");
+	/** Singleplayer test world, created with seed 1234 if missing. */
+	private static final String WORLD = System.getenv().getOrDefault("RETROREPLAY_AUTORECORD_WORLD", "rr_selftest");
+	/** "quit" or "crash": end the game in the middle of the world instead of leaving it. */
+	private static final String EXIT = System.getenv("RETROREPLAY_AUTORECORD_EXIT");
 	/** Seconds spent in the pause menu (default 3; long pauses test connection timeouts). */
 	private static final long PAUSE_NANOS = Long.parseLong(System.getenv().getOrDefault("RETROREPLAY_AUTORECORD_PAUSE", "3")) * 1_000_000_000L;
 
@@ -49,8 +53,8 @@ public final class DevAutorecord {
 					String[] hostPort = SERVER.split(":");
 					minecraft.openScreen(Mc.connectScreen(minecraft.screen, hostPort[0], Integer.parseInt(hostPort[1])));
 				} else {
-					RetroReplay.LOGGER.info("Autorecord: opening rr_selftest");
-					Mc.startSelftestWorld("rr_selftest");
+					RetroReplay.LOGGER.info("Autorecord: opening " + WORLD);
+					Mc.startSelftestWorld(WORLD);
 				}
 			}
 			return;
@@ -66,6 +70,14 @@ public final class DevAutorecord {
 		ticks++;
 		if (ticks == 60) {
 			Screenshot.take(minecraft.gameDir, "autorecord_recording.png", minecraft.width, minecraft.height);
+		}
+		if (ticks == 100 && EXIT != null) {
+			// leaving the game from inside a world: "quit" like closing the window, "crash" without any cleanup
+			RetroReplay.LOGGER.info("Autorecord: " + EXIT + " while in the world");
+			if (EXIT.equals("crash")) {
+				Runtime.getRuntime().halt(1);
+			}
+			minecraft.stop(); // what closing the window does: the game loop ends and shuts down
 		}
 		if (ticks == 120 && pauseStart == 0) {
 			// 3 s in the pause menu: the recording clock must not count them

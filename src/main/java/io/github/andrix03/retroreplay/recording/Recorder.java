@@ -1,11 +1,15 @@
 package io.github.andrix03.retroreplay.recording;
 
+import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashSet;
@@ -102,6 +106,62 @@ public final class Recorder {
 			Recorder recorder = current;
 			current = null;
 			recorder.finish();
+		}
+	}
+
+	/**
+	 * A crash leaves the raw .tmcpr of the recording behind: pack its complete packets into a
+	 * .mcpr, like Replay Mod recovers interrupted replays. Whether it was singleplayer is lost.
+	 */
+	public static synchronized void recoverLeftovers(File folder) {
+		File[] raw = folder.listFiles((dir, name) -> name.endsWith(".tmcpr"));
+		if (raw == null) {
+			return;
+		}
+		for (File tmcpr : raw) {
+			if (current != null && tmcpr.equals(current.tmcpr)) {
+				continue;
+			}
+			String base = tmcpr.getName().substring(0, tmcpr.getName().length() - ".tmcpr".length());
+			File target = new File(folder, base + ".mcpr");
+			if (target.exists()) {
+				continue; // packed already, the raw file only failed to be deleted
+			}
+			try {
+				long valid = 0;
+				int lastTime = 0;
+				long length = tmcpr.length();
+				try (DataInputStream in = new DataInputStream(new BufferedInputStream(new FileInputStream(tmcpr)))) {
+					while (valid + 8 <= length) {
+						int time = in.readInt();
+						int size = in.readInt();
+						if (size < 1 || valid + 8 + size > length) {
+							break; // cut off in the middle of a packet
+						}
+						in.readFully(new byte[size]);
+						valid += 8 + size;
+						lastTime = time;
+					}
+				}
+				if (valid < length) {
+					try (RandomAccessFile file = new RandomAccessFile(tmcpr, "rw")) {
+						file.setLength(valid);
+					}
+				}
+				ReplayMetadata meta = new ReplayMetadata();
+				meta.serverName = "Recovered";
+				meta.duration = lastTime;
+				meta.date = tmcpr.lastModified() - lastTime;
+				meta.mcversion = Mc.VERSION;
+				meta.protocol = Mc.PROTOCOL;
+				ReplayFiles.pack(tmcpr, target, meta);
+				if (!tmcpr.delete()) {
+					tmcpr.deleteOnExit();
+				}
+				RetroReplay.LOGGER.info("Recovered recording " + target.getName() + " (" + lastTime + " ms)");
+			} catch (IOException e) {
+				RetroReplay.LOGGER.error("Cannot recover " + tmcpr, e);
+			}
 		}
 	}
 

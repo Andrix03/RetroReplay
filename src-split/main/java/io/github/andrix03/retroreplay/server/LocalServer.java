@@ -65,6 +65,8 @@ public final class LocalServer {
 	private static final int START_TIMEOUT_MS = 180_000;
 	private static final int STOP_TIMEOUT_MS = 60_000;
 	private static final int KEEP_ALIVE_MS = 5_000;
+	/** In the world folder while the local server runs it; left behind by a session that did not end cleanly. */
+	private static final String SESSION_MARKER = "retroreplay_session";
 
 	private static volatile State state = State.IDLE;
 	private static volatile String error;
@@ -146,9 +148,22 @@ public final class LocalServer {
 		world = new File(saves, dirName);
 		worldName = displayName;
 		username = player;
+		File marker = new File(world, SESSION_MARKER);
+		if (marker.exists()) {
+			// the last session ended without copying the player back (crash, killed process):
+			// players/ holds the newest player, level.dat at best an old one
+			RetroReplay.LOGGER.warn("Last local server session of " + dirName + " did not end cleanly, recovering the player");
+			copyPlayerBack();
+		}
 		NbtCompound level = readLevel();
 		if (level != null) {
 			copyPlayerToServer(level);
+		}
+		if (!world.isDirectory() && !world.mkdirs()) { // a new world: the server creates the rest
+			throw new IOException("Cannot create " + world);
+		}
+		if (!marker.exists() && !marker.createNewFile()) {
+			throw new IOException("Cannot write " + marker);
 		}
 
 		int freePort;
@@ -194,7 +209,9 @@ public final class LocalServer {
 			// discard: the server writes its own server.log
 		}
 		started.waitFor();
-		copyPlayerBack();
+		if (copyPlayerBack() && !marker.delete()) {
+			RetroReplay.LOGGER.warn("Cannot delete " + marker);
+		}
 		synchronized (LocalServer.class) {
 			process = null;
 		}
@@ -355,12 +372,15 @@ public final class LocalServer {
 		writeCompressed(data.getCompound("Player"), new File(players, username + ".dat"));
 	}
 
-	/** After the server stopped: its player file goes back into level.dat, and the world keeps its name. */
-	private static void copyPlayerBack() {
+	/**
+	 * After the server stopped: its player file goes back into level.dat, and the world keeps
+	 * its name. False if that failed (the session marker then stays for the next start).
+	 */
+	private static boolean copyPlayerBack() {
 		try {
 			NbtCompound level = readLevel();
 			if (level == null) {
-				return;
+				return true;
 			}
 			NbtCompound data = level.getCompound("Data");
 			File playerFile = new File(world, "players/" + username + ".dat");
@@ -372,8 +392,10 @@ public final class LocalServer {
 			data.putString("LevelName", worldName); // the server names it after its level-name path
 			level.putCompound("Data", data);
 			writeCompressed(level, new File(world, "level.dat"));
+			return true;
 		} catch (IOException e) {
 			RetroReplay.LOGGER.error("Cannot copy the player back into level.dat", e);
+			return false;
 		}
 	}
 
