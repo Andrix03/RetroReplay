@@ -187,6 +187,15 @@ public final class Recorder {
 		}
 	}
 
+	/** Entity event statuses (the same in every pre-Netty version). */
+	public static final byte EVENT_HURT = 2;
+	public static final byte EVENT_DEATH = 3;
+
+	/** Entity event 0x26: int entity id, byte status. Written by hand, client jars may lack its constructor. */
+	public static void recordEntityEvent(int entityId, byte status) {
+		recordRaw(new byte[] { 0x26, (byte) (entityId >> 24), (byte) (entityId >> 16), (byte) (entityId >> 8), (byte) entityId, status });
+	}
+
 	private void append(byte[] data) {
 		try {
 			lastTime = Math.max(lastTime, elapsedMs());

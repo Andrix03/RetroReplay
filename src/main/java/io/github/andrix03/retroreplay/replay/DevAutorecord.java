@@ -20,6 +20,9 @@ public final class DevAutorecord {
 	private static final String SERVER = System.getenv("RETROREPLAY_AUTORECORD_SERVER");
 	/** Singleplayer test world, created with seed 1234 if missing. */
 	private static final String WORLD = System.getenv().getOrDefault("RETROREPLAY_AUTORECORD_WORLD", "rr_selftest");
+	/** Die (/kill) and respawn during the recording. */
+	private static final boolean DIE = System.getenv("RETROREPLAY_AUTORECORD_DIE") != null;
+	private static int deathTicks;
 	/** "quit" or "crash": end the game in the middle of the world instead of leaving it. */
 	private static final String EXIT = System.getenv("RETROREPLAY_AUTORECORD_EXIT");
 	/** Seconds spent in the pause menu (default 3; long pauses test connection timeouts). */
@@ -64,12 +67,22 @@ public final class DevAutorecord {
 			RetroReplay.LOGGER.info("Autorecord: closing the pause menu");
 			minecraft.openScreen(null);
 		}
+		if (DIE && minecraft.screen != null && minecraft.screen.getClass().getSimpleName().equals("DeathScreen") && ++deathTicks == 40) {
+			Screenshot.take(minecraft.gameDir, "autorecord_death.png", minecraft.width, minecraft.height);
+			RetroReplay.LOGGER.info("Autorecord: respawning");
+			callPlayer(minecraft, "respawn");
+			minecraft.openScreen(null);
+		}
 		if (minecraft.player == null || minecraft.world == null || minecraft.screen != null) {
 			return;
 		}
 		ticks++;
 		if (ticks == 60) {
 			Screenshot.take(minecraft.gameDir, "autorecord_recording.png", minecraft.width, minecraft.height);
+		}
+		if (ticks == 80 && DIE) {
+			RetroReplay.LOGGER.info("Autorecord: /kill");
+			callPlayer(minecraft, "sendChat", "/kill");
 		}
 		if (ticks == 100 && EXIT != null) {
 			// leaving the game from inside a world: "quit" like closing the window, "crash" without any cleanup
@@ -102,6 +115,19 @@ public final class DevAutorecord {
 			minecraft.world.disconnect();
 			minecraft.setWorld(null);
 			minecraft.openScreen(new TitleScreen());
+		}
+	}
+
+	/** By name (dev mappings only): the method sits on a player class whose package differs between versions. */
+	private static void callPlayer(Minecraft minecraft, String method, Object... args) {
+		try {
+			Class<?>[] types = new Class<?>[args.length];
+			for (int i = 0; i < args.length; i++) {
+				types[i] = args[i].getClass();
+			}
+			minecraft.player.getClass().getMethod(method, types).invoke(minecraft.player, args);
+		} catch (ReflectiveOperationException e) {
+			RetroReplay.LOGGER.error("Autorecord: cannot call " + method, e);
 		}
 	}
 }

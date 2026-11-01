@@ -25,6 +25,8 @@ public final class LocalPlayerRecorder {
 	private static boolean lastSwinging;
 	private static int lastSwingTicks;
 	private static byte lastFlags;
+	private static int lastDamagedTimer;
+	private static boolean lastAlive;
 	private static final ItemStack[] lastEquipment = new ItemStack[5];
 
 	private LocalPlayerRecorder() {
@@ -60,6 +62,8 @@ public final class LocalPlayerRecorder {
 			lastSwinging = player.swingArm;
 			lastSwingTicks = player.swingArmTicks;
 			lastFlags = player.getSyncedData().getByte(0);
+			lastDamagedTimer = player.damagedTimer;
+			lastAlive = player.isAlive();
 			for (int slot = 0; slot < lastEquipment.length; slot++) {
 				lastEquipment[slot] = copy(equipment(player, slot));
 				if (slot > 0 && lastEquipment[slot] != null) {
@@ -92,6 +96,17 @@ public final class LocalPlayerRecorder {
 			Recorder.recordRaw(new byte[] { 0x28, (byte) (id >> 24), (byte) (id >> 16), (byte) (id >> 8), (byte) id, 0, flags, 0x7F });
 			lastFlags = flags;
 		}
+
+		// hurt flash and death animation, as the server reports them for other players
+		if (player.damagedTimer > lastDamagedTimer) {
+			Recorder.recordEntityEvent(player.networkId, Recorder.EVENT_HURT);
+		}
+		lastDamagedTimer = player.damagedTimer;
+		boolean alive = player.isAlive();
+		if (lastAlive && !alive) {
+			Recorder.recordEntityEvent(player.networkId, Recorder.EVENT_DEATH);
+		}
+		lastAlive = alive;
 
 		for (int slot = 0; slot < lastEquipment.length; slot++) {
 			ItemStack item = equipment(player, slot);
