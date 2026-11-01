@@ -46,7 +46,7 @@ public final class Mc {
 
 	/** Dev self-test only: opens (or creates, seed 1234) a survival singleplayer world. */
 	public static void startSelftestWorld(String name) {
-		minecraft().startGame(name, name, new net.minecraft.world.WorldSettings(1234L, 0, true, false));
+		minecraft().startGame(name, name, new net.minecraft.world.WorldSettings(1234L, Integer.parseInt(System.getenv().getOrDefault("RETROREPLAY_AUTORECORD_GAMEMODE", "0")), true, System.getenv("RETROREPLAY_AUTORECORD_HARDCORE") != null));
 	}
 
 	/** Dev self-test only. */

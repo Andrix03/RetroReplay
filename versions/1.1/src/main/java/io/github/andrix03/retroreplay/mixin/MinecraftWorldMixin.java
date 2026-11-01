@@ -36,7 +36,7 @@ public abstract class MinecraftWorldMixin {
 		Minecraft minecraft = (Minecraft) (Object) this;
 		ci.cancel();
 		LocalServer.NewWorld newWorld = settings == null ? null
-			: new LocalServer.NewWorld(settings.getSeed(), settings.getGameMode(), settings.allowStructures(), settings.getGeneratorType().name());
+			: new LocalServer.NewWorld(settings.getSeed(), settings.getGameMode(), settings.allowStructures(), settings.getGeneratorType().name(), settings.isHardcore());
 		LocalServer.launch(minecraft.gameDir, dirName, displayName, newWorld, minecraft.session.username, minecraft.options.difficulty);
 		minecraft.openScreen(new LocalServerScreen(() -> {
 			retroreplay$vanilla = true;

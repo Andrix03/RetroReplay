@@ -53,12 +53,14 @@ public final class LocalServer {
 		public final int gameMode;
 		public final boolean structures;
 		public final String generator;
+		public final boolean hardcore;
 
-		public NewWorld(long seed, int gameMode, boolean structures, String generator) {
+		public NewWorld(long seed, int gameMode, boolean structures, String generator, boolean hardcore) {
 			this.seed = seed;
 			this.gameMode = gameMode;
 			this.structures = structures;
 			this.generator = generator;
+			this.hardcore = hardcore;
 		}
 	}
 
@@ -171,6 +173,13 @@ public final class LocalServer {
 			freePort = socket.getLocalPort();
 		}
 		writeProperties(new File(folder, "server.properties"), folder, level, newWorld, freePort, difficulty);
+		// a hardcore death bans the player on the server; the ban list is shared by every local world
+		for (String bans : new String[] { "banned-players.txt", "banned-ips.txt" }) {
+			File list = new File(folder, bans);
+			if (list.exists() && !list.delete()) {
+				RetroReplay.LOGGER.warn("Cannot clear " + list);
+			}
+		}
 
 		File agent = new File(folder, "retroreplay-agent.jar");
 		writeAgentJar(agent);
@@ -437,9 +446,11 @@ public final class LocalServer {
 			properties.setProperty("gamemode", Integer.toString(newWorld.gameMode));
 			properties.setProperty("generate-structures", Boolean.toString(newWorld.structures));
 			properties.setProperty("level-type", newWorld.generator);
+			properties.setProperty("hardcore", Boolean.toString(newWorld.hardcore));
 		} else if (level != null) {
 			NbtCompound data = level.getCompound("Data");
 			properties.setProperty("gamemode", Integer.toString(data.getInt("GameType")));
+			properties.setProperty("hardcore", Boolean.toString(data.getBoolean("hardcore")));
 			properties.setProperty("generate-structures", Boolean.toString(!data.contains("MapFeatures") || data.getBoolean("MapFeatures")));
 			properties.setProperty("level-type", data.contains("generatorName") ? data.getString("generatorName").toUpperCase() : "DEFAULT");
 		}
