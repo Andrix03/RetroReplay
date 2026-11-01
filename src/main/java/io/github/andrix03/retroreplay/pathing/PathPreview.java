@@ -100,6 +100,9 @@ public final class PathPreview {
 		float cameraPitch = minecraft.player.lastPitch + (minecraft.player.pitch - minecraft.player.lastPitch) * tickDelta;
 		for (Map.Entry<Long, CameraPath.Position> keyframe : keyframes) {
 			CameraPath.Position p = keyframe.getValue();
+			if (nearCamera(p, viewX, viewY - eye, viewZ)) {
+				continue; // a keyframe where the camera stands would cover the whole screen
+			}
 			boolean selected = state.isSelected(PathingState.Kind.POSITION, keyframe.getKey());
 			drawPoint(p.x - viewX, p.y + eye - viewY, p.z - viewZ, cameraYaw, cameraPitch, selected);
 		}
@@ -108,7 +111,9 @@ public final class PathPreview {
 
 		// the camera at the cursor
 		CameraPath.Position at = path.positionAt(state.cursor);
-		drawCamera(at.x - viewX, at.y + eye - viewY, at.z - viewZ, at.yaw, at.pitch, at.roll);
+		if (!nearCamera(at, viewX, viewY - eye, viewZ)) {
+			drawCamera(at.x - viewX, at.y + eye - viewY, at.z - viewZ, at.yaw, at.pitch, at.roll);
+		}
 
 		GL11.glPopMatrix();
 		GL11.glPopAttrib();
@@ -189,6 +194,11 @@ public final class PathPreview {
 
 	private static int component(int c1, int c2, double weight) {
 		return (int) (c1 + (1 - Math.pow(Math.E, -4 * weight)) * (c2 - c1)) & 0xff;
+	}
+
+	/** Within a block of the camera: drawing it would fill the view (a new keyframe is made right there). */
+	private static boolean nearCamera(CameraPath.Position p, double x, double feetY, double z) {
+		return distanceSq(p, x, feetY, z) < 1;
 	}
 
 	private static double distanceSq(CameraPath.Position p, double x, double y, double z) {

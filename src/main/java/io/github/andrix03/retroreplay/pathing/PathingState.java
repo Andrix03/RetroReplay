@@ -32,6 +32,47 @@ public final class PathingState {
 
 	/** The path as last loaded or saved, to save only real changes. */
 	private String savedJson;
+	/** Snapshots of the path for Ctrl+Z / Ctrl+Y, like Replay Mod's timeline undo. */
+	private final java.util.ArrayDeque<String> undo = new java.util.ArrayDeque<>();
+	private final java.util.ArrayDeque<String> redo = new java.util.ArrayDeque<>();
+
+	/** Call before changing the path. */
+	public void beforeChange() {
+		undo.push(PathStore.toJson(path));
+		if (undo.size() > 100) {
+			undo.removeLast();
+		}
+		redo.clear();
+	}
+
+	public boolean undo() {
+		if (undo.isEmpty()) {
+			return false;
+		}
+		redo.push(PathStore.toJson(path));
+		restore(undo.pop());
+		return true;
+	}
+
+	public boolean redo() {
+		if (redo.isEmpty()) {
+			return false;
+		}
+		undo.push(PathStore.toJson(path));
+		restore(redo.pop());
+		return true;
+	}
+
+	private void restore(String json) {
+		for (Long time : path.positions().keySet().toArray(new Long[0])) {
+			path.removePosition(time);
+		}
+		for (Long time : path.times().keySet().toArray(new Long[0])) {
+			path.removeTime(time);
+		}
+		PathStore.fromJson(json, path);
+		clearSelection();
+	}
 
 	private PathingState(File replay) {
 		this.replay = replay;

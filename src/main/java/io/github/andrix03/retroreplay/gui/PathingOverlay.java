@@ -41,6 +41,7 @@ public final class PathingOverlay {
 	/** Keyframe being dragged along the timeline, if any. */
 	private static PathingState.Kind dragKind;
 	private static long dragTime;
+	private static boolean dragChanged;
 	private static boolean draggingCursor;
 	private static long lastClick;
 
@@ -279,9 +280,11 @@ public final class PathingOverlay {
 				state.select(kind, hit);
 				dragKind = kind;
 				dragTime = hit;
+				dragChanged = false;
 				long now = System.currentTimeMillis();
 				if (now - lastClick < 300) {
-					applyKeyframe(state, kind, hit); // double click: until the keyframe editor exists, jump to it
+					dragKind = null; // double click: Replay Mod's keyframe editor
+					Mc.minecraft().openScreen(new EditKeyframeScreen(state, kind, hit));
 				}
 				lastClick = now;
 			}
@@ -303,6 +306,10 @@ public final class PathingOverlay {
 		}
 		long time = timeAt(state, mouseX, width);
 		if (dragKind != null && time != dragTime) {
+			if (!dragChanged) {
+				dragChanged = true;
+				state.beforeChange(); // one undo step per drag
+			}
 			if (dragKind == PathingState.Kind.POSITION) {
 				CameraPath.Position position = state.path.positions().get(dragTime);
 				if (position == null || state.path.positions().containsKey(time)) {
@@ -396,6 +403,7 @@ public final class PathingOverlay {
 		if (state == null || Mc.minecraft().player == null) {
 			return;
 		}
+		state.beforeChange();
 		if (state.selection() == PathingState.Kind.POSITION) {
 			state.path.removePosition(state.selectedTime);
 			state.clearSelection();
@@ -411,6 +419,7 @@ public final class PathingOverlay {
 		if (state == null) {
 			return;
 		}
+		state.beforeChange();
 		if (state.selection() == PathingState.Kind.TIME) {
 			state.path.removeTime(state.selectedTime);
 			state.clearSelection();
@@ -420,12 +429,23 @@ public final class PathingOverlay {
 		}
 	}
 
+	/** Ctrl+Z / Ctrl+Y. */
+	public static void undo(boolean redo) {
+		PathingState state = state();
+		if (state != null && !PathPlayer.isActive()) {
+			show(redo ? (state.redo() ? "Redo" : "Nothing to redo") : (state.undo() ? "Undo" : "Nothing to undo"));
+		}
+	}
+
 	public static void removeSelected() {
 		PathingState state = state();
 		if (state == null) {
 			return;
 		}
 		PathingState.Kind selection = state.selection();
+		if (selection != null) {
+			state.beforeChange();
+		}
 		if (selection == PathingState.Kind.POSITION) {
 			state.path.removePosition(state.selectedTime);
 		} else if (selection == PathingState.Kind.TIME) {
@@ -447,6 +467,7 @@ public final class PathingOverlay {
 		if (state == null) {
 			return;
 		}
+		state.beforeChange();
 		for (Long time : state.path.positions().keySet().toArray(new Long[0])) {
 			state.path.removePosition(time);
 		}

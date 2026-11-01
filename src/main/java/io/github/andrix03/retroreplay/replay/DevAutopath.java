@@ -4,6 +4,7 @@ import java.io.File;
 
 import io.github.andrix03.retroreplay.RetroReplay;
 import io.github.andrix03.retroreplay.compat.Mc;
+import io.github.andrix03.retroreplay.gui.EditKeyframeScreen;
 import io.github.andrix03.retroreplay.gui.RenderSettingsScreen;
 import io.github.andrix03.retroreplay.gui.ReplayOverlayScreen;
 import io.github.andrix03.retroreplay.pathing.CameraPath;
@@ -70,13 +71,32 @@ public final class DevAutopath {
 			case 2:
 				if (waitTicks > 20) {
 					shot(minecraft, "path_gui");
+					minecraft.openScreen(new EditKeyframeScreen(PathingState.current(), PathingState.Kind.POSITION, 4000));
+					stage = 8;
+					waitTicks = 0;
+				}
+				break;
+			case 8:
+				if (waitTicks > 15) {
+					shot(minecraft, "edit_keyframe");
 					minecraft.openScreen(null);
-					// look at the whole path from the side for the preview picture
 					PathingState state = PathingState.current();
+					state.beforeChange();
+					state.path.removePosition(2000);
+					int removed = state.path.positions().size();
+					state.undo();
+					int undone = state.path.positions().size();
+					state.redo();
+					int redone = state.path.positions().size();
+					state.undo();
+					RetroReplay.LOGGER.info("Autopath: undo test " + removed + " -> undo " + undone + " -> redo " + redone + " -> undo "
+						+ state.path.positions().size() + " position keyframes");
+					// look at the whole path from the side for the preview picture
 					CameraPath.Position a = state.path.positions().firstEntry().getValue();
 					state.cursor = 1000;
 					PathPlayer.placeCamera(new CameraPath.Position(a.x + 5, a.y + 8, a.z - 10, 0, 35, 0));
-					next();
+					stage = 3;
+					waitTicks = 0;
 				}
 				break;
 			case 3:

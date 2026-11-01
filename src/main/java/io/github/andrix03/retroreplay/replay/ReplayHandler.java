@@ -261,6 +261,13 @@ public final class ReplayHandler {
 			if (pressed(Keyboard.KEY_H)) {
 				PathPreview.toggle();
 			}
+			boolean ctrl = Keyboard.isKeyDown(Keyboard.KEY_LCONTROL) || Keyboard.isKeyDown(Keyboard.KEY_RCONTROL);
+			if (pressed(Keyboard.KEY_Z) && ctrl) {
+				PathingOverlay.undo(false);
+			}
+			if (pressed(Keyboard.KEY_Y) && ctrl) {
+				PathingOverlay.undo(true);
+			}
 		}
 		double devSeek = DevAutoplay.seekRequest(timeMs);
 		if (devSeek >= 0) {
