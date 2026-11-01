@@ -413,6 +413,7 @@ public final class LocalServer {
 		HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
 		connection.setConnectTimeout(15_000);
 		connection.setReadTimeout(30_000);
+		connection.setRequestProperty("User-Agent", "RetroReplay"); // the archive refuses Java's default agent
 		try (InputStream in = connection.getInputStream(); OutputStream out = new FileOutputStream(temp)) {
 			byte[] buffer = new byte[16384];
 			int n;

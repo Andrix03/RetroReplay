@@ -5,6 +5,7 @@ import java.io.File;
 import org.lwjgl.input.Keyboard;
 
 import io.github.andrix03.retroreplay.RetroReplay;
+import io.github.andrix03.retroreplay.compat.Mc;
 
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -26,7 +27,7 @@ public class RenameReplayScreen extends Screen {
 	public void init() {
 		Keyboard.enableRepeatEvents(true);
 		buttons.clear();
-		nameField = new TextFieldWidget(minecraft.textRenderer, width / 2 - 100, height / 2 - 20, 200, 20);
+		nameField = Mc.textField(this, width / 2 - 100, height / 2 - 20, 200, 20);
 		nameField.setFocused(true);
 		nameField.setText(file.getName().substring(0, file.getName().length() - ".mcpr".length()));
 		buttons.add(new ButtonWidget(0, width / 2 - 100, height / 2 + 10, 98, 20, "Done"));

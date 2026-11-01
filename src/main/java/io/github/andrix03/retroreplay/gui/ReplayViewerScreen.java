@@ -105,7 +105,7 @@ public class ReplayViewerScreen extends Screen {
 				break;
 			case DELETE:
 				minecraft.openScreen(new ConfirmScreen(this, "Are you sure you want to delete this replay?",
-					"'" + entries.get(selected).name + "' will be lost forever! (A long time!)", DELETE));
+					"'" + entries.get(selected).name + "' will be lost forever! (A long time!)", "Yes", "No", DELETE));
 				break;
 			case CANCEL:
 				minecraft.openScreen(parent);

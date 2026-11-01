@@ -95,8 +95,20 @@ public final class ReplayGui {
 		centered(text, x + width / 2, y + (height - 8) / 2, hovered ? 0xFFFFFFA0 : 0xFFE0E0E0);
 	}
 
+	/** Like GuiElement.fill (protected and not static before 1.2): a blended ARGB rectangle. */
 	public static void fill(int x1, int y1, int x2, int y2, int color) {
-		GuiElement.fill(x1, y1, x2, y2, color);
+		GL11.glEnable(GL11.GL_BLEND);
+		GL11.glDisable(GL11.GL_TEXTURE_2D);
+		GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+		GL11.glColor4f((color >> 16 & 0xFF) / 255.0F, (color >> 8 & 0xFF) / 255.0F, (color & 0xFF) / 255.0F, (color >>> 24) / 255.0F);
+		GL11.glBegin(GL11.GL_QUADS);
+		GL11.glVertex2f(x1, y2);
+		GL11.glVertex2f(x2, y2);
+		GL11.glVertex2f(x2, y1);
+		GL11.glVertex2f(x1, y1);
+		GL11.glEnd();
+		GL11.glEnable(GL11.GL_TEXTURE_2D);
+		GL11.glDisable(GL11.GL_BLEND);
 	}
 
 	public static void text(String text, int x, int y, int color) {
