@@ -34,3 +34,8 @@ workspace/
 *.DS_Store
 
 run-server/
+
+versions/*/run/
+versions/*/run-server/
+versions/*/build/
+versions/*/.gradle/

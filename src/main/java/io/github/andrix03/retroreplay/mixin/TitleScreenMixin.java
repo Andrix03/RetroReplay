@@ -28,7 +28,8 @@ public abstract class TitleScreenMixin extends Screen {
 	@Inject(method = "init", at = @At("TAIL"))
 	private void retroreplay$addButton(CallbackInfo ci) {
 		ButtonWidget anchor = null;
-		for (ButtonWidget button : buttons) {
+		for (Object element : buttons) {
+			ButtonWidget button = (ButtonWidget) element;
 			if ((button.id == 1 || button.id == 2 || button.id == 14) && button.visible && (anchor == null || button.y > anchor.y)) {
 				anchor = button;
 			}

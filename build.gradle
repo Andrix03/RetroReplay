@@ -1,91 +1,87 @@
 plugins {
-	id 'maven-publish'
-	id 'fabric-loom' version '1.18-SNAPSHOT'
-	id 'ploceus' version '1.18-SNAPSHOT'
+	id 'fabric-loom' version '1.18-SNAPSHOT' apply false
+	id 'ploceus' version '1.18-SNAPSHOT' apply false
 }
 
-base {
-	archivesName = project.archives_base_name
-}
-version = "${project.version}+mc${project.minecraft_version}"
-group = project.maven_group
+// Every Minecraft version is a subproject (versions/<mc>, see settings.gradle). Code and
+// resources shared by all versions live in the root src/; a version adds only the files
+// that differ in versions/<mc>/src/ (the same class must never exist in both places).
+subprojects {
+	apply plugin: 'fabric-loom'
+	apply plugin: 'ploceus'
 
-repositories {
-	// Add repositories to retrieve artifacts from in here.
-	// You should only use this when depending on other mods because
-	// Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
-	// See https://docs.gradle.org/current/userguide/declaring_repositories.html
-	// for more information about repositories.
-}
-
-dependencies {
-	minecraft "com.mojang:minecraft:${project.minecraft_version}"
-	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-
-	exceptions ploceus.raven(project.raven_build)
-	signatures ploceus.sparrow(project.sparrow_build)
-	nests ploceus.nests(project.nests_build)
-	mappings ploceus.featherMappings(project.feather_build)
-
-	ploceus.dependOsl(project.osl_version)
-}
-
-processResources {
-	inputs.property 'version', version
-
-	filesMatching('fabric.mod.json') {
-		expand 'version': version
+	base {
+		archivesName = rootProject.archives_base_name
 	}
-}
+	version = "${rootProject.version}+mc${project.minecraft_version}"
+	group = rootProject.maven_group
 
-tasks.withType(JavaCompile).configureEach {
-	it.options.encoding = 'UTF-8'
-	it.options.release = 8
-}
-
-java {
-	// Still required by IDEs such as Eclipse and Visual Studio Code
-	sourceCompatibility = JavaVersion.VERSION_1_8
-	targetCompatibility = JavaVersion.VERSION_1_8
-
-	// Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task if it is present.
-	// If you remove this line, sources will not be generated.
-	withSourcesJar()
-
-	// If this mod is going to be a library, then it should also generate Javadocs in order to aid with development.
-	// Uncomment this line to generate them.
-	// withJavadocJar()
-}
-
-// If you plan to use a different file for the license, don't forget to change the file name here!
-jar {
-	from('LICENSE') {
-		rename { "${it}_${base.archivesName.get()}" }
-	}
-}
-
-// Configure the maven publication
-publishing {
-	publications {
-		mavenJava(MavenPublication) {
-			from components.java
+	sourceSets {
+		main {
+			java.srcDirs = [rootProject.file('src/main/java'), 'src/main/java']
+			resources.srcDirs = [rootProject.file('src/main/resources'), 'src/main/resources']
 		}
 	}
 
-	// See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
-	repositories {
-		// Add repositories to publish to here.
-		// Notice: This block does NOT have the same function as the block in the top level.
-		// The repositories here will be used for publishing your artifact, not for
-		// retrieving dependencies.
-	}
-}
+	dependencies {
+		minecraft "com.mojang:minecraft:${project.minecraft_version}"
+		modImplementation "net.fabricmc:fabric-loader:${rootProject.loader_version}"
 
-loom {
-	runs {
-		server {
-			// separate folder so the dev server never touches the client's run/
-			runDir "run-server"
+		exceptions ploceus.raven(project.raven_build)
+		if (project.sparrow_build != "0") {
+			signatures ploceus.sparrow(project.sparrow_build)
+		}
+		nests ploceus.nests(project.nests_build)
+		mappings ploceus.featherMappings(project.feather_build)
+
+		ploceus.dependOsl(rootProject.osl_version)
+	}
+
+	processResources {
+		inputs.property 'version', project.version
+		inputs.property 'minecraft_version', project.minecraft_version
+
+		filesMatching('fabric.mod.json') {
+			expand 'version': project.version, 'minecraft_version': project.minecraft_version
+		}
+	}
+
+	tasks.withType(JavaCompile).configureEach {
+		it.options.encoding = 'UTF-8'
+		it.options.release = 8
+	}
+
+	java {
+		sourceCompatibility = JavaVersion.VERSION_1_8
+		targetCompatibility = JavaVersion.VERSION_1_8
+		withSourcesJar()
+	}
+
+	jar {
+		from(rootProject.file('LICENSE')) {
+			rename { "${it}_${base.archivesName.get()}" }
+		}
+	}
+
+	// Old versions bundle libraries that modern JVMs reject (1.5.2's BouncyCastle fails class
+	// verification on Java 25, breaking multiplayer login): run them on the Java players use.
+	if (project.hasProperty('run_java')) {
+		tasks.withType(JavaExec).configureEach {
+			javaLauncher = javaToolchains.launcherFor {
+				languageVersion = JavaLanguageVersion.of(project.run_java as int)
+			}
+			// the BouncyCastle classes bundled in old game jars come out of remapping with a
+			// LocalVariableTable the verifier rejects (dev only; check real installs separately)
+			jvmArgs '-noverify'
+		}
+	}
+
+	loom {
+		runs {
+			server {
+				// separate folder so the dev server never touches the client's run/
+				runDir 'run-server'
+			}
 		}
 	}
 }

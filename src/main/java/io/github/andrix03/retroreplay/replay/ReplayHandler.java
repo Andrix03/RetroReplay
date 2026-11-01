@@ -15,11 +15,11 @@ import java.util.zip.ZipFile;
 import org.lwjgl.input.Keyboard;
 
 import io.github.andrix03.retroreplay.RetroReplay;
+import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.gui.ReplayOverlayScreen;
 import io.github.andrix03.retroreplay.mixin.MinecraftAccessor;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.entity.living.player.LocalClientPlayerEntity;
 import net.minecraft.client.gui.screen.game.ChatScreen;
 import net.minecraft.client.gui.screen.menu.multiplayer.DownloadingTerrainScreen;
 import net.minecraft.client.network.handler.ClientNetworkHandler;
@@ -139,7 +139,7 @@ public final class ReplayHandler {
 			networkHandler = new ClientNetworkHandler(minecraft, (IntegratedServer) null);
 			((MinecraftAccessor) minecraft).retroreplay$setConnection(networkHandler.getConnection());
 			handler.client = (LocalConnection) networkHandler.getConnection();
-		} catch (IOException e) {
+		} catch (Exception e) {
 			active = null;
 			RetroReplay.LOGGER.error("Cannot start replay", e);
 			return;
@@ -244,14 +244,13 @@ public final class ReplayHandler {
 			feed(packets[index++]);
 		}
 
-		LocalClientPlayerEntity player = minecraft.player;
-		if (player != null) {
-			player.abilities.canFly = true;
-			player.abilities.flying = true;
-			player.abilities.invulnerable = true;
-			player.noClip = true;
+		if (minecraft.player != null) {
+			minecraft.player.abilities.canFly = true;
+			minecraft.player.abilities.flying = true;
+			minecraft.player.abilities.invulnerable = true;
+			minecraft.player.noClip = true;
 			if (camera != null && positioned) {
-				player.setPositionAndAngles(camera[0], camera[1], camera[2], (float) camera[3], (float) camera[4]);
+				minecraft.player.setPositionAndAngles(camera[0], camera[1], camera[2], (float) camera[3], (float) camera[4]);
 				camera = null;
 			}
 		}
@@ -274,7 +273,7 @@ public final class ReplayHandler {
 		}
 		try {
 			packet.read(new DataInputStream(new ByteArrayInputStream(data, 1, data.length - 1)));
-		} catch (IOException e) {
+		} catch (Exception e) {
 			RetroReplay.LOGGER.warn("Cannot read replay packet " + id, e);
 			return;
 		}
@@ -323,8 +322,8 @@ public final class ReplayHandler {
 				throw new IOException("Not a replay file");
 			}
 			String json = new String(readAll(zip.getInputStream(meta)), StandardCharsets.UTF_8);
-			if (!json.contains("\"fileFormat\":\"MCPR_LEGACY\"") || !json.contains("\"mcversion\":\"1.6.4\"")) {
-				throw new IOException("Not a RetroReplay 1.6.4 recording");
+			if (!json.contains("\"fileFormat\":\"MCPR_LEGACY\"") || !json.contains("\"mcversion\":\"" + Mc.VERSION + "\"")) {
+				throw new IOException("Not a RetroReplay " + Mc.VERSION + " recording");
 			}
 			try (DataInputStream in = new DataInputStream(new java.io.BufferedInputStream(zip.getInputStream(recording)))) {
 				while (true) {

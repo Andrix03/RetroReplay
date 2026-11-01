@@ -20,8 +20,9 @@ public abstract class GameMenuScreenMixin extends Screen {
 		if (!ReplayHandler.isActive()) {
 			return;
 		}
-		buttons.removeIf(button -> button.id == 5 || button.id == 6 || button.id == 7);
-		for (ButtonWidget button : buttons) {
+		buttons.removeIf(button -> ((ButtonWidget) button).id == 5 || ((ButtonWidget) button).id == 6 || ((ButtonWidget) button).id == 7);
+		for (Object element : buttons) {
+			ButtonWidget button = (ButtonWidget) element;
 			if (button.id == 1) {
 				button.message = "Exit Replay";
 			}

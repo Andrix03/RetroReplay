@@ -5,7 +5,6 @@ import io.github.andrix03.retroreplay.gui.ReplayViewerScreen;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
-import net.minecraft.client.entity.living.player.RemoteClientPlayerEntity;
 import net.minecraft.client.gui.screen.menu.GameMenuScreen;
 import net.minecraft.client.gui.screen.menu.TitleScreen;
 import net.minecraft.entity.Entity;
@@ -95,9 +94,9 @@ public final class DevAutoplay {
 			shots++;
 			shot(minecraft, "replay_" + shots);
 		} else if (shots < SHOT_TIMES.length && timeMs > SHOT_TIMES[shots]) {
-			RemoteClientPlayerEntity recorded = findRecordedPlayer(minecraft);
+			Entity recorded = findRecordedPlayer(minecraft);
 			RetroReplay.LOGGER.info("Autoplay at " + (int) timeMs + " ms: " + fed + "/" + total + " packets, world=" + (minecraft.world != null)
-				+ ", recorded player=" + (recorded == null ? "none" : recorded.getCommandSourceName() + " at " + (int) recorded.x + "," + (int) recorded.y + "," + (int) recorded.z)
+				+ ", recorded player=" + (recorded == null ? "none" : recorded.getClass().getSimpleName() + " at " + (int) recorded.x + "," + (int) recorded.y + "," + (int) recorded.z)
 				+ ", screen=" + (minecraft.screen == null ? "none" : minecraft.screen.getClass().getSimpleName()));
 			if (recorded != null && minecraft.player != null) {
 				double x = recorded.x + 4;
@@ -113,11 +112,12 @@ public final class DevAutoplay {
 		}
 	}
 
-	private static RemoteClientPlayerEntity findRecordedPlayer(Minecraft minecraft) {
+	/** The recorded player is the only other player entity (class name: dev environment only). */
+	private static Entity findRecordedPlayer(Minecraft minecraft) {
 		if (minecraft.world != null) {
-			for (Entity entity : minecraft.world.entities) {
-				if (entity instanceof RemoteClientPlayerEntity) {
-					return (RemoteClientPlayerEntity) entity;
+			for (Object entity : minecraft.world.entities) {
+				if (entity.getClass().getSimpleName().equals("RemoteClientPlayerEntity")) {
+					return (Entity) entity;
 				}
 			}
 		}

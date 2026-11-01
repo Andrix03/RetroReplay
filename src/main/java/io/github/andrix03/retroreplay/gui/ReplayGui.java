@@ -2,10 +2,11 @@ package io.github.andrix03.retroreplay.gui;
 
 import org.lwjgl.opengl.GL11;
 
+import io.github.andrix03.retroreplay.compat.Mc;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiElement;
 import net.minecraft.client.render.vertex.Tesselator;
-import net.minecraft.client.resource.Identifier;
 
 /**
  * Drawing helpers with Replay Mod's own textures (replay_gui.png from Replay Mod, gui.png from
@@ -13,10 +14,10 @@ import net.minecraft.client.resource.Identifier;
  */
 public final class ReplayGui {
 
-	public static final Identifier REPLAY_GUI = new Identifier("retroreplay", "textures/replay_gui.png");
-	public static final Identifier JGUI = new Identifier("retroreplay", "textures/jgui.png");
-	public static final Identifier LOGO = new Identifier("retroreplay", "textures/logo_button.png");
-	public static final Identifier WIDGETS = new Identifier("textures/gui/widgets.png");
+	public static final String REPLAY_GUI = "replay_gui";
+	public static final String JGUI = "jgui";
+	public static final String LOGO = "logo";
+	public static final String WIDGETS = "widgets";
 
 	public static final int WHITE = 0xFFFFFFFF;
 	public static final int LIGHT_GRAY = 0xFFC0C0C0;
@@ -27,9 +28,9 @@ public final class ReplayGui {
 	private ReplayGui() {
 	}
 
-	public static void bind(Identifier texture) {
+	public static void bind(String texture) {
 		GL11.glColor4f(1, 1, 1, 1);
-		Minecraft.getInstance().getTextureManager().bind(texture);
+		Mc.bindTexture(texture);
 	}
 
 	/** A part of the bound 256x256 texture at 1:1 scale. */

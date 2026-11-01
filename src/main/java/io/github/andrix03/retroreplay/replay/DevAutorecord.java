@@ -4,7 +4,6 @@ import io.github.andrix03.retroreplay.RetroReplay;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
-import net.minecraft.client.entity.living.player.LocalClientPlayerEntity;
 import net.minecraft.client.gui.screen.menu.GameMenuScreen;
 import net.minecraft.client.gui.screen.menu.TitleScreen;
 import net.minecraft.client.gui.screen.menu.multiplayer.ConnectScreen;
@@ -57,13 +56,12 @@ public final class DevAutorecord {
 			}
 			return;
 		}
-		LocalClientPlayerEntity player = minecraft.player;
 		if (minecraft.screen instanceof GameMenuScreen && System.nanoTime() - pauseStart > 3_000_000_000L) {
 			Screenshot.take(minecraft.gameDir, "autorecord_paused.png", minecraft.width, minecraft.height);
 			RetroReplay.LOGGER.info("Autorecord: closing the pause menu");
 			minecraft.openScreen(null);
 		}
-		if (player == null || minecraft.world == null || minecraft.screen != null) {
+		if (minecraft.player == null || minecraft.world == null || minecraft.screen != null) {
 			return;
 		}
 		ticks++;
@@ -77,19 +75,19 @@ public final class DevAutorecord {
 			minecraft.openScreen(new GameMenuScreen());
 			return;
 		}
-		player.yaw += 3.0F;
-		double rad = Math.toRadians(player.yaw);
-		player.velocityX = -Math.sin(rad) * 0.2;
-		player.velocityZ = Math.cos(rad) * 0.2;
-		if (ticks % 50 == 0 && player.onGround) {
-			player.velocityY = 0.42;
+		minecraft.player.yaw += 3.0F;
+		double rad = Math.toRadians(minecraft.player.yaw);
+		minecraft.player.velocityX = -Math.sin(rad) * 0.2;
+		minecraft.player.velocityZ = Math.cos(rad) * 0.2;
+		if (ticks % 50 == 0 && minecraft.player.onGround) {
+			minecraft.player.velocityY = 0.42;
 		}
 		if (ticks % 30 == 0) {
-			player.swingArm();
+			minecraft.player.swingArm();
 		}
 		if (ticks >= 240) {
 			finished = true;
-			RetroReplay.LOGGER.info("Autorecord: done at " + (int) player.x + "," + (int) player.y + "," + (int) player.z);
+			RetroReplay.LOGGER.info("Autorecord: done at " + (int) minecraft.player.x + "," + (int) minecraft.player.y + "," + (int) minecraft.player.z);
 			minecraft.world.disconnect();
 			minecraft.setWorld(null);
 			minecraft.openScreen(new TitleScreen());

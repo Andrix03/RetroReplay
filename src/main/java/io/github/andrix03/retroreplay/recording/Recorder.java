@@ -12,6 +12,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import io.github.andrix03.retroreplay.RetroReplay;
+import io.github.andrix03.retroreplay.compat.Mc;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.packet.Packet;
@@ -160,8 +161,8 @@ public final class Recorder {
 		meta.serverName = serverName;
 		meta.duration = lastTime;
 		meta.date = startDate;
-		meta.mcversion = "1.6.4";
-		meta.protocol = 78;
+		meta.mcversion = Mc.VERSION;
+		meta.protocol = Mc.PROTOCOL;
 		return meta;
 	}
 }
