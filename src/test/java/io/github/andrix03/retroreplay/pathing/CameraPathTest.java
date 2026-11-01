@@ -12,7 +12,7 @@ class CameraPathTest {
 
 	@Test
 	void splinePassesThroughKeyframesAndHoldsAtTheEnds() {
-		CatmullRom spline = new CatmullRom(new long[] { 0, 1000, 3000 }, new double[] { 0, 10, 5 }, 0.5, Double.NaN);
+		Spline spline = Spline.catmullRom(new long[] { 0, 1000, 3000 }, new double[] { 0, 10, 5 }, 0.5, Double.NaN);
 		assertEquals(0, spline.valueAt(0), EPS);
 		assertEquals(10, spline.valueAt(1000), EPS);
 		assertEquals(5, spline.valueAt(3000), EPS);
@@ -25,18 +25,44 @@ class CameraPathTest {
 		// first segment of 0, 10, 5 with alpha 0.5: p0 = p1 = 0, p2 = 10, p3 = 5
 		// t0 = 0.5 * (10 - 0) = 5, t1 = 0.5 * (5 - 0) = 2.5
 		// a = 0 - 20 + 5 + 2.5 = -12.5, b = 30 - 10 - 2.5 = 17.5, c = 5, d = 0
-		CatmullRom spline = new CatmullRom(new long[] { 0, 1000, 3000 }, new double[] { 0, 10, 5 }, 0.5, Double.NaN);
+		Spline spline = Spline.catmullRom(new long[] { 0, 1000, 3000 }, new double[] { 0, 10, 5 }, 0.5, Double.NaN);
 		double t = 0.5;
 		assertEquals(-12.5 * t * t * t + 17.5 * t * t + 5 * t, spline.valueAt(500), EPS);
 	}
 
 	@Test
+	void cubicAndLinearPassThroughTheKeyframes() {
+		long[] t = { 0, 1000, 2000, 3000 };
+		double[] v = { 0, 10, 0, 10 };
+		Spline cubic = Spline.cubic(t, v, Double.NaN);
+		Spline linear = Spline.linear(t, v, Double.NaN);
+		for (int i = 0; i < t.length; i++) {
+			assertEquals(v[i], cubic.valueAt(t[i]), EPS);
+			assertEquals(v[i], linear.valueAt(t[i]), EPS);
+		}
+		assertEquals(5, linear.valueAt(500), EPS);
+		// symmetric data: the natural spline crosses 5 exactly halfway between the middle keyframes
+		assertEquals(5, cubic.valueAt(1500), 1e-6);
+		// two keyframes: a natural cubic spline is a straight line
+		assertEquals(5, Spline.cubic(new long[] { 0, 1000 }, new double[] { 0, 10 }, Double.NaN).valueAt(500), EPS);
+	}
+
+	@Test
+	void naturalSplineHasContinuousSlope() {
+		Spline cubic = Spline.cubic(new long[] { 0, 1000, 2000, 3000 }, new double[] { 0, 10, 0, 10 }, Double.NaN);
+		// equal segment lengths: the slope just before and just after a keyframe match
+		double before = cubic.valueAt(1000) - cubic.valueAt(999);
+		double after = cubic.valueAt(1001) - cubic.valueAt(1000);
+		assertEquals(before, after, 0.01);
+	}
+
+	@Test
 	void anglesTurnTheShortWay() {
-		double[] unwrapped = CatmullRom.unwrap(new double[] { 350, 10, 30 }, 360);
+		double[] unwrapped = Spline.unwrap(new double[] { 350, 10, 30 }, 360);
 		assertEquals(350, unwrapped[0], EPS);
 		assertEquals(370, unwrapped[1], EPS);
 		assertEquals(390, unwrapped[2], EPS);
-		CatmullRom yaw = new CatmullRom(new long[] { 0, 1000 }, new double[] { 350, 10 }, 0.5, 360);
+		Spline yaw = Spline.catmullRom(new long[] { 0, 1000 }, new double[] { 350, 10 }, 0.5, 360);
 		assertEquals(360, yaw.valueAt(500), EPS); // through north, not back around through 180
 	}
 

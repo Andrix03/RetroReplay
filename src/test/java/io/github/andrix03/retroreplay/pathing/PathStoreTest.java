@@ -22,11 +22,13 @@ class PathStoreTest {
 		path.putPosition(2500, new CameraPath.Position(-7, 70, 12.125, 180f, 30f, 5f));
 		path.putTime(0, 1000);
 		path.putTime(2500, 9000);
+		path.setInterpolation(CameraPath.Interpolation.CUBIC);
 		CameraPath loaded = new CameraPath();
 		PathStore.fromJson(PathStore.toJson(path), loaded);
 		assertEquals(PathStore.toJson(path), PathStore.toJson(loaded));
 		assertEquals(64.25, loaded.positions().get(0L).y, 0);
 		assertEquals(9000, (int) loaded.times().get(2500L));
+		assertEquals(CameraPath.Interpolation.CUBIC, loaded.interpolation());
 	}
 
 	@Test

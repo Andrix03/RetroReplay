@@ -23,12 +23,13 @@ public final class PathStore {
 
 	public static final String ENTRY = "camera_path.json";
 	private static final Pattern ROW = Pattern.compile("\\[([^\\[\\]]*)\\]");
+	private static final Pattern INTERPOLATION = Pattern.compile("\"interpolation\"\\s*:\\s*\"(\\w+)\"");
 
 	private PathStore() {
 	}
 
 	public static String toJson(CameraPath path) {
-		StringBuilder json = new StringBuilder("{\"positions\":[");
+		StringBuilder json = new StringBuilder("{\"interpolation\":\"" + path.interpolation().name() + "\",\"positions\":[");
 		boolean first = true;
 		for (Map.Entry<Long, CameraPath.Position> entry : path.positions().entrySet()) {
 			CameraPath.Position p = entry.getValue();
@@ -46,6 +47,14 @@ public final class PathStore {
 	}
 
 	public static void fromJson(String json, CameraPath path) {
+		Matcher interpolation = INTERPOLATION.matcher(json);
+		if (interpolation.find()) {
+			for (CameraPath.Interpolation type : CameraPath.Interpolation.values()) {
+				if (type.name().equals(interpolation.group(1))) {
+					path.setInterpolation(type);
+				}
+			}
+		}
 		Matcher rows = ROW.matcher(array(json, "positions"));
 		while (rows.find()) {
 			String[] v = rows.group(1).split(",");

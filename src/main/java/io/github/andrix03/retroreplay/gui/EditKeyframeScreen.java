@@ -25,6 +25,7 @@ public class EditKeyframeScreen extends NoPauseScreen {
 	private final long time;
 	private final List<TextFieldWidget> fields = new ArrayList<>();
 	private String error;
+	private CameraPath.Interpolation interpolation;
 
 	public EditKeyframeScreen(PathingState state, PathingState.Kind kind, long time) {
 		this.state = state;
@@ -37,7 +38,7 @@ public class EditKeyframeScreen extends NoPauseScreen {
 		Keyboard.enableRepeatEvents(true);
 		buttons.clear();
 		fields.clear();
-		int top = height / 2 - 60;
+		int top = top();
 		int x = width / 2 - 77;
 		addTime(x, top + 14, time);
 		if (kind == PathingState.Kind.TIME) {
@@ -53,9 +54,24 @@ public class EditKeyframeScreen extends NoPauseScreen {
 				fields.add(field);
 			}
 		}
-		int buttonsY = kind == PathingState.Kind.TIME ? top + 90 : top + 150;
+		int buttonsY = kind == PathingState.Kind.TIME ? top + 90 : top + 174;
+		if (kind == PathingState.Kind.POSITION) {
+			interpolation = state.path.interpolation();
+			// Replay Mod's interpolator choice (here for the whole position path)
+			buttons.add(new ButtonWidget(2, width / 2 - 100, top + 148, 200, 20, interpolationLabel()));
+		}
 		buttons.add(new ButtonWidget(0, width / 2 - 152, buttonsY, 150, 20, "Save"));
 		buttons.add(new ButtonWidget(1, width / 2 + 2, buttonsY, 150, 20, "Cancel"));
+	}
+
+	private String interpolationLabel() {
+		return "Interpolation: " + interpolation.title;
+	}
+
+	/** Top of the fields: the whole popup (title to Save / Cancel) centered, at least 20 px down. */
+	private int top() {
+		int contentHeight = kind == PathingState.Kind.TIME ? 110 : 194;
+		return Math.max(20, (height - contentHeight) / 2);
 	}
 
 	private void addTime(int x, int y, long ms) {
@@ -79,6 +95,12 @@ public class EditKeyframeScreen extends NoPauseScreen {
 
 	@Override
 	protected void buttonClicked(ButtonWidget button) {
+		if (button.id == 2) {
+			CameraPath.Interpolation[] types = CameraPath.Interpolation.values();
+			interpolation = types[(interpolation.ordinal() + 1) % types.length];
+			button.message = interpolationLabel();
+			return;
+		}
 		if (button.id == 0) {
 			try {
 				save();
@@ -102,8 +124,10 @@ public class EditKeyframeScreen extends NoPauseScreen {
 			for (int i = 0; i < 6; i++) {
 				v[i] = Double.parseDouble(fields.get(3 + i).getText().trim().replace(',', '.'));
 			}
+			int spectated = state.path.positions().get(time).spectated; // a spectator keyframe stays one
 			state.path.removePosition(time);
-			state.path.putPosition(newTime, new CameraPath.Position(v[0], v[2], v[4], (float) v[1], (float) v[3], (float) v[5]));
+			state.path.putPosition(newTime, new CameraPath.Position(v[0], v[2], v[4], (float) v[1], (float) v[3], (float) v[5], spectated));
+			state.path.setInterpolation(interpolation);
 		}
 		state.select(kind, newTime);
 	}
@@ -146,7 +170,7 @@ public class EditKeyframeScreen extends NoPauseScreen {
 	@Override
 	public void render(int mouseX, int mouseY, float tickDelta) {
 		ReplayGui.fill(0, 0, width, height, 0xA0000000);
-		int top = height / 2 - 60;
+		int top = top();
 		ReplayGui.centered(kind == PathingState.Kind.TIME ? "Edit Time Keyframe" : "Edit Position Keyframe", width / 2, top - 16, ReplayGui.WHITE);
 		ReplayGui.text("Timeline Position (min / sec / ms)", width / 2 - 77, top + 3, ReplayGui.LIGHT_GRAY);
 		if (kind == PathingState.Kind.TIME) {

@@ -46,7 +46,28 @@ public final class CameraPath {
 
 	private final TreeMap<Long, Position> positions = new TreeMap<>();
 	private final TreeMap<Long, Integer> times = new TreeMap<>();
-	private CatmullRom[] splines;
+	private Spline[] splines;
+	private Interpolation interpolation = Interpolation.CATMULL_ROM;
+
+	/** Replay Mod's interpolator types for the position path (time keyframes are always linear). */
+	public enum Interpolation {
+		CATMULL_ROM("Catmull-Rom"), CUBIC("Cubic"), LINEAR("Linear");
+
+		public final String title;
+
+		Interpolation(String title) {
+			this.title = title;
+		}
+	}
+
+	public Interpolation interpolation() {
+		return interpolation;
+	}
+
+	public void setInterpolation(Interpolation interpolation) {
+		this.interpolation = interpolation;
+		splines = null;
+	}
 
 	public NavigableMap<Long, Position> positions() {
 		return java.util.Collections.unmodifiableNavigableMap(positions);
@@ -146,9 +167,12 @@ public final class CameraPath {
 				parts[5][i] = p.roll;
 				i++;
 			}
-			splines = new CatmullRom[6];
+			splines = new Spline[6];
 			for (int part = 0; part < 6; part++) {
-				splines[part] = new CatmullRom(keys, parts[part], ALPHA, part < 3 ? Double.NaN : 360);
+				double bound = part < 3 ? Double.NaN : 360;
+				splines[part] = interpolation == Interpolation.CUBIC ? Spline.cubic(keys, parts[part], bound)
+					: interpolation == Interpolation.LINEAR ? Spline.linear(keys, parts[part], bound)
+					: Spline.catmullRom(keys, parts[part], ALPHA, bound);
 			}
 		}
 		return new Position(splines[0].valueAt(time), splines[1].valueAt(time), splines[2].valueAt(time),
