@@ -26,6 +26,9 @@ on one (see below).
 - In a replay: free flying camera, play/pause, speed slider, timeline (click to jump),
   "Exit Replay" in the pause menu. Keys: P pause, [ ] speed, Left/Right jump 10 s,
   T (chat key) frees the mouse for the replay bar.
+- Jumping back replays the recording from the start up to there, leaving out the chunk data
+  and block changes of chunks unloaded again before that moment (the world is the same).
+  Near the end of a 3 minute 1.0 exploration: 0.9 s instead of 1.8 s; 1.7.10 needs ~0.2 s
 - Camera paths like Replay Mod's: a keyframe row under the replay bar with a 10 minute
   timeline. I adds or removes a position keyframe at the camera, O a time keyframe at the
   replay's moment, Delete removes the selected one, C clears all, Ctrl+Z / Ctrl+Y undo and

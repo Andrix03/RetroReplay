@@ -25,6 +25,9 @@ public final class Mc {
 	public static final String VERSION = "1.7.10";
 	public static final int PROTOCOL = 5;
 
+	/** How chunk packets look, for the seek index. */
+	public static final int CHUNK_FORMAT = io.github.andrix03.retroreplay.replay.ChunkIndex.NETTY;
+
 	/** Packet ids the replay treats specially (play state, server to client). */
 	public static final int PACKET_HANDSHAKE = -1; // not a play packet any more
 	public static final int PACKET_HEALTH = 0x06;

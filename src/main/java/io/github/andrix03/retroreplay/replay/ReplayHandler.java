@@ -53,6 +53,8 @@ public final class ReplayHandler {
 	private final int[] times;
 	/** The packets on disk, read in order; shared with the handler a seek back starts. */
 	private final PacketFile packets;
+	/** Chunk packets a fast-forward can leave out; shared like the packets. */
+	private final ChunkIndex chunks;
 	private PacketFile.Reader reader;
 	private ReplayConnection client;
 	private int index;
@@ -66,10 +68,11 @@ public final class ReplayHandler {
 	private double pendingSeek = -1;
 	private final boolean[] keyWasDown = new boolean[256];
 
-	private ReplayHandler(File file, int[] times, PacketFile packets) {
+	private ReplayHandler(File file, int[] times, PacketFile packets, ChunkIndex chunks) {
 		this.file = file;
 		this.times = times;
 		this.packets = packets;
+		this.chunks = chunks;
 	}
 
 	public static ReplayHandler get() {
@@ -180,7 +183,7 @@ public final class ReplayHandler {
 			return;
 		}
 		closeReader();
-		ReplayHandler fresh = new ReplayHandler(file, times, packets);
+		ReplayHandler fresh = new ReplayHandler(file, times, packets, chunks);
 		fresh.speedStep = speedStep;
 		fresh.paused = paused;
 		fresh.timeMs = target;
@@ -305,8 +308,19 @@ public final class ReplayHandler {
 		}
 
 		int before = index;
+		int skipped = 0;
 		long feedStart = System.nanoTime();
-		while (index < times.length && times[index] <= timeMs) {
+		int target = firstAfter(timeMs);
+		while (index < target) {
+			if (!DevAutoplay.NO_CHUNK_SKIP && chunks.skippable(index, target)) {
+				// chunk data unloaded again before this tick's last packet: the world there is the same without it
+				if (!skipPacket()) {
+					break;
+				}
+				index++;
+				skipped++;
+				continue;
+			}
 			byte[] packet = nextPacket();
 			if (packet == null) {
 				break;
@@ -315,8 +329,9 @@ public final class ReplayHandler {
 			feed(packet);
 		}
 		if (index - before > FAST_FORWARD_PACKETS) {
-			// a seek's fast-forward (measured: ~15 us a packet, chunk data the most)
-			RetroReplay.LOGGER.info("Fast-forwarded " + (index - before) + " packets in " + (System.nanoTime() - feedStart) / 1_000_000 + " ms");
+			// a seek's fast-forward (measured: ~15 us a packet handled, chunk data the most)
+			RetroReplay.LOGGER.info("Fast-forwarded " + (index - before) + " packets (" + skipped + " chunk packets left out) in "
+				+ (System.nanoTime() - feedStart) / 1_000_000 + " ms");
 		}
 		Spectator.follow();
 
@@ -384,6 +399,36 @@ public final class ReplayHandler {
 		return down && !was;
 	}
 
+	/** The index of the first packet later than {@code time}. */
+	private int firstAfter(double time) {
+		int low = index;
+		int high = times.length;
+		while (low < high) {
+			int mid = (low + high) >>> 1;
+			if (times[mid] <= time) {
+				low = mid + 1;
+			} else {
+				high = mid;
+			}
+		}
+		return low;
+	}
+
+	/** Passes over the next packet on disk; false when the file cannot be read (playback then stops). */
+	private boolean skipPacket() {
+		try {
+			if (reader == null) {
+				reader = packets.reader();
+			}
+			reader.skip();
+			return true;
+		} catch (IOException e) {
+			RetroReplay.LOGGER.error("Cannot read packet " + index + " of " + file.getName(), e);
+			index = times.length;
+			return false;
+		}
+	}
+
 	/** The next packet from disk, or null when the file cannot be read (playback then stops). */
 	private byte[] nextPacket() {
 		try {
@@ -420,13 +465,14 @@ public final class ReplayHandler {
 			if (!json.contains("\"fileFormat\":\"MCPR_LEGACY\"") || !json.contains("\"mcversion\":\"" + Mc.VERSION + "\"")) {
 				throw new IOException("Not a RetroReplay " + Mc.VERSION + " recording");
 			}
-			PacketFile packets = PacketFile.unpack(zip.getInputStream(recording));
+			ChunkIndex.Builder chunks = new ChunkIndex.Builder(Mc.CHUNK_FORMAT);
+			PacketFile packets = PacketFile.unpack(zip.getInputStream(recording), chunks::packet);
 			if (packets.times().length == 0) {
 				// without even the login packet the world never loads: the terrain screen would stay forever
 				packets.delete();
 				throw new IOException("This replay is empty");
 			}
-			return new ReplayHandler(file, packets.times(), packets);
+			return new ReplayHandler(file, packets.times(), packets, chunks.build());
 		}
 	}
 

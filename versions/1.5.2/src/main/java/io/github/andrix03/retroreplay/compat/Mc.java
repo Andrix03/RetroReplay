@@ -77,6 +77,9 @@ public final class Mc {
 		return minecraft().camera;
 	}
 
+	/** How chunk packets look, for the seek index. */
+	public static final int CHUNK_FORMAT = io.github.andrix03.retroreplay.replay.ChunkIndex.INTEGRATED;
+
 	/** Packet ids the replay treats specially (pre-Netty numbering). */
 	public static final int PACKET_HANDSHAKE = 0x02;
 	public static final int PACKET_HEALTH = 0x08;

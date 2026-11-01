@@ -22,6 +22,8 @@ public final class DevAutoplay {
 	private static final int[] SHOT_TIMES = { 4_000, 8_000, 11_000 };
 	/** Where the seek after the second picture goes (default 3 s, back); RETROREPLAY_AUTOPLAY_SEEK. */
 	private static final int SEEK_TARGET = Integer.parseInt(System.getenv().getOrDefault("RETROREPLAY_AUTOPLAY_SEEK", "3000"));
+	/** Dev A/B check only: seeks handle every chunk packet, to compare the world with the skipping one. */
+	public static final boolean NO_CHUNK_SKIP = System.getenv("RETROREPLAY_NO_CHUNK_SKIP") != null;
 
 	private static boolean armed;
 	private static int stage;
@@ -95,7 +97,8 @@ public final class DevAutoplay {
 			framed = false;
 			shots++;
 			shot(minecraft, "replay_" + shots);
-		} else if (shots < SHOT_TIMES.length && timeMs > SHOT_TIMES[shots]) {
+		} else if (shots < SHOT_TIMES.length && timeMs > (shots == 2 ? Math.max(SHOT_TIMES[2], SEEK_TARGET + 3000) : SHOT_TIMES[shots])) {
+			// the third picture 3 s after the seek target: a long seek lands well past 11 s
 			Entity recorded = findRecordedPlayer(minecraft);
 			RetroReplay.LOGGER.info("Autoplay at " + (int) timeMs + " ms: " + fed + "/" + total + " packets, world=" + (minecraft.world != null)
 				+ ", recorded player=" + (recorded == null ? "none" : recorded.getClass().getSimpleName() + " at " + (int) recorded.x + "," + (int) recorded.y + "," + (int) recorded.z)

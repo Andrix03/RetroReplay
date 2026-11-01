@@ -28,8 +28,17 @@ final class PacketFile {
 		this.times = times;
 	}
 
-	/** Copies the recording out of the zip, noting each packet's time on the way. */
+	/** Sees each packet once while the recording is unpacked. */
+	interface Visitor {
+		void packet(int index, byte[] data, int length);
+	}
+
 	static PacketFile unpack(InputStream recording) throws IOException {
+		return unpack(recording, null);
+	}
+
+	/** Copies the recording out of the zip, noting each packet's time on the way. */
+	static PacketFile unpack(InputStream recording, Visitor visitor) throws IOException {
 		File temp = File.createTempFile("retroreplay", ".tmcpr");
 		temp.deleteOnExit();
 		int[] times = new int[1 << 16];
@@ -52,6 +61,9 @@ final class PacketFile {
 				out.writeInt(time);
 				out.writeInt(length);
 				out.write(buffer, 0, length);
+				if (visitor != null) {
+					visitor.packet(count, buffer, length);
+				}
 				if (count == times.length) {
 					times = Arrays.copyOf(times, count * 2);
 				}
@@ -92,6 +104,19 @@ final class PacketFile {
 			byte[] data = new byte[in.readInt()];
 			in.readFully(data);
 			return data;
+		}
+
+		/** Passes over the next packet without reading it. */
+		void skip() throws IOException {
+			in.readInt();
+			int left = in.readInt();
+			while (left > 0) {
+				int skipped = in.skipBytes(left);
+				if (skipped <= 0) {
+					throw new EOFException();
+				}
+				left -= skipped;
+			}
 		}
 
 		@Override
