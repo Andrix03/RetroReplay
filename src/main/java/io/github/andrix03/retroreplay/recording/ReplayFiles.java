@@ -16,6 +16,11 @@ public final class ReplayFiles {
 	}
 
 	public static void pack(File tmcpr, File target, ReplayMetadata meta) throws IOException {
+		pack(tmcpr, target, meta, null);
+	}
+
+	/** markersJson: Replay Mod's markers.json, or null for none. */
+	public static void pack(File tmcpr, File target, ReplayMetadata meta, String markersJson) throws IOException {
 		File temp = new File(target.getPath() + ".tmp");
 		try (ZipOutputStream zip = new ZipOutputStream(new FileOutputStream(temp))) {
 			zip.putNextEntry(new ZipEntry("recording.tmcpr"));
@@ -30,6 +35,11 @@ public final class ReplayFiles {
 			zip.putNextEntry(new ZipEntry("metaData.json"));
 			zip.write(meta.toJson().getBytes(StandardCharsets.UTF_8));
 			zip.closeEntry();
+			if (markersJson != null) {
+				zip.putNextEntry(new ZipEntry("markers.json"));
+				zip.write(markersJson.getBytes(StandardCharsets.UTF_8));
+				zip.closeEntry();
+			}
 		}
 		if (target.exists() || !temp.renameTo(target)) {
 			throw new IOException("Cannot move " + temp + " to " + target);

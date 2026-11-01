@@ -1,5 +1,7 @@
 package io.github.andrix03.retroreplay.gui;
 
+import io.github.andrix03.retroreplay.compat.Mc;
+import io.github.andrix03.retroreplay.pathing.PathingState;
 import io.github.andrix03.retroreplay.replay.ReplayHandler;
 
 /**
@@ -20,6 +22,8 @@ public final class ReplayOverlay {
 	private static final int BORDER_RIGHT = 4;
 	private static final int BORDER_TOP = 4;
 	private static final int BORDER_BOTTOM = 3;
+	private static final int MARKER_SIZE = 5;
+	private static long lastMarkerClick;
 
 	private ReplayOverlay() {
 	}
@@ -42,6 +46,8 @@ public final class ReplayOverlay {
 		ReplayGui.bind(ReplayGui.JGUI);
 		ReplayGui.dynamicRect(TIMELINE_X, TOP, timelineW, 20, 0, 16, 64, 22, BORDER_TOP + 1, BORDER_BOTTOM, BORDER_LEFT + 1, BORDER_RIGHT);
 		drawTimeMarkers(replay.getDuration(), timelineW);
+		PathingState state = PathingState.of(replay.getFile());
+		drawEventMarkers(state, replay.getDuration(), timelineW);
 		ReplayGui.bind(ReplayGui.JGUI);
 		double fraction = replay.getDuration() == 0 ? 0 : replay.getTime() / replay.getDuration();
 		int cursorX = TIMELINE_X + (int) (BORDER_LEFT + fraction * (timelineW - BORDER_LEFT - BORDER_RIGHT));
@@ -51,12 +57,49 @@ public final class ReplayOverlay {
 		}
 
 		if (mouseFree && inside(mouseX, mouseY, TIMELINE_X, TOP, timelineW, 20)) {
-			String time = ReplayGui.formatTime(timeAt(mouseX, width, replay.getDuration()));
+			Integer marker = markerAt(state, mouseX, mouseY, replay.getDuration(), timelineW);
+			String name = marker == null ? null : state.markers.all().get(marker);
+			// GuiMarkerTimeline's tooltip: the marker's name, else the time under the mouse
+			String time = name != null && !name.isEmpty() ? name : ReplayGui.formatTime(marker != null ? marker : timeAt(mouseX, width, replay.getDuration()));
 			int w = ReplayGui.width(time);
 			ReplayGui.fill(mouseX + 6, mouseY + 6, mouseX + 12 + w, mouseY + 18, 0xF0100010);
 			ReplayGui.text(time, mouseX + 9, mouseY + 8, ReplayGui.WHITE);
 		}
 		PathingOverlay.render(width, mouseX, mouseY, mouseFree);
+	}
+
+	/** GuiMarkerTimeline: 5x5 marks on the bottom edge, (109, 20), selected (114, 20). */
+	private static void drawEventMarkers(PathingState state, int duration, int timelineW) {
+		if (duration <= 0 || state.markers.isEmpty()) {
+			return;
+		}
+		ReplayGui.bind(ReplayGui.REPLAY_GUI);
+		for (int time : state.markers.all().keySet()) {
+			int x = markerX(time, duration, timelineW);
+			boolean selected = time == state.selectedMarker;
+			ReplayGui.texture(x - 2, TOP + 20 - BORDER_BOTTOM - MARKER_SIZE, selected ? 114 : 109, 20, MARKER_SIZE, MARKER_SIZE);
+		}
+	}
+
+	private static int markerX(int time, int duration, int timelineW) {
+		return TIMELINE_X + BORDER_LEFT + (int) ((long) (timelineW - BORDER_LEFT - BORDER_RIGHT) * Math.min(time, duration) / duration);
+	}
+
+	/** The marker under the mouse (only the bottom 5 px of the bar, like Replay Mod), or null. */
+	private static Integer markerAt(PathingState state, int mouseX, int mouseY, int duration, int timelineW) {
+		if (duration <= 0 || mouseY < TOP + 20 - BORDER_BOTTOM - MARKER_SIZE || mouseY >= TOP + 20 - BORDER_BOTTOM) {
+			return null;
+		}
+		Integer best = null;
+		int bestDistance = MARKER_SIZE / 2 + 1;
+		for (int time : state.markers.all().keySet()) {
+			int distance = Math.abs(markerX(time, duration, timelineW) - mouseX);
+			if (distance < bestDistance) {
+				best = time;
+				bestDistance = distance;
+			}
+		}
+		return best;
 	}
 
 	/** jGui draws a line every few seconds, a longer one each larger interval. */
@@ -103,6 +146,20 @@ public final class ReplayOverlay {
 			return true;
 		}
 		if (inside(mouseX, mouseY, TIMELINE_X, TOP, timelineWidth(width), 20)) {
+			PathingState state = PathingState.of(replay.getFile());
+			Integer marker = markerAt(state, mouseX, mouseY, replay.getDuration(), timelineWidth(width));
+			if (marker != null) {
+				// a marker: select and jump to it; a second click on it edits it
+				long now = System.currentTimeMillis();
+				if (marker == state.selectedMarker && now - lastMarkerClick < 300) {
+					Mc.minecraft().openScreen(new EditMarkerScreen(state, marker));
+				}
+				lastMarkerClick = now;
+				state.selectedMarker = marker;
+				replay.jumpTo(marker);
+				return true;
+			}
+			state.selectedMarker = -1;
 			replay.jumpTo(timeAt(mouseX, width, replay.getDuration()));
 			return true;
 		}

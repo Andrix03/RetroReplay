@@ -45,6 +45,8 @@ public class ReplayOverlayScreen extends NoPauseScreen {
 			PathingOverlay.clearKeyframes();
 		} else if ((key == Keyboard.KEY_Z || key == Keyboard.KEY_Y) && (Keyboard.isKeyDown(Keyboard.KEY_LCONTROL) || Keyboard.isKeyDown(Keyboard.KEY_RCONTROL))) {
 			PathingOverlay.undo(key == Keyboard.KEY_Y);
+		} else if (key == Keyboard.KEY_M) {
+			PathingOverlay.addMarker();
 		} else if (key == Keyboard.KEY_B) {
 			minecraft.openScreen(new PlayerOverviewScreen());
 		} else if (key == Keyboard.KEY_H) {

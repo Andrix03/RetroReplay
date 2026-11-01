@@ -22,6 +22,9 @@ public final class PathingState {
 
 	public final File replay;
 	public final CameraPath path = new CameraPath();
+	public final Markers markers = new Markers();
+	/** The marker clicked last on the replay bar, or -1. */
+	public int selectedMarker = -1;
 	public long cursor;
 	/** Visible fraction of the timeline (Replay Mod starts at 0.1). */
 	public double zoom = 0.1;
@@ -79,10 +82,14 @@ public final class PathingState {
 		try {
 			CameraPath saved = PathStore.load(replay);
 			PathStore.fromJson(PathStore.toJson(saved), path);
+			String markerJson = PathStore.readEntry(replay, Markers.ENTRY);
+			if (markerJson != null) {
+				markers.readJson(markerJson);
+			}
 		} catch (IOException e) {
 			RetroReplay.LOGGER.error("Cannot read the camera path of " + replay, e);
 		}
-		savedJson = PathStore.toJson(path);
+		savedJson = PathStore.toJson(path) + markers.toJson();
 	}
 
 	/** The state of this replay, a fresh one (with the path saved in it) when another replay was open before. */
@@ -99,14 +106,17 @@ public final class PathingState {
 		if (state == null) {
 			return;
 		}
-		String json = PathStore.toJson(state.path);
+		String json = PathStore.toJson(state.path) + state.markers.toJson();
 		if (json.equals(state.savedJson)) {
 			return;
 		}
 		try {
-			PathStore.save(state.replay, state.path);
+			java.util.Map<String, String> entries = new java.util.HashMap<>();
+			entries.put(PathStore.ENTRY, state.path.isEmpty() ? null : PathStore.toJson(state.path));
+			entries.put(Markers.ENTRY, state.markers.isEmpty() ? null : state.markers.toJson());
+			PathStore.saveEntries(state.replay, entries);
 			state.savedJson = json;
-			RetroReplay.LOGGER.info("Camera path saved in " + state.replay.getName());
+			RetroReplay.LOGGER.info("Camera path and markers saved in " + state.replay.getName());
 		} catch (IOException e) {
 			RetroReplay.LOGGER.error("Cannot save the camera path in " + state.replay, e);
 		}

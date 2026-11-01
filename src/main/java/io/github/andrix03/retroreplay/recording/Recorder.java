@@ -17,6 +17,7 @@ import java.util.Set;
 
 import io.github.andrix03.retroreplay.RetroReplay;
 import io.github.andrix03.retroreplay.compat.Mc;
+import io.github.andrix03.retroreplay.pathing.Markers;
 
 import net.minecraft.network.packet.Packet;
 
@@ -36,6 +37,7 @@ public final class Recorder {
 	private final long startDate = System.currentTimeMillis();
 	private final long startNanos = System.nanoTime();
 	private final Set<Integer> failedIds = new HashSet<>();
+	private final Markers markers = new Markers();
 	private final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
 	private final DataOutputStream bufferData = new DataOutputStream(buffer);
 	private DataOutputStream out;
@@ -180,6 +182,15 @@ public final class Recorder {
 		append(buffer.toByteArray());
 	}
 
+	/** Replay Mod's M key while recording: an event marker at this moment; false when not recording. */
+	public static synchronized boolean addMarker() {
+		if (current == null) {
+			return false;
+		}
+		current.markers.put(current.elapsedMs(), "");
+		return true;
+	}
+
 	/** A multiplayer packet exactly as it came off the wire (id byte + payload). */
 	public static synchronized void recordRaw(byte[] data) {
 		if (current != null) {
@@ -213,7 +224,7 @@ public final class Recorder {
 	private void finish() {
 		try {
 			out.close();
-			ReplayFiles.pack(tmcpr, target, metadata());
+			ReplayFiles.pack(tmcpr, target, metadata(), markers.isEmpty() ? null : markers.toJson());
 			if (!tmcpr.delete()) {
 				tmcpr.deleteOnExit();
 			}

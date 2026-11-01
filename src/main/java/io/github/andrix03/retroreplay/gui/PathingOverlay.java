@@ -459,9 +459,25 @@ public final class PathingOverlay {
 		}
 	}
 
+	/** M in a replay: an event marker at the replay's current time. */
+	public static void addMarker() {
+		PathingState state = state();
+		if (state != null) {
+			int time = (int) ReplayHandler.get().getTime();
+			state.markers.put(time, "");
+			state.selectedMarker = time;
+			show("Marker added at " + ReplayGui.formatTime(time));
+		}
+	}
+
 	public static void removeSelected() {
 		PathingState state = state();
 		if (state == null) {
+			return;
+		}
+		if (state.selectedMarker >= 0 && state.markers.all().containsKey(state.selectedMarker)) {
+			state.markers.remove(state.selectedMarker); // a selected marker goes first, like Replay Mod
+			state.selectedMarker = -1;
 			return;
 		}
 		PathingState.Kind selection = state.selection();

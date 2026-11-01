@@ -2,6 +2,7 @@ package io.github.andrix03.retroreplay.replay;
 
 import io.github.andrix03.retroreplay.RetroReplay;
 import io.github.andrix03.retroreplay.compat.Mc;
+import io.github.andrix03.retroreplay.recording.Recorder;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
@@ -79,6 +80,7 @@ public final class DevAutorecord {
 		ticks++;
 		if (ticks == 60) {
 			Screenshot.take(minecraft.gameDir, "autorecord_recording.png", minecraft.width, minecraft.height);
+			Recorder.addMarker(); // what the M key does
 		}
 		if (ticks == 80 && DIE) {
 			RetroReplay.LOGGER.info("Autorecord: /kill");

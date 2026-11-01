@@ -58,7 +58,7 @@ public final class DevAutopath {
 				if (replay != null && minecraft.world != null && minecraft.player != null && replay.getTime() > 3000 && waitTicks > 40) {
 					PathingState state = PathingState.of(replay.getFile());
 					RetroReplay.LOGGER.info("Autopath: the replay came with " + state.path.positions().size() + " position and "
-						+ state.path.times().size() + " time keyframes");
+						+ state.path.times().size() + " time keyframes and markers at " + state.markers.all().keySet());
 					CameraPath.Position a = PathPlayer.cameraPosition();
 					CameraPath.Position b = new CameraPath.Position(a.x + 10, a.y + 2, a.z, a.yaw + 90, a.pitch, 0);
 					state.path.putPosition(0, a);

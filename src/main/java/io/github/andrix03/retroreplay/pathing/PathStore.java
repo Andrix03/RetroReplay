@@ -21,7 +21,7 @@ import java.util.zip.ZipOutputStream;
  */
 public final class PathStore {
 
-	static final String ENTRY = "camera_path.json";
+	public static final String ENTRY = "camera_path.json";
 	private static final Pattern ROW = Pattern.compile("\\[([^\\[\\]]*)\\]");
 
 	private PathStore() {
@@ -86,25 +86,42 @@ public final class PathStore {
 	/** The path saved in a replay, or an empty one. */
 	public static CameraPath load(File replay) throws IOException {
 		CameraPath path = new CameraPath();
-		try (ZipFile zip = new ZipFile(replay)) {
-			ZipEntry entry = zip.getEntry(ENTRY);
-			if (entry != null) {
-				try (InputStream in = zip.getInputStream(entry)) {
-					fromJson(new String(readAll(in), StandardCharsets.UTF_8), path);
-				}
-			}
+		String json = readEntry(replay, ENTRY);
+		if (json != null) {
+			fromJson(json, path);
 		}
 		return path;
 	}
 
-	/** Rewrites the replay with the path entry replaced (temp file + rename, never a half file). */
+	/** Rewrites the replay with the path entry replaced. */
 	public static void save(File replay, CameraPath path) throws IOException {
+		saveEntries(replay, java.util.Collections.singletonMap(ENTRY, path.isEmpty() ? null : toJson(path)));
+	}
+
+	/** A text entry of the replay file, or null. */
+	public static String readEntry(File replay, String name) throws IOException {
+		try (ZipFile zip = new ZipFile(replay)) {
+			ZipEntry entry = zip.getEntry(name);
+			if (entry == null) {
+				return null;
+			}
+			try (InputStream in = zip.getInputStream(entry)) {
+				return new String(readAll(in), StandardCharsets.UTF_8);
+			}
+		}
+	}
+
+	/**
+	 * Rewrites the replay with these entries replaced (null: removed), the others copied as
+	 * they are. Temp file + rename, never a half file.
+	 */
+	public static void saveEntries(File replay, Map<String, String> replaced) throws IOException {
 		File temp = new File(replay.getPath() + ".tmp");
 		try (ZipFile zip = new ZipFile(replay); ZipOutputStream out = new ZipOutputStream(new FileOutputStream(temp))) {
 			Enumeration<? extends ZipEntry> entries = zip.entries();
 			while (entries.hasMoreElements()) {
 				ZipEntry entry = entries.nextElement();
-				if (entry.getName().equals(ENTRY)) {
+				if (replaced.containsKey(entry.getName())) {
 					continue;
 				}
 				out.putNextEntry(new ZipEntry(entry.getName()));
@@ -117,10 +134,12 @@ public final class PathStore {
 				}
 				out.closeEntry();
 			}
-			if (!path.isEmpty()) {
-				out.putNextEntry(new ZipEntry(ENTRY));
-				out.write(toJson(path).getBytes(StandardCharsets.UTF_8));
-				out.closeEntry();
+			for (Map.Entry<String, String> entry : replaced.entrySet()) {
+				if (entry.getValue() != null) {
+					out.putNextEntry(new ZipEntry(entry.getKey()));
+					out.write(entry.getValue().getBytes(StandardCharsets.UTF_8));
+					out.closeEntry();
+				}
 			}
 		}
 		if (!replay.delete() || !temp.renameTo(replay)) {
