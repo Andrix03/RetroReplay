@@ -3,6 +3,7 @@ package io.github.andrix03.retroreplay.gui;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
+import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.compat.NoPauseScreen;
 
 /**
@@ -33,7 +34,7 @@ public class ReplayOverlayScreen extends NoPauseScreen {
 
 	@Override
 	protected void keyPressed(char chr, int key) {
-		if (key == Keyboard.KEY_ESCAPE || key == minecraft.options.chatKey.keyCode) {
+		if (key == Keyboard.KEY_ESCAPE || key == Mc.chatKeyCode()) {
 			minecraft.openScreen(null);
 		} else if (key == Keyboard.KEY_I) {
 			PathingOverlay.togglePositionKeyframe();

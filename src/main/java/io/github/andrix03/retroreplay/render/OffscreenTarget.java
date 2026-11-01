@@ -10,14 +10,16 @@ import io.github.andrix03.retroreplay.compat.Mc;
 import net.minecraft.client.Minecraft;
 
 /**
- * Renders a video at any size: these versions draw straight to the window, so while a frame
- * is drawn a framebuffer of the video's size is bound and Minecraft's width and height (which
- * size its viewport and projection) are set to it. Color and depth live in renderbuffers.
+ * Renders a video at any size: before 1.7 the game draws straight to the window, so while a
+ * frame is drawn a framebuffer of the video's size is bound and Minecraft's width and height
+ * (which size its viewport and projection) are set to it. Color and depth live in renderbuffers.
+ * From 1.7 the game binds its own framebuffer while drawing, so that one is resized instead.
  */
 final class OffscreenTarget {
 
 	private final int width;
 	private final int height;
+	private boolean gameTarget;
 	private int framebuffer;
 	private int color;
 	private int depth;
@@ -43,6 +45,12 @@ final class OffscreenTarget {
 			return null;
 		}
 		OffscreenTarget target = new OffscreenTarget(width, height);
+		target.windowWidth = Mc.minecraft().width;
+		target.windowHeight = Mc.minecraft().height;
+		if (Mc.resizeGameTarget(width, height)) {
+			target.gameTarget = true;
+			return target;
+		}
 		target.framebuffer = EXTFramebufferObject.glGenFramebuffersEXT();
 		target.color = EXTFramebufferObject.glGenRenderbuffersEXT();
 		target.depth = EXTFramebufferObject.glGenRenderbuffersEXT();
@@ -72,7 +80,11 @@ final class OffscreenTarget {
 		windowHeight = minecraft.height;
 		minecraft.width = width;
 		minecraft.height = height;
-		EXTFramebufferObject.glBindFramebufferEXT(EXTFramebufferObject.GL_FRAMEBUFFER_EXT, framebuffer);
+		if (gameTarget) {
+			Mc.bindGameTarget();
+		} else {
+			EXTFramebufferObject.glBindFramebufferEXT(EXTFramebufferObject.GL_FRAMEBUFFER_EXT, framebuffer);
+		}
 		GL11.glViewport(0, 0, width, height);
 	}
 
@@ -86,6 +98,10 @@ final class OffscreenTarget {
 	}
 
 	void delete() {
+		if (gameTarget) {
+			Mc.resizeGameTarget(windowWidth, windowHeight);
+			return;
+		}
 		EXTFramebufferObject.glDeleteFramebuffersEXT(framebuffer);
 		EXTFramebufferObject.glDeleteRenderbuffersEXT(color);
 		EXTFramebufferObject.glDeleteRenderbuffersEXT(depth);

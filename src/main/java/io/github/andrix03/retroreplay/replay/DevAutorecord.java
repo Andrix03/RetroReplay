@@ -5,7 +5,6 @@ import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.recording.Recorder;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screen.menu.GameMenuScreen;
 import net.minecraft.client.gui.screen.menu.TitleScreen;
 
@@ -66,12 +65,12 @@ public final class DevAutorecord {
 			return;
 		}
 		if (minecraft.screen instanceof GameMenuScreen && System.nanoTime() - pauseStart > PAUSE_NANOS) {
-			Screenshot.take(minecraft.gameDir, "autorecord_paused.png", minecraft.width, minecraft.height);
+			Mc.screenshot("autorecord_paused.png");
 			RetroReplay.LOGGER.info("Autorecord: closing the pause menu");
 			minecraft.openScreen(null);
 		}
 		if (DIE && minecraft.screen != null && minecraft.screen.getClass().getSimpleName().equals("DeathScreen") && ++deathTicks == 40) {
-			Screenshot.take(minecraft.gameDir, "autorecord_death.png", minecraft.width, minecraft.height);
+			Mc.screenshot("autorecord_death.png");
 			RetroReplay.LOGGER.info("Autorecord: respawning");
 			callPlayer(minecraft, "respawn");
 			minecraft.openScreen(null);
@@ -81,7 +80,7 @@ public final class DevAutorecord {
 		}
 		ticks++;
 		if (ticks == 60) {
-			Screenshot.take(minecraft.gameDir, "autorecord_recording.png", minecraft.width, minecraft.height);
+			Mc.screenshot("autorecord_recording.png");
 			Recorder.addMarker(); // what the M key does
 		}
 		if (ticks == 80 && DIE) {

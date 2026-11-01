@@ -35,6 +35,11 @@ public final class ReplayConnection {
 		Mc.newSinkConnection().bind(clientConnection);
 	}
 
+	/** The screen shown until the login packet builds the world. */
+	public net.minecraft.client.gui.screen.Screen terrainScreen() {
+		return new net.minecraft.client.gui.screen.menu.multiplayer.DownloadingTerrainScreen(handler);
+	}
+
 	/** Queued like a server packet, handled on the next client tick. */
 	public void accept(Packet packet) {
 		client.accept(packet);

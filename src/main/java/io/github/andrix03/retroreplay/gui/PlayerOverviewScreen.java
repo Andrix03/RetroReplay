@@ -42,7 +42,7 @@ public class PlayerOverviewScreen extends NoPauseScreen {
 		if (button.id == FREE_CAMERA) {
 			Spectator.stop();
 		} else if (button.id < players.size()) {
-			Spectator.spectate(players.get(button.id).networkId);
+			Spectator.spectate(Mc.entityId(players.get(button.id)));
 		}
 		minecraft.openScreen(null);
 	}

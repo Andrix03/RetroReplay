@@ -5,7 +5,6 @@ import io.github.andrix03.retroreplay.RetroReplay;
 import io.github.andrix03.retroreplay.gui.ReplayViewerScreen;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screen.menu.GameMenuScreen;
 import net.minecraft.client.gui.screen.menu.TitleScreen;
 import net.minecraft.entity.Entity;
@@ -74,7 +73,7 @@ public final class DevAutoplay {
 
 	private static void shot(Minecraft minecraft, String name) {
 		RetroReplay.LOGGER.info("Autoplay screenshot " + name);
-		Screenshot.take(minecraft.gameDir, "autoplay_" + name + ".png", minecraft.width, minecraft.height);
+		Mc.screenshot("autoplay_" + name + ".png");
 	}
 
 	/** After the second picture, jump back to 3 s once so the third one checks the rebuilt world. */

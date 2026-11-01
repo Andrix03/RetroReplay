@@ -15,10 +15,10 @@ import org.lwjgl.Sys;
 import org.lwjgl.input.Mouse;
 
 import io.github.andrix03.retroreplay.RetroReplay;
+import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.recording.Recorder;
 import io.github.andrix03.retroreplay.replay.ReplayHandler;
 
-import net.minecraft.client.gui.screen.ConfirmScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 
@@ -109,7 +109,7 @@ public class ReplayViewerScreen extends Screen {
 				minecraft.openScreen(new RenameReplayScreen(this, entries.get(selected).file));
 				break;
 			case DELETE:
-				minecraft.openScreen(new ConfirmScreen(this, "Are you sure you want to delete this replay?",
+				minecraft.openScreen(Mc.confirmScreen(this, "Are you sure you want to delete this replay?",
 					"'" + entries.get(selected).name + "' will be lost forever! (A long time!)", "Yes", "No", DELETE));
 				break;
 			case CANCEL:

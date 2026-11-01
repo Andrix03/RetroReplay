@@ -4,6 +4,7 @@
 	"package": "io.github.andrix03.retroreplay.mixin",
 	"compatibilityLevel": "JAVA_8",
 	"client": [
+		"RemoteConnectionMixin",
 		"ClientNetworkHandlerMixin",
 		"LocalConnectionMixin",
 		"MinecraftConnectionAccessor"

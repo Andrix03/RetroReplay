@@ -16,7 +16,6 @@ import io.github.andrix03.retroreplay.render.RenderSettings;
 import io.github.andrix03.retroreplay.render.VideoRenderer;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screen.menu.TitleScreen;
 
 /**
@@ -68,7 +67,7 @@ public final class DevAutopath {
 					if (SPECTATE && !Spectator.players().isEmpty()) {
 						// the middle of the path through the recorded player's eyes
 						net.minecraft.entity.Entity player = Spectator.players().get(0);
-						spectated = player.networkId;
+						spectated = Mc.entityId(player);
 						state.path.removePosition(2000);
 						state.path.putPosition(1000, Spectator.positionOf(player, spectated));
 						state.path.putPosition(3000, Spectator.positionOf(player, spectated));
@@ -227,7 +226,7 @@ public final class DevAutopath {
 					if (SPECTATE) {
 						Object camera = Mc.cameraEntity();
 						RetroReplay.LOGGER.info("Autopath: at the middle the camera is " + (camera == minecraft.player ? "the free camera"
-							: "entity " + ((net.minecraft.entity.Entity) camera).networkId) + " (expected " + spectated + ")");
+							: "entity " + Mc.entityId(camera)) + " (expected " + spectated + ")");
 					}
 					shot(minecraft, "path_middle");
 				}
@@ -290,6 +289,6 @@ public final class DevAutopath {
 
 	private static void shot(Minecraft minecraft, String name) {
 		RetroReplay.LOGGER.info("Autopath screenshot " + name);
-		Screenshot.take(minecraft.gameDir, "autopath_" + name + ".png", minecraft.width, minecraft.height);
+		Mc.screenshot("autopath_" + name + ".png");
 	}
 }

@@ -73,6 +73,70 @@ public final class Mc {
 		return minecraft().camera;
 	}
 
+	/** Packet ids the replay treats specially (pre-Netty numbering). */
+	public static final int PACKET_HANDSHAKE = 0x02;
+	public static final int PACKET_HEALTH = 0x08;
+	public static final int PACKET_ABILITIES = 0xCA;
+	public static final int PACKET_CUSTOM_PAYLOAD = 0xFA;
+	public static final int PACKET_POSITION = 0x0D;
+	public static final int PACKET_GAME_STATE = 0x46;
+	public static final int PACKET_RESPAWN = 0x09;
+
+	/** A packet as the replay file stores it: id byte + payload. */
+	public static byte[] serialize(Packet packet) throws java.io.IOException {
+		java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+		java.io.DataOutputStream out = new java.io.DataOutputStream(bytes);
+		out.writeByte(packet.getId());
+		packet.write(out);
+		return bytes.toByteArray();
+	}
+
+	public static String packetName(Packet packet) {
+		return packet.getId() + " (" + packet.getClass().getSimpleName() + ")";
+	}
+
+	/** A stored packet read back; the login packet's player id becomes the replay camera's. */
+	public static Packet readPacket(byte[] data, int cameraId) throws java.io.IOException {
+		Packet packet = createPacket(data[0] & 0xFF);
+		if (packet == null) {
+			return null;
+		}
+		packet.read(new java.io.DataInputStream(new java.io.ByteArrayInputStream(data, 1, data.length - 1)));
+		if (packet instanceof net.minecraft.network.packet.LoginPacket) {
+			((net.minecraft.network.packet.LoginPacket) packet).gameVersion = cameraId; // the field is the player's entity id
+		}
+		return packet;
+	}
+
+	public static int entityId(Object entity) {
+		return ((net.minecraft.entity.Entity) entity).networkId;
+	}
+
+	public static int chatKeyCode() {
+		return minecraft().options.chatKey.keyCode;
+	}
+
+	public static Screen confirmScreen(Screen parent, String title, String message, String yes, String no, int id) {
+		return new net.minecraft.client.gui.screen.ConfirmScreen(parent, title, message, yes, no, id);
+	}
+
+	/** The GUI's width in scaled pixels. */
+	public static int scaledWidth() {
+		return new net.minecraft.client.render.Window(minecraft().options, minecraft().width, minecraft().height).getWidth();
+	}
+
+	public static void screenshot(String name) {
+		net.minecraft.client.Screenshot.take(minecraft().gameDir, name, minecraft().width, minecraft().height);
+	}
+
+	/** Before 1.7 the game draws straight to the window: there is no framebuffer of its own to use. */
+	public static boolean resizeGameTarget(int width, int height) {
+		return false;
+	}
+
+	public static void bindGameTarget() {
+	}
+
 	/** Dev self-test only: opens (or creates, seed 1234) a survival singleplayer world. */
 	public static void startSelftestWorld(String name) {
 		minecraft().startGame(name, name, new net.minecraft.world.WorldSettings(1234L, Integer.parseInt(System.getenv().getOrDefault("RETROREPLAY_AUTORECORD_GAMEMODE", "0")), true, System.getenv("RETROREPLAY_AUTORECORD_HARDCORE") != null, net.minecraft.world.gen.WorldGeneratorType.DEFAULT));

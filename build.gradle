@@ -25,9 +25,12 @@ subprojects {
 		main {
 			java.srcDirs = [rootProject.file('src/main/java'), 'src/main/java']
 			resources.srcDirs = [rootProject.file('src/main/resources'), 'src/main/resources']
-			def shared = side == null ? 'src-integrated' : 'src-split'
-			java.srcDir rootProject.file("${shared}/main/java")
-			resources.srcDir rootProject.file("${shared}/main/resources")
+			// shared_sources = none: a version with its own network layer (1.7+, Netty) takes neither
+			def shared = project.findProperty('shared_sources') ?: (side == null ? 'src-integrated' : 'src-split')
+			if (shared != 'none') {
+				java.srcDir rootProject.file("${shared}/main/java")
+				resources.srcDir rootProject.file("${shared}/main/resources")
+			}
 		}
 		test {
 			// pure logic only (pathing): the same tests run in every version project
@@ -113,6 +116,13 @@ subprojects {
 
 	loom {
 		runs {
+			client {
+				// 1.7 and later refuse to start without it (the launcher passes the account's properties)
+				if (project.findProperty('shared_sources') == 'none') {
+					// and a dev account without a UUID would write player packets nobody can read back
+					programArgs '--userProperties', '{}', '--uuid', '00000000-0000-3000-8000-000000000001'
+				}
+			}
 			server {
 				// separate folder so the dev server never touches the client's run/
 				runDir 'run-server'

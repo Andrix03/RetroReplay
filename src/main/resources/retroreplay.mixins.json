@@ -12,7 +12,6 @@
 		"MinecraftAccessor",
 		"WorldRendererAccessor",
 		"MinecraftMixin",
-		"RemoteConnectionMixin",
 		"TitleScreenMixin",
 		"ToastGuiMixin"
 	],

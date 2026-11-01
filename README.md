@@ -6,7 +6,7 @@ versions).
 
 ## Versions
 
-1.0.0, 1.1, 1.2.5, 1.3.2, 1.4.7, 1.5.2, 1.6.4 (one jar per version).
+1.0.0, 1.1, 1.2.5, 1.3.2, 1.4.7, 1.5.2, 1.6.4, 1.7.10 (one jar per version).
 
 ## Install
 
@@ -18,7 +18,8 @@ on one (see below).
 
 ## Status
 
-- Records singleplayer and multiplayer sessions to `.minecraft/replay_recordings/*.mcpr`,
+- Records singleplayer and multiplayer sessions to `.minecraft/replay_recordings/*.mcpr` (on 1.7.10
+  packets are stored as VarInt id + payload, like Replay Mod),
   including your own player, with a Replay Mod style "RECORDING" indicator. The recording
   clock stops while a singleplayer game is paused.
 - Replay Viewer from the main menu (logo button): load, open folder, rename, delete.

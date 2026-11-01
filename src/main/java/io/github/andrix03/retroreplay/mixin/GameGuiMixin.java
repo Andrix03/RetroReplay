@@ -16,7 +16,7 @@ import io.github.andrix03.retroreplay.replay.ReplayHandler;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GameGui;
-import net.minecraft.client.render.Window;
+import io.github.andrix03.retroreplay.compat.Mc;
 
 /** In a replay the HUD is replaced by the replay bar; while recording, the indicator is added. */
 @Mixin(GameGui.class)
@@ -32,7 +32,7 @@ public class GameGuiMixin {
 			ci.cancel();
 			minecraft.gameRenderer.setupGuiState();
 			if (!(minecraft.screen instanceof ReplayOverlayScreen) && !VideoRenderer.isRendering()) {
-				ReplayOverlay.render(new Window(minecraft.options, minecraft.width, minecraft.height).getWidth(), 0, 0, false);
+				ReplayOverlay.render(Mc.scaledWidth(), 0, 0, false);
 			}
 		}
 	}

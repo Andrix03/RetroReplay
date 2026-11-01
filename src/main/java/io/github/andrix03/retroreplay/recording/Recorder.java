@@ -2,7 +2,6 @@ package io.github.andrix03.retroreplay.recording;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
@@ -36,10 +35,8 @@ public final class Recorder {
 	private final String serverName;
 	private final long startDate = System.currentTimeMillis();
 	private final long startNanos = System.nanoTime();
-	private final Set<Integer> failedIds = new HashSet<>();
+	private final Set<Class<?>> failedTypes = new HashSet<>();
 	private final Markers markers = new Markers();
-	private final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-	private final DataOutputStream bufferData = new DataOutputStream(buffer);
 	private DataOutputStream out;
 	private int lastTime;
 	private int packetCount;
@@ -178,18 +175,16 @@ public final class Recorder {
 	}
 
 	private void write(Packet packet) {
-		int id = packet.getId();
+		byte[] data;
 		try {
-			buffer.reset();
-			bufferData.writeByte(id);
-			packet.write(bufferData);
+			data = Mc.serialize(packet);
 		} catch (Exception e) {
-			if (failedIds.add(id)) {
-				RetroReplay.LOGGER.warn("Cannot serialize packet " + id + " (" + packet.getClass().getSimpleName() + ")", e);
+			if (failedTypes.add(packet.getClass())) {
+				RetroReplay.LOGGER.warn("Cannot serialize packet " + Mc.packetName(packet), e);
 			}
 			return;
 		}
-		append(buffer.toByteArray());
+		append(data);
 	}
 
 	/** Replay Mod's M key while recording: an event marker at this moment; false when not recording. */

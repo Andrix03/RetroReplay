@@ -41,6 +41,11 @@ public final class ReplayConnection {
 		}
 	}
 
+	/** The screen shown until the login packet builds the world. */
+	public net.minecraft.client.gui.screen.Screen terrainScreen() {
+		return new net.minecraft.client.gui.screen.menu.multiplayer.DownloadingTerrainScreen(handler);
+	}
+
 	public void accept(Packet packet) {
 		packet.handle(handler);
 	}

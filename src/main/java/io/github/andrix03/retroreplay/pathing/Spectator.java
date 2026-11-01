@@ -80,7 +80,7 @@ public final class Spectator {
 			return null;
 		}
 		for (Object entity : minecraft.world.entities) {
-			if (entity != minecraft.player && ((Entity) entity).networkId == entityId) {
+			if (entity != minecraft.player && Mc.entityId(entity) == entityId) {
 				return (Entity) entity;
 			}
 		}

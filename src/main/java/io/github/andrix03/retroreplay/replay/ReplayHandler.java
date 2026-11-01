@@ -1,7 +1,5 @@
 package io.github.andrix03.retroreplay.replay;
 
-import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,8 +23,6 @@ import io.github.andrix03.retroreplay.render.VideoRenderer;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screen.game.ChatScreen;
-import net.minecraft.client.gui.screen.menu.multiplayer.DownloadingTerrainScreen;
-import net.minecraft.network.packet.LoginPacket;
 import net.minecraft.network.packet.Packet;
 
 /**
@@ -169,7 +165,7 @@ public final class ReplayHandler {
 		}
 		handler.lastNanos = System.nanoTime();
 		// without a world the client expects a screen until the login packet builds one
-		minecraft.openScreen(new DownloadingTerrainScreen(handler.client.handler));
+		minecraft.openScreen(handler.client.terrainScreen());
 	}
 
 	/**
@@ -346,39 +342,34 @@ public final class ReplayHandler {
 		if (drop(id, data)) {
 			return;
 		}
-		Minecraft minecraft = Mc.minecraft();
-		Packet packet = Mc.createPacket(id);
-		if (packet == null) {
-			return;
-		}
+		Packet packet;
 		try {
-			packet.read(new DataInputStream(new ByteArrayInputStream(data, 1, data.length - 1)));
+			packet = Mc.readPacket(data, CAMERA_ID);
 		} catch (Exception e) {
 			RetroReplay.LOGGER.warn("Cannot read replay packet " + id, e);
 			return;
 		}
-		if (packet instanceof LoginPacket) {
-			((LoginPacket) packet).gameVersion = CAMERA_ID; // the field is the player's entity id
+		if (packet != null) {
+			client.accept(packet);
 		}
-		client.accept(packet);
 	}
 
 	private boolean drop(int id, byte[] data) {
 		switch (id) {
-			case 0x02: // handshake (before 1.3): would log in to minecraft.net for online servers
-			case 0x08: // health: no death screen for the camera
-			case 0xCA: // abilities: keep the camera flying
-			case 0xFA: // custom payload: mod handshakes and trade/book screens, nothing to show
+			case Mc.PACKET_HANDSHAKE: // handshake (before 1.3): would log in to minecraft.net for online servers
+			case Mc.PACKET_HEALTH: // health: no death screen for the camera
+			case Mc.PACKET_ABILITIES: // abilities: keep the camera flying
+			case Mc.PACKET_CUSTOM_PAYLOAD: // custom payload: mod handshakes and trade/book screens, nothing to show
 				return true;
-			case 0x0D: // position: only the first one places the camera
+			case Mc.PACKET_POSITION: // position: only the first one places the camera
 				if (positioned) {
 					return true;
 				}
 				positioned = true;
 				return false;
-			case 0x46: // game state: keep rain, drop game mode and credits
+			case Mc.PACKET_GAME_STATE: // game state: keep rain, drop game mode and credits
 				return data.length > 1 && (data[1] == 3 || data[1] == 4);
-			case 0x09: // respawn: the camera stays where it is, the world reloads around it
+			case Mc.PACKET_RESPAWN: // respawn: the camera stays where it is, the world reloads around it
 				positioned = false;
 				return false;
 			default:
