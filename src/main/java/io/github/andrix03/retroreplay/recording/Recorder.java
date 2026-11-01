@@ -62,6 +62,10 @@ public final class Recorder {
 		}
 	}
 
+	public static synchronized boolean isRecording() {
+		return current != null;
+	}
+
 	public static synchronized void record(Packet packet) {
 		if (current != null) {
 			current.write(packet);

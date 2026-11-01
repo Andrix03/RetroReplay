@@ -8,9 +8,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -22,6 +20,7 @@ import io.github.andrix03.retroreplay.mixin.MinecraftAccessor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.network.handler.ClientNetworkHandler;
 import net.minecraft.network.LocalConnection;
+import net.minecraft.network.packet.LoginPacket;
 import net.minecraft.network.packet.Packet;
 import net.minecraft.server.integrated.IntegratedServer;
 
@@ -34,14 +33,11 @@ public final class ReplayHandler {
 
 	private static final double[] SPEEDS = { 0.1, 0.25, 0.5, 1, 2, 4, 8 };
 
-	/** Packets that would move, hurt or change the camera player. */
-	private static final Set<Integer> SELF_ENTITY_PACKETS = new HashSet<>();
-
-	static {
-		for (int id : new int[] { 0x12, 0x1C, 0x1F, 0x20, 0x21, 0x22, 0x23, 0x26, 0x27, 0x28, 0x29, 0x2A }) {
-			SELF_ENTITY_PACKETS.add(id);
-		}
-	}
+	/**
+	 * The camera gets its own entity id, so the recorded player (spawned by the packets
+	 * LocalPlayerRecorder wrote) is an ordinary entity that every recorded packet can address.
+	 */
+	public static final int CAMERA_ID = -1_000_000;
 
 	private static ReplayHandler active;
 	private static boolean starting;
@@ -55,7 +51,6 @@ public final class ReplayHandler {
 	private long lastNanos;
 	private int speedIndex = 3;
 	private boolean paused;
-	private int selfId = Integer.MIN_VALUE;
 	private boolean positioned;
 	private final boolean[] keyWasDown = new boolean[256];
 
@@ -155,9 +150,7 @@ public final class ReplayHandler {
 
 	private void feed(byte[] data) {
 		int id = data[0] & 0xFF;
-		if (id == 0x01) {
-			selfId = readInt(data, 1);
-		} else if (drop(id, data)) {
+		if (drop(id, data)) {
 			return;
 		}
 		Minecraft minecraft = Minecraft.getInstance();
@@ -170,6 +163,9 @@ public final class ReplayHandler {
 		} catch (IOException e) {
 			RetroReplay.LOGGER.warn("Cannot read replay packet " + id, e);
 			return;
+		}
+		if (packet instanceof LoginPacket) {
+			((LoginPacket) packet).gameVersion = CAMERA_ID; // the field is the player's entity id
 		}
 		client.accept(packet);
 	}
@@ -187,8 +183,11 @@ public final class ReplayHandler {
 				return false;
 			case 0x46: // game state: keep rain, drop game mode and credits
 				return data.length > 1 && (data[1] == 3 || data[1] == 4);
+			case 0x09: // respawn: the camera stays where it is, the world reloads around it
+				positioned = false;
+				return false;
 			default:
-				return SELF_ENTITY_PACKETS.contains(id) && data.length >= 5 && readInt(data, 1) == selfId;
+				return false;
 		}
 	}
 

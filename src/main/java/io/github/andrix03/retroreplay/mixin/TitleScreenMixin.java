@@ -9,6 +9,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import io.github.andrix03.retroreplay.RetroReplay;
 import io.github.andrix03.retroreplay.replay.DevAutoplay;
+import io.github.andrix03.retroreplay.replay.DevAutorecord;
 import io.github.andrix03.retroreplay.replay.ReplayHandler;
 
 import net.minecraft.client.gui.screen.Screen;
@@ -24,7 +25,9 @@ public abstract class TitleScreenMixin extends Screen {
 	@Inject(method = "init", at = @At("TAIL"))
 	private void retroreplay$addButton(CallbackInfo ci) {
 		buttons.add(new ButtonWidget(REPLAY_BUTTON, width / 2 - 154, height / 4 + 48, 50, 20, "Replay"));
-		DevAutoplay.onTitleScreen();
+		if (!DevAutorecord.onTitleScreen()) {
+			DevAutoplay.onTitleScreen();
+		}
 	}
 
 	@Inject(method = "buttonClicked", at = @At("HEAD"), cancellable = true)
