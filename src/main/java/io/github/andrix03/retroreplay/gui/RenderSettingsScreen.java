@@ -17,7 +17,7 @@ import net.minecraft.client.gui.widget.TextFieldWidget;
 
 /**
  * The render button's settings (a reduced GuiRenderSettings): encoding preset, bitrate, frame
- * rate and file name. Videos go to .minecraft/replay_videos at the window's resolution.
+ * rate, resolution and file name. Videos go to .minecraft/replay_videos.
  */
 public class RenderSettingsScreen extends NoPauseScreen {
 
@@ -26,6 +26,10 @@ public class RenderSettingsScreen extends NoPauseScreen {
 	private static final int FPS = 2;
 	private static final int RENDER = 3;
 	private static final int CANCEL = 4;
+	private static final int RESOLUTION = 5;
+	/** width, height; 0 = the window's size. Replay Mod renders 1920x1080 by default. */
+	private static final int[][] RESOLUTIONS = { { 1920, 1080 }, { 1280, 720 }, { 2560, 1440 }, { 3840, 2160 }, { 0, 0 } };
+	private static int resolution;
 
 	/** Kept between renders like Replay Mod remembers its last settings. */
 	private static final RenderSettings LAST = new RenderSettings();
@@ -39,15 +43,16 @@ public class RenderSettingsScreen extends NoPauseScreen {
 		Keyboard.enableRepeatEvents(true);
 		buttons.clear();
 		int x = width / 2 - 100;
-		int y = height / 2 - 70;
+		int y = height / 2 - 82;
 		buttons.add(new ButtonWidget(PRESET, x, y, 200, 20, presetLabel()));
 		buttons.add(bitrateButton = new ButtonWidget(BITRATE, x, y + 24, 200, 20, bitrateLabel()));
 		buttons.add(new ButtonWidget(FPS, x, y + 48, 200, 20, "Frame Rate: " + LAST.fps + " fps"));
-		nameField = Mc.textField(this, x, y + 84, 200, 20);
+		buttons.add(new ButtonWidget(RESOLUTION, x, y + 72, 200, 20, resolutionLabel()));
+		nameField = Mc.textField(this, x, y + 108, 200, 20);
 		nameField.setText(new SimpleDateFormat("yyyy_MM_dd_HH_mm_ss").format(new Date()));
 		nameField.setFocused(true);
-		buttons.add(new ButtonWidget(RENDER, x, y + 140, 98, 20, "Render"));
-		buttons.add(new ButtonWidget(CANCEL, x + 102, y + 140, 98, 20, "Cancel"));
+		buttons.add(new ButtonWidget(RENDER, x, y + 164, 98, 20, "Render"));
+		buttons.add(new ButtonWidget(CANCEL, x + 102, y + 164, 98, 20, "Cancel"));
 		updateBitrate();
 		File ffmpeg = FrameWriter.findFfmpeg(minecraft.gameDir, null);
 		ffmpegStatus = ffmpeg != null ? "FFmpeg: " + ffmpeg.getPath() : "FFmpeg not found: only PNG Sequence works";
@@ -60,6 +65,11 @@ public class RenderSettingsScreen extends NoPauseScreen {
 
 	private static String presetLabel() {
 		return "Preset: " + LAST.preset.title;
+	}
+
+	private String resolutionLabel() {
+		int[] r = RESOLUTIONS[resolution];
+		return "Resolution: " + (r[0] == 0 ? "Window (" + minecraft.width + "x" + minecraft.height + ")" : r[0] + "x" + r[1]);
 	}
 
 	private static String bitrateLabel() {
@@ -83,6 +93,10 @@ public class RenderSettingsScreen extends NoPauseScreen {
 				LAST.bitrateKbps = next(RenderSettings.BITRATES, LAST.bitrateKbps);
 				button.message = bitrateLabel();
 				break;
+			case RESOLUTION:
+				resolution = (resolution + 1) % RESOLUTIONS.length;
+				button.message = resolutionLabel();
+				break;
 			case FPS:
 				LAST.fps = next(RenderSettings.FRAME_RATES, LAST.fps);
 				button.message = "Frame Rate: " + LAST.fps + " fps";
@@ -97,6 +111,8 @@ public class RenderSettingsScreen extends NoPauseScreen {
 				settings.preset = LAST.preset;
 				settings.fps = LAST.fps;
 				settings.bitrateKbps = LAST.bitrateKbps;
+				settings.width = RESOLUTIONS[resolution][0];
+				settings.height = RESOLUTIONS[resolution][1];
 				// a PNG sequence is a folder of frames
 				settings.output = LAST.preset == RenderSettings.Preset.PNG ? new File(folder, name) : new File(folder, name + "." + LAST.preset.extension);
 				VideoRenderer.schedule(settings);
@@ -123,7 +139,12 @@ public class RenderSettingsScreen extends NoPauseScreen {
 		if (key == Keyboard.KEY_ESCAPE) {
 			minecraft.openScreen(new ReplayOverlayScreen());
 		} else if (key == Keyboard.KEY_RETURN) {
-			buttonClicked((ButtonWidget) buttons.get(RENDER));
+			for (Object button : buttons) {
+				if (((ButtonWidget) button).id == RENDER) {
+					buttonClicked((ButtonWidget) button);
+					return;
+				}
+			}
 		}
 	}
 
@@ -142,12 +163,11 @@ public class RenderSettingsScreen extends NoPauseScreen {
 	public void render(int mouseX, int mouseY, float tickDelta) {
 		ReplayGui.fill(0, 0, width, height, 0xA0000000);
 		int x = width / 2 - 100;
-		int y = height / 2 - 70;
+		int y = height / 2 - 82;
 		ReplayGui.centered("Render Settings", width / 2, y - 16, ReplayGui.WHITE);
-		ReplayGui.text("File name", x, y + 74, ReplayGui.LIGHT_GRAY);
+		ReplayGui.text("File name", x, y + 98, ReplayGui.LIGHT_GRAY);
 		nameField.render();
-		ReplayGui.text("Resolution: " + minecraft.width + "x" + minecraft.height + " (window size)", x, y + 110, ReplayGui.LIGHT_GRAY);
-		ReplayGui.text(ffmpegStatus, x, y + 122, ReplayGui.LIGHT_GRAY);
+		ReplayGui.text(ffmpegStatus, x, y + 140, ReplayGui.LIGHT_GRAY);
 		super.render(mouseX, mouseY, tickDelta);
 	}
 }

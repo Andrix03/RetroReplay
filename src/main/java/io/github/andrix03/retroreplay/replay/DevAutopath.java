@@ -138,6 +138,11 @@ public final class DevAutopath {
 					RenderSettings settings = new RenderSettings();
 					settings.preset = renderPreset();
 					settings.fps = 30;
+					String size = System.getenv("RETROREPLAY_AUTORENDER_SIZE"); // e.g. 1920x1080
+					if (size != null) {
+						settings.width = Integer.parseInt(size.split("x")[0]);
+						settings.height = Integer.parseInt(size.split("x")[1]);
+					}
 					settings.output = renderOutput(minecraft);
 					RetroReplay.LOGGER.info("Autopath: rendering " + settings.preset.title);
 					renderStart = System.currentTimeMillis();

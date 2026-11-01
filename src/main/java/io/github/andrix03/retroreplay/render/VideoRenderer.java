@@ -93,8 +93,18 @@ public final class VideoRenderer {
 				return "FFmpeg not found: install it (ffmpeg.org) or choose PNG Sequence";
 			}
 		}
-		int width = minecraft.width;
-		int height = minecraft.height;
+		// a chosen size renders off screen; 0 (or no framebuffer support) means the window's size
+		int width = settings.width > 0 ? settings.width : minecraft.width;
+		int height = settings.height > 0 ? settings.height : minecraft.height;
+		OffscreenTarget target = null;
+		if (width != minecraft.width || height != minecraft.height) {
+			target = OffscreenTarget.create(width, height);
+			if (target == null) {
+				RetroReplay.LOGGER.warn("No off-screen rendering at " + width + "x" + height + ", using the window size");
+				width = minecraft.width;
+				height = minecraft.height;
+			}
+		}
 		if (settings.preset.needsEvenSize()) {
 			width &= ~1;
 			height &= ~1;
@@ -126,7 +136,9 @@ public final class VideoRenderer {
 			// a few frames drawn and thrown away: the first ones after the world rebuilt are not clean
 			for (int i = 0; i < 5; i++) {
 				PathPlayer.applyCamera(path, start);
+				begin(target);
 				renderComplete(0);
+				end(target);
 				Display.update();
 			}
 			for (; frame < frames && !cancelled && !Display.isCloseRequested(); frame++) {
@@ -144,15 +156,20 @@ public final class VideoRenderer {
 				ReplayHandler.get().setTimeFromPath(replayTime);
 				float partial = (replayTime - targetTick * 50) / 50f;
 				PathPlayer.applyCamera(path, videoTime);
+				begin(target);
 				renderComplete(partial);
 				pixels.clear();
 				GL11.glReadPixels(0, 0, width, height, GL12.GL_BGRA, GL11.GL_UNSIGNED_BYTE, pixels);
+				end(target);
 				writer.write(pixels, width, height);
 				Display.setTitle("Rendering " + (frame + 1) + " / " + frames + " (Esc cancels)");
 				Display.update();
 			}
 			ok = !cancelled && frame == frames;
 		} finally {
+			if (target != null) {
+				target.delete();
+			}
 			boolean closed = writer.close();
 			ok &= closed;
 			Display.setTitle(title);
@@ -172,6 +189,18 @@ public final class VideoRenderer {
 	 * Like Replay Mod's ForceChunkLoading: a chunk only joins the build queue when a render pass
 	 * sees it, so draw, build everything queued, and draw again until a pass queues nothing.
 	 */
+	private static void begin(OffscreenTarget target) {
+		if (target != null) {
+			target.begin();
+		}
+	}
+
+	private static void end(OffscreenTarget target) {
+		if (target != null) {
+			target.end();
+		}
+	}
+
 	private static void renderComplete(float partial) {
 		Minecraft minecraft = Mc.minecraft();
 		List<?> dirty = ((WorldRendererAccessor) minecraft.worldRenderer).retroreplay$getDirtyChunks();
