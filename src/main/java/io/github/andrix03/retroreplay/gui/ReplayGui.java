@@ -16,6 +16,7 @@ public final class ReplayGui {
 	public static final String REPLAY_GUI = "replay_gui";
 	public static final String JGUI = "jgui";
 	public static final String LOGO = "logo";
+	public static final String CAMERA_HEAD = "camera_head";
 	public static final String WIDGETS = "widgets";
 
 	public static final int WHITE = 0xFFFFFFFF;

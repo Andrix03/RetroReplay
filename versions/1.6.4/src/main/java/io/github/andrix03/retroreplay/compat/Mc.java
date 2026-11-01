@@ -25,6 +25,7 @@ public final class Mc {
 	private static final Identifier REPLAY_GUI = new Identifier("retroreplay", "textures/replay_gui.png");
 	private static final Identifier JGUI = new Identifier("retroreplay", "textures/jgui.png");
 	private static final Identifier LOGO = new Identifier("retroreplay", "textures/logo_button.png");
+	private static final Identifier CAMERA_HEAD = new Identifier("retroreplay", "textures/camera_head.png");
 	private static final Identifier WIDGETS = new Identifier("textures/gui/widgets.png");
 
 	private Mc() {
@@ -35,12 +36,12 @@ public final class Mc {
 	}
 
 	/**
-	 * One of "replay_gui", "jgui", "logo", "widgets". The resource manager does not see mod
+	 * One of "replay_gui", "jgui", "logo", "camera_head", "widgets". The resource manager does not see mod
 	 * files without a resource loader mod, so the mod's own textures are read from its jar
 	 * and registered once.
 	 */
 	public static void bindTexture(String name) {
-		Identifier texture = name.equals("replay_gui") ? REPLAY_GUI : name.equals("jgui") ? JGUI : name.equals("logo") ? LOGO : WIDGETS;
+		Identifier texture = name.equals("replay_gui") ? REPLAY_GUI : name.equals("jgui") ? JGUI : name.equals("logo") ? LOGO : name.equals("camera_head") ? CAMERA_HEAD : WIDGETS;
 		TextureManager textures = Minecraft.getInstance().getTextureManager();
 		if (texture != WIDGETS && textures.get(texture) == null) {
 			String path = "/assets/retroreplay/" + texture.getPath();

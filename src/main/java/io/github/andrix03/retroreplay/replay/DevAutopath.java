@@ -47,6 +47,7 @@ public final class DevAutopath {
 					CameraPath.Position a = PathPlayer.cameraPosition();
 					CameraPath.Position b = new CameraPath.Position(a.x + 10, a.y + 2, a.z, a.yaw + 90, a.pitch, 0);
 					state.path.putPosition(0, a);
+					state.path.putPosition(2000, new CameraPath.Position(a.x + 5, a.y + 3, a.z + 4, a.yaw + 45, a.pitch, 0));
 					state.path.putPosition(4000, b);
 					state.path.putTime(0, 3000);
 					state.path.putTime(4000, 7000);
@@ -60,13 +61,28 @@ public final class DevAutopath {
 				if (waitTicks > 20) {
 					shot(minecraft, "path_gui");
 					minecraft.openScreen(null);
+					// look at the whole path from the side for the preview picture
 					PathingState state = PathingState.current();
-					String problem = PathPlayer.start(state, false, true);
-					RetroReplay.LOGGER.info("Autopath: path started" + (problem == null ? "" : ": " + problem));
+					CameraPath.Position a = state.path.positions().firstEntry().getValue();
+					state.cursor = 1000;
+					PathPlayer.placeCamera(new CameraPath.Position(a.x + 5, a.y + 8, a.z - 10, 0, 35, 0));
 					next();
 				}
 				break;
 			case 3:
+				if (waitTicks == 5) {
+					PathingState state = PathingState.current();
+					CameraPath.Position a = state.path.positions().firstEntry().getValue();
+					PathPlayer.placeCamera(new CameraPath.Position(a.x + 5, a.y + 8, a.z - 10, 0, 35, 0));
+				}
+				if (waitTicks > 10) {
+					shot(minecraft, "path_preview");
+					String problem = PathPlayer.start(PathingState.current(), false, true);
+					RetroReplay.LOGGER.info("Autopath: path started" + (problem == null ? "" : ": " + problem));
+					next();
+				}
+				break;
+			case 4:
 				if (!checkedMiddle && PathPlayer.time() >= 2000) {
 					checkedMiddle = true;
 					check(minecraft, "middle", PathPlayer.time());
@@ -78,7 +94,7 @@ public final class DevAutopath {
 					next();
 				}
 				break;
-			case 4:
+			case 5:
 				if (waitTicks > 20) {
 					minecraft.stop();
 					next();

@@ -7,6 +7,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.pathing.PathPlayer;
+import io.github.andrix03.retroreplay.pathing.PathPreview;
 import io.github.andrix03.retroreplay.replay.ReplayHandler;
 
 import net.minecraft.client.render.GameRenderer;
@@ -26,6 +27,14 @@ public class GameRendererMixin {
 	@Inject(method = "render", at = @At("HEAD"))
 	private void retroreplay$playPath(float tickDelta, CallbackInfo ci) {
 		PathPlayer.onFrame();
+	}
+
+	/** The path preview is part of the world: after the weather, before clouds and the hand. */
+	@Inject(method = "renderWorld", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/GameRenderer;renderSnowAndRain(F)V", shift = At.Shift.AFTER))
+	private void retroreplay$pathPreview(float tickDelta, long time, CallbackInfo ci) {
+		if (ReplayHandler.isActive()) {
+			PathPreview.render(tickDelta);
+		}
 	}
 
 	@Inject(method = "pick", at = @At("TAIL"))

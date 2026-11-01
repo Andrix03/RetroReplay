@@ -19,6 +19,7 @@ import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.gui.PathingOverlay;
 import io.github.andrix03.retroreplay.gui.ReplayOverlayScreen;
 import io.github.andrix03.retroreplay.pathing.PathPlayer;
+import io.github.andrix03.retroreplay.pathing.PathPreview;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screen.game.ChatScreen;
@@ -252,6 +253,9 @@ public final class ReplayHandler {
 			}
 			if (pressed(Keyboard.KEY_C)) {
 				PathingOverlay.clearKeyframes();
+			}
+			if (pressed(Keyboard.KEY_H)) {
+				PathPreview.toggle();
 			}
 		}
 		double devSeek = DevAutoplay.seekRequest(timeMs);

@@ -43,6 +43,8 @@ public class ReplayOverlayScreen extends NoPauseScreen {
 			PathingOverlay.removeSelected();
 		} else if (key == Keyboard.KEY_C) {
 			PathingOverlay.clearKeyframes();
+		} else if (key == Keyboard.KEY_H) {
+			io.github.andrix03.retroreplay.pathing.PathPreview.toggle();
 		}
 	}
 }

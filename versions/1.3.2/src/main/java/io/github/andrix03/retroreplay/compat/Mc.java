@@ -20,13 +20,14 @@ public final class Mc {
 	}
 
 	/**
-	 * One of "replay_gui", "jgui", "logo", "widgets". Before 1.6 textures are bound by their
+	 * One of "replay_gui", "jgui", "logo", "camera_head", "widgets". Before 1.6 textures are bound by their
 	 * path on the classpath (the built-in texture pack also finds the mod's files).
 	 */
 	public static void bindTexture(String name) {
 		String path = name.equals("replay_gui") ? "/assets/retroreplay/textures/replay_gui.png"
 			: name.equals("jgui") ? "/assets/retroreplay/textures/jgui.png"
 			: name.equals("logo") ? "/assets/retroreplay/textures/logo_button.png"
+			: name.equals("camera_head") ? "/assets/retroreplay/textures/camera_head.png"
 			: "/gui/gui.png";
 		org.lwjgl.opengl.GL11.glBindTexture(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, Minecraft.getInstance().textureManager.load(path));
 	}
