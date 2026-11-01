@@ -2,13 +2,10 @@ package io.github.andrix03.retroreplay.replay;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
-import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -50,13 +47,17 @@ public final class ReplayHandler {
 	public static final int CAMERA_ID = -1_000_000;
 
 	private static final double SEEK_STEP_MS = 10_000;
+	/** More packets than this in one tick: a seek's fast-forward. */
+	private static final int FAST_FORWARD_PACKETS = 1000;
 
 	private static ReplayHandler active;
 	private static boolean starting;
 
 	private final File file;
 	private final int[] times;
-	private final byte[][] packets;
+	/** The packets on disk, read in order; shared with the handler a seek back starts. */
+	private final PacketFile packets;
+	private PacketFile.Reader reader;
 	private ReplayConnection client;
 	private int index;
 	private double timeMs;
@@ -69,7 +70,7 @@ public final class ReplayHandler {
 	private double pendingSeek = -1;
 	private final boolean[] keyWasDown = new boolean[256];
 
-	private ReplayHandler(File file, int[] times, byte[][] packets) {
+	private ReplayHandler(File file, int[] times, PacketFile packets) {
 		this.file = file;
 		this.times = times;
 		this.packets = packets;
@@ -134,20 +135,23 @@ public final class ReplayHandler {
 		return active != null;
 	}
 
-	public static void open(File file) {
+	/** Opens a replay; returns why it cannot be opened, or null. */
+	public static String open(File file) {
 		ReplayHandler handler;
 		try {
 			handler = load(file);
 		} catch (IOException e) {
 			RetroReplay.LOGGER.error("Cannot open replay " + file, e);
-			return;
+			return e.getMessage() == null ? e.toString() : e.getMessage();
 		}
 		Minecraft minecraft = Mc.minecraft();
 		minecraft.setWorld(null);
 		start(handler);
-		if (active == handler) {
-			RetroReplay.LOGGER.info("Replay opened: " + file.getName() + " (" + handler.times.length + " packets)");
+		if (active != handler) {
+			return "The replay could not start (see the log)";
 		}
+		RetroReplay.LOGGER.info("Replay opened: " + file.getName() + " (" + handler.times.length + " packets)");
+		return null;
 	}
 
 	private static void start(ReplayHandler handler) {
@@ -179,6 +183,7 @@ public final class ReplayHandler {
 			timeMs = target;
 			return;
 		}
+		closeReader();
 		ReplayHandler fresh = new ReplayHandler(file, times, packets);
 		fresh.speedStep = speedStep;
 		fresh.paused = paused;
@@ -203,6 +208,8 @@ public final class ReplayHandler {
 			CameraRoll.reset();
 			PathingState.saveCurrent();
 			RetroReplay.LOGGER.info("Replay closed: " + active.file.getName());
+			active.closeReader();
+			active.packets.delete();
 			active = null;
 		}
 	}
@@ -301,8 +308,19 @@ public final class ReplayHandler {
 			pendingSeek = devSeek;
 		}
 
+		int before = index;
+		long feedStart = System.nanoTime();
 		while (index < times.length && times[index] <= timeMs) {
-			feed(packets[index++]);
+			byte[] packet = nextPacket();
+			if (packet == null) {
+				break;
+			}
+			index++;
+			feed(packet);
+		}
+		if (index - before > FAST_FORWARD_PACKETS) {
+			// a seek's fast-forward (measured: ~15 us a packet, chunk data the most)
+			RetroReplay.LOGGER.info("Fast-forwarded " + (index - before) + " packets in " + (System.nanoTime() - feedStart) / 1_000_000 + " ms");
 		}
 		Spectator.follow();
 
@@ -375,9 +393,32 @@ public final class ReplayHandler {
 		return down && !was;
 	}
 
+	/** The next packet from disk, or null when the file cannot be read (playback then stops). */
+	private byte[] nextPacket() {
+		try {
+			if (reader == null) {
+				reader = packets.reader();
+			}
+			return reader.next();
+		} catch (IOException e) {
+			RetroReplay.LOGGER.error("Cannot read packet " + index + " of " + file.getName(), e);
+			index = times.length;
+			return null;
+		}
+	}
+
+	private void closeReader() {
+		if (reader != null) {
+			try {
+				reader.close();
+			} catch (IOException e) {
+				// nothing left to do with it
+			}
+			reader = null;
+		}
+	}
+
 	private static ReplayHandler load(File file) throws IOException {
-		List<Integer> times = new ArrayList<>();
-		List<byte[]> packets = new ArrayList<>();
 		try (ZipFile zip = new ZipFile(file)) {
 			ZipEntry meta = zip.getEntry("metaData.json");
 			ZipEntry recording = zip.getEntry("recording.tmcpr");
@@ -388,26 +429,14 @@ public final class ReplayHandler {
 			if (!json.contains("\"fileFormat\":\"MCPR_LEGACY\"") || !json.contains("\"mcversion\":\"" + Mc.VERSION + "\"")) {
 				throw new IOException("Not a RetroReplay " + Mc.VERSION + " recording");
 			}
-			try (DataInputStream in = new DataInputStream(new java.io.BufferedInputStream(zip.getInputStream(recording)))) {
-				while (true) {
-					int time;
-					try {
-						time = in.readInt();
-					} catch (EOFException end) {
-						break;
-					}
-					byte[] data = new byte[in.readInt()];
-					in.readFully(data);
-					times.add(time);
-					packets.add(data);
-				}
+			PacketFile packets = PacketFile.unpack(zip.getInputStream(recording));
+			if (packets.times().length == 0) {
+				// without even the login packet the world never loads: the terrain screen would stay forever
+				packets.delete();
+				throw new IOException("This replay is empty");
 			}
+			return new ReplayHandler(file, packets.times(), packets);
 		}
-		int[] timeArray = new int[times.size()];
-		for (int i = 0; i < timeArray.length; i++) {
-			timeArray[i] = times.get(i);
-		}
-		return new ReplayHandler(file, timeArray, packets.toArray(new byte[0][]));
 	}
 
 	private static byte[] readAll(InputStream in) throws IOException {

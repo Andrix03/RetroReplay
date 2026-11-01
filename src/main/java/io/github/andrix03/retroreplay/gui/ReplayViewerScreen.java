@@ -28,6 +28,9 @@ import net.minecraft.client.gui.widget.ButtonWidget;
  */
 public class ReplayViewerScreen extends Screen {
 
+	/** Why the last Load failed, shown under the title. */
+	private String error;
+
 	private static final int LOAD = 0, FOLDER = 1, RENAME = 2, DELETE = 3, CANCEL = 4;
 	private static final int ENTRY_W = 300, ENTRY_H = 30, ENTRY_GAP = 4, THUMB_W = 30 * 16 / 9;
 
@@ -97,7 +100,7 @@ public class ReplayViewerScreen extends Screen {
 		}
 		switch (button.id) {
 			case LOAD:
-				ReplayHandler.open(entries.get(selected).file);
+				error = ReplayHandler.open(entries.get(selected).file);
 				break;
 			case FOLDER:
 				Sys.openURL("file://" + folder().getAbsolutePath());
@@ -136,7 +139,7 @@ public class ReplayViewerScreen extends Screen {
 			int row = (mouseY - listTop() + scroll) / (ENTRY_H + ENTRY_GAP);
 			if (row >= 0 && row < entries.size()) {
 				if (row == selected && System.currentTimeMillis() - lastClick < 250) {
-					ReplayHandler.open(entries.get(row).file);
+					error = ReplayHandler.open(entries.get(row).file);
 					return;
 				}
 				selected = row;
@@ -162,6 +165,9 @@ public class ReplayViewerScreen extends Screen {
 	public void render(int mouseX, int mouseY, float tickDelta) {
 		renderBackground();
 		ReplayGui.centered("Replay Viewer", width / 2, 10, ReplayGui.WHITE);
+		if (error != null) {
+			ReplayGui.centered("Cannot open: " + error, width / 2, 20, 0xFFFF5555);
+		}
 		int x = width / 2 - ENTRY_W / 2;
 		org.lwjgl.opengl.GL11.glEnable(org.lwjgl.opengl.GL11.GL_SCISSOR_TEST);
 		scissor(0, listTop(), width, listBottom() - listTop());

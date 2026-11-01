@@ -26,6 +26,8 @@ public final class DevAutorecord {
 	private static int deathTicks;
 	/** "quit" or "crash": end the game in the middle of the world instead of leaving it. */
 	private static final String EXIT = System.getenv("RETROREPLAY_AUTORECORD_EXIT");
+	/** How long the walk lasts, in ticks (default 240 = 12 s). */
+	private static final int LENGTH_TICKS = Integer.parseInt(System.getenv().getOrDefault("RETROREPLAY_AUTORECORD_TICKS", "240"));
 	/** Seconds spent in the pause menu (default 3; long pauses test connection timeouts). */
 	private static final long PAUSE_NANOS = Long.parseLong(System.getenv().getOrDefault("RETROREPLAY_AUTORECORD_PAUSE", "3")) * 1_000_000_000L;
 
@@ -101,7 +103,7 @@ public final class DevAutorecord {
 			minecraft.openScreen(new GameMenuScreen());
 			return;
 		}
-		minecraft.player.yaw += 3.0F;
+		minecraft.player.yaw += LENGTH_TICKS > 240 ? 0.05F : 3.0F; // a long session explores: new chunks all the time
 		double rad = Math.toRadians(minecraft.player.yaw);
 		minecraft.player.velocityX = -Math.sin(rad) * 0.2;
 		minecraft.player.velocityZ = Math.cos(rad) * 0.2;
@@ -111,7 +113,7 @@ public final class DevAutorecord {
 		if (ticks % 30 == 0) {
 			minecraft.player.swingArm();
 		}
-		if (ticks >= 240) {
+		if (ticks >= LENGTH_TICKS) {
 			finished = true;
 			RetroReplay.LOGGER.info("Autorecord: done at " + (int) minecraft.player.x + "," + (int) minecraft.player.y + "," + (int) minecraft.player.z);
 			minecraft.world.disconnect();

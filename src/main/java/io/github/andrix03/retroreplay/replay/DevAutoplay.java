@@ -21,6 +21,8 @@ public final class DevAutoplay {
 	public static final boolean ENABLED = System.getenv("RETROREPLAY_AUTOPLAY") != null;
 
 	private static final int[] SHOT_TIMES = { 4_000, 8_000, 11_000 };
+	/** Where the seek after the second picture goes (default 3 s, back); RETROREPLAY_AUTOPLAY_SEEK. */
+	private static final int SEEK_TARGET = Integer.parseInt(System.getenv().getOrDefault("RETROREPLAY_AUTOPLAY_SEEK", "3000"));
 
 	private static boolean armed;
 	private static int stage;
@@ -79,8 +81,8 @@ public final class DevAutoplay {
 	static double seekRequest(double timeMs) {
 		if (ENABLED && !seeked && shots == 2) {
 			seeked = true;
-			RetroReplay.LOGGER.info("Autoplay: seeking back from " + (int) timeMs + " ms to 3000 ms");
-			return 3_000;
+			RetroReplay.LOGGER.info("Autoplay: seeking from " + (int) timeMs + " ms to " + SEEK_TARGET + " ms");
+			return SEEK_TARGET;
 		}
 		return -1;
 	}

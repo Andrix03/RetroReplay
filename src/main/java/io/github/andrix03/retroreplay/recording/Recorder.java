@@ -145,18 +145,28 @@ public final class Recorder {
 						lastTime = time;
 					}
 				}
+				if (valid == 0) {
+					// nothing was recorded (the game stopped before the first packet): no replay to make
+					if (!tmcpr.delete()) {
+						tmcpr.deleteOnExit();
+					}
+					RetroReplay.LOGGER.info("Removed the empty leftover " + tmcpr.getName());
+					continue;
+				}
 				if (valid < length) {
 					try (RandomAccessFile file = new RandomAccessFile(tmcpr, "rw")) {
 						file.setLength(valid);
 					}
 				}
+				long recordedAt = tmcpr.lastModified();
 				ReplayMetadata meta = new ReplayMetadata();
 				meta.serverName = "Recovered";
 				meta.duration = lastTime;
-				meta.date = tmcpr.lastModified() - lastTime;
+				meta.date = recordedAt - lastTime;
 				meta.mcversion = Mc.VERSION;
 				meta.protocol = Mc.PROTOCOL;
 				ReplayFiles.pack(tmcpr, target, meta);
+				target.setLastModified(recordedAt); // sorted with the time it was recorded, not today
 				if (!tmcpr.delete()) {
 					tmcpr.deleteOnExit();
 				}
