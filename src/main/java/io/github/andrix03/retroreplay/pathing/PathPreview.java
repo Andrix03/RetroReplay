@@ -67,7 +67,10 @@ public final class PathPreview {
 		GL11.glBegin(GL11.GL_LINES);
 		Long previousKey = null;
 		for (long key : path.positions().keySet()) {
-			if (previousKey != null) {
+			CameraPath.Position from = previousKey == null ? null : path.positions().get(previousKey);
+			CameraPath.Position to = path.positions().get(key);
+			boolean spectatorSegment = from != null && from.isSpectator() && from.spectated == to.spectated;
+			if (previousKey != null && !spectatorSegment) { // a spectated entity's way is not known ahead
 				long diff = key - previousKey;
 				CameraPath.Position prev = null;
 				for (int i = 0; i <= STEPS; i++) {
@@ -104,14 +107,14 @@ public final class PathPreview {
 				continue; // a keyframe where the camera stands would cover the whole screen
 			}
 			boolean selected = state.isSelected(PathingState.Kind.POSITION, keyframe.getKey());
-			drawPoint(p.x - viewX, p.y + eye - viewY, p.z - viewZ, cameraYaw, cameraPitch, selected);
+			drawPoint(p.x - viewX, p.y + eye - viewY, p.z - viewZ, cameraYaw, cameraPitch, selected, p.isSpectator());
 		}
 		GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
 		GL11.glEnable(GL11.GL_DEPTH_TEST);
 
 		// the camera at the cursor
 		CameraPath.Position at = path.positionAt(state.cursor);
-		if (!nearCamera(at, viewX, viewY - eye, viewZ)) {
+		if (path.spectatedAt(state.cursor) == CameraPath.Position.NO_ENTITY && !nearCamera(at, viewX, viewY - eye, viewZ)) {
 			drawCamera(at.x - viewX, at.y + eye - viewY, at.z - viewZ, at.yaw, at.pitch, at.roll);
 		}
 
@@ -120,9 +123,9 @@ public final class PathPreview {
 		GL11.glColor4f(1, 1, 1, 1);
 	}
 
-	private static void drawPoint(double x, double y, double z, float cameraYaw, float cameraPitch, boolean selected) {
+	private static void drawPoint(double x, double y, double z, float cameraYaw, float cameraPitch, boolean selected, boolean spectator) {
 		float size = 10f / 256;
-		float u = 80f / 256;
+		float u = (spectator ? 90f : 80f) / 256;
 		float v = selected ? size : 0;
 		GL11.glPushMatrix();
 		GL11.glTranslated(x, y, z);

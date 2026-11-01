@@ -17,7 +17,7 @@ import java.util.zip.ZipOutputStream;
 
 /**
  * Keeps the camera path inside the replay file, like Replay Mod keeps its timelines there:
- * an entry "camera_path.json" with {"positions":[[t,x,y,z,yaw,pitch,roll],...],"times":[[t,ms],...]}.
+ * an entry "camera_path.json" with {"positions":[[t,x,y,z,yaw,pitch,roll(,entity)],...],"times":[[t,ms],...]}.
  */
 public final class PathStore {
 
@@ -32,8 +32,8 @@ public final class PathStore {
 		boolean first = true;
 		for (Map.Entry<Long, CameraPath.Position> entry : path.positions().entrySet()) {
 			CameraPath.Position p = entry.getValue();
-			json.append(first ? "" : ",").append(String.format(Locale.ROOT, "[%d,%s,%s,%s,%s,%s,%s]",
-				entry.getKey(), p.x, p.y, p.z, p.yaw, p.pitch, p.roll));
+			json.append(first ? "" : ",").append(String.format(Locale.ROOT, "[%d,%s,%s,%s,%s,%s,%s%s]",
+				entry.getKey(), p.x, p.y, p.z, p.yaw, p.pitch, p.roll, p.isSpectator() ? "," + p.spectated : ""));
 			first = false;
 		}
 		json.append("],\"times\":[");
@@ -49,9 +49,10 @@ public final class PathStore {
 		Matcher rows = ROW.matcher(array(json, "positions"));
 		while (rows.find()) {
 			String[] v = rows.group(1).split(",");
-			if (v.length == 7) {
+			if (v.length == 7 || v.length == 8) { // the 8th value: the spectated entity
 				path.putPosition(Long.parseLong(v[0].trim()), new CameraPath.Position(Double.parseDouble(v[1]), Double.parseDouble(v[2]),
-					Double.parseDouble(v[3]), Float.parseFloat(v[4]), Float.parseFloat(v[5]), Float.parseFloat(v[6])));
+					Double.parseDouble(v[3]), Float.parseFloat(v[4]), Float.parseFloat(v[5]), Float.parseFloat(v[6]),
+					v.length == 8 ? Integer.parseInt(v[7].trim()) : CameraPath.Position.NO_ENTITY));
 			}
 		}
 		rows = ROW.matcher(array(json, "times"));

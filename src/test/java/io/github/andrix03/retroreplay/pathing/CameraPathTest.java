@@ -51,6 +51,21 @@ class CameraPathTest {
 	}
 
 	@Test
+	void spectatorSegmentsNeedTheSameEntityAtBothEnds() {
+		CameraPath path = new CameraPath();
+		path.putPosition(0, new CameraPath.Position(0, 64, 0, 0, 0, 0));
+		path.putPosition(1000, new CameraPath.Position(0, 64, 0, 0, 0, 0, 7));
+		path.putPosition(3000, new CameraPath.Position(0, 64, 0, 0, 0, 0, 7));
+		path.putPosition(4000, new CameraPath.Position(0, 64, 0, 0, 0, 0, 9));
+		assertEquals(CameraPath.Position.NO_ENTITY, path.spectatedAt(500)); // free -> spectator: free camera
+		assertEquals(7, path.spectatedAt(1000));
+		assertEquals(7, path.spectatedAt(2000));
+		assertEquals(CameraPath.Position.NO_ENTITY, path.spectatedAt(3500)); // 7 -> 9: not one entity
+		assertEquals(9, path.spectatedAt(4000));
+		assertEquals(9, path.spectatedAt(9000)); // held after the last keyframe
+	}
+
+	@Test
 	void timeGoingBackwardsCannotPlay() {
 		CameraPath path = new CameraPath();
 		path.putPosition(0, new CameraPath.Position(0, 64, 0, 0, 0, 0));

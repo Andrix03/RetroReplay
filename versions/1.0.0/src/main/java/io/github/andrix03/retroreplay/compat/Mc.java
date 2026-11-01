@@ -45,6 +45,34 @@ public final class Mc {
 		return new net.minecraft.client.gui.widget.TextFieldWidget(screen, minecraft().textRenderer, x, y, width, height, "");
 	}
 
+	public static boolean isPlayer(Object entity) {
+		return entity instanceof net.minecraft.entity.mob.player.PlayerEntity;
+	}
+
+	/** A player's name, or null for other entities. */
+	public static String playerName(Object entity) {
+		return entity instanceof net.minecraft.entity.mob.player.PlayerEntity ? ((net.minecraft.entity.mob.player.PlayerEntity) entity).name : null;
+	}
+
+	/** Watches the world through that entity's eyes (null: back to the free camera); false if it cannot. */
+	public static boolean spectate(Object entity) {
+		Minecraft minecraft = minecraft();
+		if (entity == null) {
+			minecraft.camera = minecraft.player;
+			return true;
+		}
+		if (!(entity instanceof net.minecraft.entity.mob.MobEntity)) {
+			return false;
+		}
+		minecraft.camera = (net.minecraft.entity.mob.MobEntity) entity;
+		return true;
+	}
+
+	/** The entity the camera looks through. */
+	public static Object cameraEntity() {
+		return minecraft().camera;
+	}
+
 	/** Dev self-test only: opens (or creates, seed 1234) a survival singleplayer world. */
 	public static void startSelftestWorld(String name) {
 		minecraft().startGame(name, name, new net.minecraft.world.WorldSettings(1234L, Integer.parseInt(System.getenv().getOrDefault("RETROREPLAY_AUTORECORD_GAMEMODE", "0")), true, System.getenv("RETROREPLAY_AUTORECORD_HARDCORE") != null));

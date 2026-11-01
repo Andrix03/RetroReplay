@@ -17,10 +17,12 @@ import org.lwjgl.input.Keyboard;
 import io.github.andrix03.retroreplay.RetroReplay;
 import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.gui.PathingOverlay;
+import io.github.andrix03.retroreplay.gui.PlayerOverviewScreen;
 import io.github.andrix03.retroreplay.gui.ReplayOverlayScreen;
 import io.github.andrix03.retroreplay.pathing.PathPlayer;
 import io.github.andrix03.retroreplay.pathing.PathPreview;
 import io.github.andrix03.retroreplay.pathing.PathingState;
+import io.github.andrix03.retroreplay.pathing.Spectator;
 import io.github.andrix03.retroreplay.render.VideoRenderer;
 
 import net.minecraft.client.Minecraft;
@@ -196,6 +198,7 @@ public final class ReplayHandler {
 	public static void stop() {
 		if (active != null && !starting) {
 			PathPlayer.stop();
+			Spectator.clear();
 			PathingState.saveCurrent();
 			RetroReplay.LOGGER.info("Replay closed: " + active.file.getName());
 			active = null;
@@ -261,6 +264,12 @@ public final class ReplayHandler {
 			if (pressed(Keyboard.KEY_H)) {
 				PathPreview.toggle();
 			}
+			if (pressed(Keyboard.KEY_B)) {
+				minecraft.openScreen(new PlayerOverviewScreen());
+			}
+			if (pressed(Keyboard.KEY_LSHIFT) && Spectator.isSpectating() && !PathPlayer.isActive()) {
+				Spectator.stop(); // like Replay Mod: sneak to leave spectating
+			}
 			boolean ctrl = Keyboard.isKeyDown(Keyboard.KEY_LCONTROL) || Keyboard.isKeyDown(Keyboard.KEY_RCONTROL);
 			if (pressed(Keyboard.KEY_Z) && ctrl) {
 				PathingOverlay.undo(false);
@@ -277,6 +286,7 @@ public final class ReplayHandler {
 		while (index < times.length && times[index] <= timeMs) {
 			feed(packets[index++]);
 		}
+		Spectator.follow();
 
 		if (minecraft.player != null) {
 			minecraft.player.abilities.canFly = true;

@@ -56,6 +56,7 @@ public final class PathPlayer {
 		if (active != null) {
 			active.state.cursor = active.time;
 			active = null;
+			Spectator.clear();
 			RetroReplay.LOGGER.info("Camera path stopped");
 		}
 	}
@@ -91,7 +92,21 @@ public final class PathPlayer {
 				replay.setTimeFromPath(replayTime);
 			}
 		}
-		CameraPath.Position position = state.path.positionAt(time);
+		applyCamera(state.path, time);
+	}
+
+	/** The camera for a path time: through the spectated entity's eyes, or at the interpolated position. */
+	public static void applyCamera(CameraPath path, long time) {
+		int spectated = path.spectatedAt(time);
+		if (spectated != CameraPath.Position.NO_ENTITY) {
+			Spectator.spectate(spectated);
+			if (Spectator.find(spectated) != null) {
+				return;
+			}
+		} else if (Spectator.isSpectating()) {
+			Spectator.clear();
+		}
+		CameraPath.Position position = path.positionAt(time);
 		if (position != null) {
 			placeCamera(position);
 		}

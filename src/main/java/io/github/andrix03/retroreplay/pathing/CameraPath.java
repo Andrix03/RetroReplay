@@ -13,18 +13,34 @@ public final class CameraPath {
 
 	public static final double ALPHA = 0.5;
 
-	/** A camera position: feet x, y, z and yaw, pitch, roll in degrees. */
+	/**
+	 * A camera position: feet x, y, z and yaw, pitch, roll in degrees. A spectator keyframe also
+	 * names the entity whose eyes the camera uses (Replay Mod's SpectatorProperty); its position is
+	 * where that entity was, for the preview and as a fallback.
+	 */
 	public static final class Position {
+		public static final int NO_ENTITY = -1;
+
 		public final double x, y, z;
 		public final float yaw, pitch, roll;
+		public final int spectated;
 
 		public Position(double x, double y, double z, float yaw, float pitch, float roll) {
+			this(x, y, z, yaw, pitch, roll, NO_ENTITY);
+		}
+
+		public Position(double x, double y, double z, float yaw, float pitch, float roll, int spectated) {
 			this.x = x;
 			this.y = y;
 			this.z = z;
 			this.yaw = yaw;
 			this.pitch = pitch;
 			this.roll = roll;
+			this.spectated = spectated;
+		}
+
+		public boolean isSpectator() {
+			return spectated != NO_ENTITY;
 		}
 	}
 
@@ -137,6 +153,26 @@ public final class CameraPath {
 		}
 		return new Position(splines[0].valueAt(time), splines[1].valueAt(time), splines[2].valueAt(time),
 			(float) splines[3].valueAt(time), (float) splines[4].valueAt(time), (float) splines[5].valueAt(time));
+	}
+
+	/**
+	 * The entity the camera spectates at that time, or NO_ENTITY: between two spectator keyframes
+	 * of the same entity, on one, and before the first / after the last when that one is.
+	 */
+	public int spectatedAt(long time) {
+		Map.Entry<Long, Position> before = positions.floorEntry(time);
+		Map.Entry<Long, Position> after = positions.ceilingEntry(time);
+		if (before == null) {
+			return after == null ? Position.NO_ENTITY : after.getValue().spectated;
+		}
+		if (after == null || before.getKey() == time) {
+			return before.getValue().spectated;
+		}
+		if (after.getKey() == time) {
+			return after.getValue().spectated;
+		}
+		int id = before.getValue().spectated;
+		return id != Position.NO_ENTITY && id == after.getValue().spectated ? id : Position.NO_ENTITY;
 	}
 
 	/** The replay time at a timeline time (linear between time keyframes, held at the ends), or -1 without any. */

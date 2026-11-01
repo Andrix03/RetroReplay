@@ -10,6 +10,7 @@ import io.github.andrix03.retroreplay.gui.ReplayOverlayScreen;
 import io.github.andrix03.retroreplay.pathing.CameraPath;
 import io.github.andrix03.retroreplay.pathing.PathPlayer;
 import io.github.andrix03.retroreplay.pathing.PathingState;
+import io.github.andrix03.retroreplay.pathing.Spectator;
 import io.github.andrix03.retroreplay.render.RenderSettings;
 import io.github.andrix03.retroreplay.render.VideoRenderer;
 
@@ -29,6 +30,9 @@ public final class DevAutopath {
 	private static int stage;
 	private static int waitTicks;
 	private static boolean checkedMiddle;
+	/** RETROREPLAY_AUTOPATH_SPECTATE: the middle of the path spectates the recorded player. */
+	private static final boolean SPECTATE = System.getenv("RETROREPLAY_AUTOPATH_SPECTATE") != null;
+	private static int spectated = -1;
 	/** "png" or "mp4": render the path instead of playing it. */
 	private static final String RENDER = System.getenv("RETROREPLAY_AUTORENDER");
 	private static long renderStart;
@@ -60,6 +64,15 @@ public final class DevAutopath {
 					state.path.putPosition(0, a);
 					state.path.putPosition(2000, new CameraPath.Position(a.x + 5, a.y + 3, a.z + 4, a.yaw + 45, a.pitch, 0));
 					state.path.putPosition(4000, b);
+					if (SPECTATE && !Spectator.players().isEmpty()) {
+						// the middle of the path through the recorded player's eyes
+						net.minecraft.entity.Entity player = Spectator.players().get(0);
+						spectated = player.networkId;
+						state.path.removePosition(2000);
+						state.path.putPosition(1000, Spectator.positionOf(player, spectated));
+						state.path.putPosition(3000, Spectator.positionOf(player, spectated));
+						RetroReplay.LOGGER.info("Autopath: spectator keyframes on entity " + spectated);
+					}
 					state.path.putTime(0, 3000);
 					state.path.putTime(4000, 7000);
 					state.cursor = 2000;
@@ -147,6 +160,11 @@ public final class DevAutopath {
 				if (!checkedMiddle && PathPlayer.time() >= 2000) {
 					checkedMiddle = true;
 					check(minecraft, "middle", PathPlayer.time());
+					if (SPECTATE) {
+						Object camera = Mc.cameraEntity();
+						RetroReplay.LOGGER.info("Autopath: at the middle the camera is " + (camera == minecraft.player ? "the free camera"
+							: "entity " + ((net.minecraft.entity.Entity) camera).networkId) + " (expected " + spectated + ")");
+					}
 					shot(minecraft, "path_middle");
 				}
 				if (!PathPlayer.isActive()) {

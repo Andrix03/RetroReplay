@@ -42,6 +42,14 @@ public class GameRendererMixin {
 		}
 	}
 
+	/** It casts the camera entity to the local player: skipped while spectating someone else. */
+	@Inject(method = "tickFov", at = @At("HEAD"), cancellable = true)
+	private void retroreplay$fovWhileSpectating(CallbackInfo ci) {
+		if (Mc.cameraEntity() != Mc.minecraft().player) {
+			ci.cancel();
+		}
+	}
+
 	@Inject(method = "pick", at = @At("TAIL"))
 	private void retroreplay$noTarget(float tickDelta, CallbackInfo ci) {
 		if (ReplayHandler.isActive()) {

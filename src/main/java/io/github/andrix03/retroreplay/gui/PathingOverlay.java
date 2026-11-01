@@ -8,8 +8,11 @@ import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.pathing.CameraPath;
 import io.github.andrix03.retroreplay.pathing.PathPlayer;
 import io.github.andrix03.retroreplay.pathing.PathingState;
+import io.github.andrix03.retroreplay.pathing.Spectator;
 import io.github.andrix03.retroreplay.render.VideoRenderer;
 import io.github.andrix03.retroreplay.replay.ReplayHandler;
+
+import net.minecraft.entity.Entity;
 
 /**
  * Replay Mod's pathing row (GuiPathingKt) under the replay bar: play path, render, position and
@@ -35,6 +38,7 @@ public final class PathingOverlay {
 	private static final int SEGMENT_PAUSED = 0xFFFFFFFF;
 	private static final int SEGMENT_SLOWER = 0xFF00FF00;
 	private static final int SEGMENT_FASTER = 0xFFFFFF00;
+	private static final int SEGMENT_SPECTATOR = 0xFF0088FF;
 
 	private static String message;
 	private static long messageUntil;
@@ -69,7 +73,9 @@ public final class PathingOverlay {
 
 		iconButton(PLAY_X, 0, PathPlayer.isActive() ? 20 : 0, mouseX, mouseY, mouseFree);
 		iconButton(RENDER_X, 40, 0, mouseX, mouseY, mouseFree);
-		iconButton(POSITION_X, 0, selection == PathingState.Kind.POSITION ? 60 : 40, mouseX, mouseY, mouseFree);
+		// Replay Mod: the spectator icon while spectating or with a spectator keyframe selected
+		boolean spectator = selection == PathingState.Kind.POSITION ? state.path.positions().get(state.selectedTime).isSpectator() : Spectator.isSpectating();
+		iconButton(POSITION_X, spectator ? 40 : 0, selection == PathingState.Kind.POSITION ? 60 : 40, mouseX, mouseY, mouseFree);
 		iconButton(TIME_X, 0, selection == PathingState.Kind.TIME ? 100 : 80, mouseX, mouseY, mouseFree);
 
 		int timelineW = width - SIDE - TIMELINE_X;
@@ -168,9 +174,18 @@ public final class PathingOverlay {
 			prevTime = time;
 			prevReplayTime = replayTime;
 		}
+		// blue between two spectator keyframes of the same entity
+		Map.Entry<Long, CameraPath.Position> previous = null;
+		for (Map.Entry<Long, CameraPath.Position> entry : state.path.positions().entrySet()) {
+			if (previous != null && previous.getValue().isSpectator() && previous.getValue().spectated == entry.getValue().spectated) {
+				drawSegment(state, previous.getKey(), entry.getKey(), x, w, y + 1, SEGMENT_SPECTATOR);
+			}
+			previous = entry;
+		}
 		ReplayGui.bind(ReplayGui.REPLAY_GUI);
-		for (long time : state.path.positions().keySet()) {
-			drawIcon(state, time, x, w, y + 1, 74, 20, state.isSelected(PathingState.Kind.POSITION, time));
+		for (Map.Entry<Long, CameraPath.Position> entry : state.path.positions().entrySet()) {
+			long time = entry.getKey();
+			drawIcon(state, time, x, w, y + 1, 74, entry.getValue().isSpectator() ? 30 : 20, state.isSelected(PathingState.Kind.POSITION, time));
 		}
 		for (long time : state.path.times().keySet()) {
 			drawIcon(state, time, x, w, y + 6, 74, 25, state.isSelected(PathingState.Kind.TIME, time));
@@ -375,7 +390,13 @@ public final class PathingOverlay {
 	/** Replay Mod's right click on a keyframe: the camera goes there / the replay jumps to its time. */
 	private static void applyKeyframe(PathingState state, PathingState.Kind kind, long time) {
 		if (kind == PathingState.Kind.POSITION) {
-			PathPlayer.placeCamera(state.path.positions().get(time));
+			CameraPath.Position position = state.path.positions().get(time);
+			if (position.isSpectator()) {
+				Spectator.spectate(position.spectated);
+			} else {
+				Spectator.clear();
+				PathPlayer.placeCamera(position);
+			}
 		} else {
 			ReplayHandler.get().jumpTo(state.path.times().get(time));
 		}
@@ -408,7 +429,8 @@ public final class PathingOverlay {
 			state.path.removePosition(state.selectedTime);
 			state.clearSelection();
 		} else {
-			state.path.putPosition(state.cursor, PathPlayer.cameraPosition());
+			Entity spectated = Spectator.isSpectating() ? Spectator.find(Spectator.target()) : null;
+			state.path.putPosition(state.cursor, spectated != null ? Spectator.positionOf(spectated, Spectator.target()) : PathPlayer.cameraPosition());
 			state.select(PathingState.Kind.POSITION, state.cursor);
 		}
 	}

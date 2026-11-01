@@ -17,6 +17,7 @@ import io.github.andrix03.retroreplay.mixin.WorldRendererAccessor;
 import io.github.andrix03.retroreplay.pathing.CameraPath;
 import io.github.andrix03.retroreplay.pathing.PathPlayer;
 import io.github.andrix03.retroreplay.pathing.PathingState;
+import io.github.andrix03.retroreplay.pathing.Spectator;
 import io.github.andrix03.retroreplay.replay.ReplayHandler;
 
 import net.minecraft.client.Minecraft;
@@ -124,7 +125,7 @@ public final class VideoRenderer {
 			long tick = goTo(Math.max(0, path.replayTimeAt(start) - 100));
 			// a few frames drawn and thrown away: the first ones after the world rebuilt are not clean
 			for (int i = 0; i < 5; i++) {
-				PathPlayer.placeCamera(path.positionAt(start));
+				PathPlayer.applyCamera(path, start);
 				renderComplete(0);
 				Display.update();
 			}
@@ -142,7 +143,7 @@ public final class VideoRenderer {
 				}
 				ReplayHandler.get().setTimeFromPath(replayTime);
 				float partial = (replayTime - targetTick * 50) / 50f;
-				PathPlayer.placeCamera(path.positionAt(videoTime));
+				PathPlayer.applyCamera(path, videoTime);
 				renderComplete(partial);
 				pixels.clear();
 				GL11.glReadPixels(0, 0, width, height, GL12.GL_BGRA, GL11.GL_UNSIGNED_BYTE, pixels);
@@ -156,6 +157,7 @@ public final class VideoRenderer {
 			ok &= closed;
 			Display.setTitle(title);
 			minecraft.options.hideGui = hideGui;
+			Spectator.clear();
 			rendering = false;
 			minecraft.openScreen(null);
 		}
