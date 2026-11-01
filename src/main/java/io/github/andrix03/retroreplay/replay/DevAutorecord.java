@@ -7,6 +7,7 @@ import net.minecraft.client.Screenshot;
 import net.minecraft.client.entity.living.player.LocalClientPlayerEntity;
 import net.minecraft.client.gui.screen.menu.GameMenuScreen;
 import net.minecraft.client.gui.screen.menu.TitleScreen;
+import net.minecraft.client.gui.screen.menu.multiplayer.ConnectScreen;
 import net.minecraft.world.WorldSettings;
 import net.minecraft.world.gen.WorldGeneratorType;
 
@@ -18,6 +19,8 @@ import net.minecraft.world.gen.WorldGeneratorType;
 public final class DevAutorecord {
 
 	public static final boolean ENABLED = System.getenv("RETROREPLAY_AUTORECORD") != null;
+	/** host:port to record a multiplayer session instead of the singleplayer test world. */
+	private static final String SERVER = System.getenv("RETROREPLAY_AUTORECORD_SERVER");
 
 	private static boolean started;
 	private static boolean finished;
@@ -42,9 +45,15 @@ public final class DevAutorecord {
 			// the first title screen opens before the game has finished starting up: wait a second
 			if (minecraft.screen instanceof TitleScreen && ++titleTicks > 20) {
 				started = true;
-				RetroReplay.LOGGER.info("Autorecord: opening rr_selftest");
-				minecraft.startGame("rr_selftest", "rr_selftest",
-					new WorldSettings(1234L, WorldSettings.GameMode.SURVIVAL, true, false, WorldGeneratorType.DEFAULT));
+				if (SERVER != null) {
+					RetroReplay.LOGGER.info("Autorecord: connecting to " + SERVER);
+					String[] hostPort = SERVER.split(":");
+					minecraft.openScreen(new ConnectScreen(minecraft.screen, minecraft, hostPort[0], Integer.parseInt(hostPort[1])));
+				} else {
+					RetroReplay.LOGGER.info("Autorecord: opening rr_selftest");
+					minecraft.startGame("rr_selftest", "rr_selftest",
+						new WorldSettings(1234L, WorldSettings.GameMode.SURVIVAL, true, false, WorldGeneratorType.DEFAULT));
+				}
 			}
 			return;
 		}

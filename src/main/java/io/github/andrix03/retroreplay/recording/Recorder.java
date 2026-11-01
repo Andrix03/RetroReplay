@@ -117,11 +117,22 @@ public final class Recorder {
 			}
 			return;
 		}
+		append(buffer.toByteArray());
+	}
+
+	/** A multiplayer packet exactly as it came off the wire (id byte + payload). */
+	public static synchronized void recordRaw(byte[] data) {
+		if (current != null) {
+			current.append(data);
+		}
+	}
+
+	private void append(byte[] data) {
 		try {
 			lastTime = Math.max(lastTime, elapsedMs());
 			out.writeInt(lastTime);
-			out.writeInt(buffer.size());
-			buffer.writeTo(out);
+			out.writeInt(data.length);
+			out.write(data);
 			packetCount++;
 		} catch (IOException e) {
 			RetroReplay.LOGGER.error("Recording write failed, stopping", e);

@@ -80,3 +80,12 @@ publishing {
 		// retrieving dependencies.
 	}
 }
+
+loom {
+	runs {
+		server {
+			// separate folder so the dev server never touches the client's run/
+			runDir "run-server"
+		}
+	}
+}
