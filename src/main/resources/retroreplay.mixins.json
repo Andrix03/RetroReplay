@@ -8,6 +8,8 @@
 	"client": [
 		"ClientNetworkHandlerMixin",
 		"LocalConnectionMixin",
+		"MinecraftAccessor",
+		"MinecraftMixin",
 		"RemoteConnectionMixin",
 		"TitleScreenMixin"
 	],
