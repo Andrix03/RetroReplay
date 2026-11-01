@@ -163,6 +163,28 @@ public final class DevAutopath {
 				if (waitTicks > 15) {
 					shot(minecraft, "render_settings");
 					minecraft.openScreen(null);
+					if (RENDER.equals("queue")) {
+						// two jobs: the current path as PNG, the "Autopath" preset as MP4
+						PathingState state = PathingState.current();
+						File folder = new File(minecraft.gameDir, "replay_videos");
+						RenderSettings png = new RenderSettings();
+						png.preset = RenderSettings.Preset.PNG;
+						png.fps = 10;
+						png.output = new File(folder, "queue_1");
+						RenderSettings mp4 = new RenderSettings();
+						mp4.preset = RenderSettings.Preset.MP4_CUSTOM;
+						mp4.fps = 10;
+						mp4.output = new File(folder, "queue_2.mp4");
+						java.util.List<io.github.andrix03.retroreplay.render.RenderJob> jobs = new java.util.ArrayList<>();
+						jobs.add(new io.github.andrix03.retroreplay.render.RenderJob(png, io.github.andrix03.retroreplay.pathing.PathStore.toJson(state.path), "current"));
+						jobs.add(new io.github.andrix03.retroreplay.render.RenderJob(mp4, state.presets.all().get("Autopath"), "Autopath"));
+						RetroReplay.LOGGER.info("Autopath: rendering a queue of " + jobs.size());
+						renderStart = System.currentTimeMillis();
+						VideoRenderer.scheduleAll(jobs);
+						stage = 6;
+						waitTicks = 0;
+						break;
+					}
 					RenderSettings settings = new RenderSettings();
 					settings.preset = renderPreset();
 					settings.fps = 30;
@@ -181,6 +203,15 @@ public final class DevAutopath {
 				break;
 			case 6:
 				if (!VideoRenderer.isRendering() && waitTicks > 5) {
+					if (RENDER.equals("queue")) {
+						File folder = new File(minecraft.gameDir, "replay_videos");
+						String[] frames = new File(folder, "queue_1").list();
+						RetroReplay.LOGGER.info("Autopath: queue done in " + (System.currentTimeMillis() - renderStart) + " ms: queue_1 "
+							+ (frames == null ? "missing" : frames.length + " frames") + ", queue_2.mp4 " + new File(folder, "queue_2.mp4").length() + " bytes");
+						stage = 5;
+						waitTicks = 0;
+						break;
+					}
 					File out = renderOutput(minecraft);
 					String[] frames = out.isDirectory() ? out.list() : null;
 					RetroReplay.LOGGER.info("Autopath: render done in " + (System.currentTimeMillis() - renderStart) + " ms, output "

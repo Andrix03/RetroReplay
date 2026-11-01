@@ -24,6 +24,8 @@ public final class PathingState {
 	public final CameraPath path = new CameraPath();
 	public final Markers markers = new Markers();
 	public final PathPresets presets = new PathPresets();
+	/** Replay Mod's render queue for this replay, kept while the game runs. */
+	public final java.util.List<io.github.andrix03.retroreplay.render.RenderJob> renderQueue = new java.util.ArrayList<>();
 	/** The marker clicked last on the replay bar, or -1. */
 	public int selectedMarker = -1;
 	public long cursor;

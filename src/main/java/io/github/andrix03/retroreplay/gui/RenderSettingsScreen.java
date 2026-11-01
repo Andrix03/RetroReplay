@@ -3,12 +3,16 @@ package io.github.andrix03.retroreplay.gui;
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 
 import org.lwjgl.input.Keyboard;
 
 import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.compat.NoPauseScreen;
+import io.github.andrix03.retroreplay.pathing.PathStore;
+import io.github.andrix03.retroreplay.pathing.PathingState;
 import io.github.andrix03.retroreplay.render.FrameWriter;
+import io.github.andrix03.retroreplay.render.RenderJob;
 import io.github.andrix03.retroreplay.render.RenderSettings;
 import io.github.andrix03.retroreplay.render.VideoRenderer;
 
@@ -27,6 +31,8 @@ public class RenderSettingsScreen extends NoPauseScreen {
 	private static final int RENDER = 3;
 	private static final int CANCEL = 4;
 	private static final int RESOLUTION = 5;
+	private static final int ADD_TO_QUEUE = 6;
+	private static final int RENDER_QUEUE = 7;
 	/** width, height; 0 = the window's size. Replay Mod renders 1920x1080 by default. */
 	private static final int[][] RESOLUTIONS = { { 1920, 1080 }, { 1280, 720 }, { 2560, 1440 }, { 3840, 2160 }, { 0, 0 } };
 	private static int resolution;
@@ -34,25 +40,58 @@ public class RenderSettingsScreen extends NoPauseScreen {
 	/** Kept between renders like Replay Mod remembers its last settings. */
 	private static final RenderSettings LAST = new RenderSettings();
 
+	/** A preset's path from the keyframe repository, or null for the current path. */
+	private final String pathJson;
+	private final String pathLabel;
 	private TextFieldWidget nameField;
 	private ButtonWidget bitrateButton;
 	private String ffmpegStatus;
+
+	public RenderSettingsScreen() {
+		this(null, null);
+	}
+
+	/** For a repository preset: it can only be queued (the current path stays as it is). */
+	public RenderSettingsScreen(String pathJson, String pathLabel) {
+		this.pathJson = pathJson;
+		this.pathLabel = pathLabel;
+	}
+
+	private static List<RenderJob> queue() {
+		return PathingState.current().renderQueue;
+	}
+
+	/** First button row: title (16 px above) to the queue buttons (208 px below) centered. */
+	private int top() {
+		return Math.max(18, (height - 208 + 16) / 2);
+	}
+
+	private static String safeName(String name) {
+		return name.trim().replaceAll("[\\\\/:*?\"<>|]", "_");
+	}
 
 	@Override
 	public void init() {
 		Keyboard.enableRepeatEvents(true);
 		buttons.clear();
 		int x = width / 2 - 100;
-		int y = height / 2 - 82;
+		int y = top();
 		buttons.add(new ButtonWidget(PRESET, x, y, 200, 20, presetLabel()));
 		buttons.add(bitrateButton = new ButtonWidget(BITRATE, x, y + 24, 200, 20, bitrateLabel()));
 		buttons.add(new ButtonWidget(FPS, x, y + 48, 200, 20, "Frame Rate: " + LAST.fps + " fps"));
 		buttons.add(new ButtonWidget(RESOLUTION, x, y + 72, 200, 20, resolutionLabel()));
 		nameField = Mc.textField(this, x, y + 108, 200, 20);
-		nameField.setText(new SimpleDateFormat("yyyy_MM_dd_HH_mm_ss").format(new Date()));
+		String stamp = new SimpleDateFormat("yyyy_MM_dd_HH_mm_ss").format(new Date());
+		nameField.setText(pathLabel == null ? stamp : safeName(pathLabel) + "_" + stamp);
 		nameField.setFocused(true);
-		buttons.add(new ButtonWidget(RENDER, x, y + 164, 98, 20, "Render"));
+		ButtonWidget render = new ButtonWidget(RENDER, x, y + 164, 98, 20, "Render");
+		render.active = pathJson == null; // a preset is queued, not rendered instead of the current path
+		buttons.add(render);
 		buttons.add(new ButtonWidget(CANCEL, x + 102, y + 164, 98, 20, "Cancel"));
+		buttons.add(new ButtonWidget(ADD_TO_QUEUE, x, y + 188, 98, 20, "Add to Queue"));
+		ButtonWidget renderQueue = new ButtonWidget(RENDER_QUEUE, x + 102, y + 188, 98, 20, "Render Queue (" + queue().size() + ")");
+		renderQueue.active = !queue().isEmpty();
+		buttons.add(renderQueue);
 		updateBitrate();
 		File ffmpeg = FrameWriter.findFfmpeg(minecraft.gameDir, null);
 		ffmpegStatus = ffmpeg != null ? "FFmpeg: " + ffmpeg.getPath() : "FFmpeg not found: only PNG Sequence works";
@@ -102,26 +141,49 @@ public class RenderSettingsScreen extends NoPauseScreen {
 				button.message = "Frame Rate: " + LAST.fps + " fps";
 				break;
 			case RENDER:
-				String name = nameField.getText().trim().replaceAll("[\\\\/:*?\"<>|]", "_");
-				if (name.isEmpty()) {
+				RenderSettings settings = settings();
+				if (settings != null) {
+					VideoRenderer.schedule(settings);
+					minecraft.openScreen(null);
+				}
+				break;
+			case ADD_TO_QUEUE:
+				RenderSettings queued = settings();
+				if (queued == null) {
 					return;
 				}
-				File folder = new File(minecraft.gameDir, "replay_videos");
-				RenderSettings settings = new RenderSettings();
-				settings.preset = LAST.preset;
-				settings.fps = LAST.fps;
-				settings.bitrateKbps = LAST.bitrateKbps;
-				settings.width = RESOLUTIONS[resolution][0];
-				settings.height = RESOLUTIONS[resolution][1];
-				// a PNG sequence is a folder of frames
-				settings.output = LAST.preset == RenderSettings.Preset.PNG ? new File(folder, name) : new File(folder, name + "." + LAST.preset.extension);
-				VideoRenderer.schedule(settings);
+				// a copy of the path as it is now, like Replay Mod's queue
+				String path = pathJson != null ? pathJson : PathStore.toJson(PathingState.current().path);
+				queue().add(new RenderJob(queued, path, pathLabel != null ? pathLabel : queued.output.getName()));
+				minecraft.openScreen(new ReplayOverlayScreen());
+				break;
+			case RENDER_QUEUE:
+				VideoRenderer.scheduleAll(queue());
+				queue().clear();
 				minecraft.openScreen(null);
 				break;
 			default:
 				minecraft.openScreen(new ReplayOverlayScreen());
 				break;
 		}
+	}
+
+	/** The chosen settings with the output file, or null without a file name. */
+	private RenderSettings settings() {
+		String name = safeName(nameField.getText());
+		if (name.isEmpty()) {
+			return null;
+		}
+		File folder = new File(minecraft.gameDir, "replay_videos");
+		RenderSettings settings = new RenderSettings();
+		settings.preset = LAST.preset;
+		settings.fps = LAST.fps;
+		settings.bitrateKbps = LAST.bitrateKbps;
+		settings.width = RESOLUTIONS[resolution][0];
+		settings.height = RESOLUTIONS[resolution][1];
+		// a PNG sequence is a folder of frames
+		settings.output = LAST.preset == RenderSettings.Preset.PNG ? new File(folder, name) : new File(folder, name + "." + LAST.preset.extension);
+		return settings;
 	}
 
 	private static int next(int[] values, int current) {
@@ -163,7 +225,7 @@ public class RenderSettingsScreen extends NoPauseScreen {
 	public void render(int mouseX, int mouseY, float tickDelta) {
 		ReplayGui.fill(0, 0, width, height, 0xA0000000);
 		int x = width / 2 - 100;
-		int y = height / 2 - 82;
+		int y = top();
 		ReplayGui.centered("Render Settings", width / 2, y - 16, ReplayGui.WHITE);
 		ReplayGui.text("File name", x, y + 98, ReplayGui.LIGHT_GRAY);
 		nameField.render();

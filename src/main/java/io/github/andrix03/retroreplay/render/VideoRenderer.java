@@ -31,7 +31,7 @@ import net.minecraft.client.Minecraft;
  */
 public final class VideoRenderer {
 
-	private static RenderSettings pending;
+	private static java.util.List<RenderJob> pending;
 	private static boolean rendering;
 	private static volatile boolean cancelled;
 	private static String result;
@@ -39,8 +39,14 @@ public final class VideoRenderer {
 	private VideoRenderer() {
 	}
 
+	/** Renders the replay's current path at the next frame. */
 	public static void schedule(RenderSettings settings) {
-		pending = settings;
+		scheduleAll(java.util.Collections.singletonList(new RenderJob(settings, null, settings.output.getName())));
+	}
+
+	/** Replay Mod's render queue: the jobs one after another, Esc stops the rest. */
+	public static void scheduleAll(java.util.List<RenderJob> jobs) {
+		pending = new java.util.ArrayList<>(jobs);
 	}
 
 	public static boolean isRendering() {
@@ -63,25 +69,37 @@ public final class VideoRenderer {
 		if (pending == null || rendering) {
 			return false;
 		}
-		RenderSettings settings = pending;
+		java.util.List<RenderJob> jobs = pending;
 		pending = null;
-		try {
-			result = run(settings);
-		} catch (Exception e) {
-			RetroReplay.LOGGER.error("Rendering failed", e);
-			result = "Rendering failed: " + e;
+		int done = 0;
+		for (RenderJob job : jobs) {
+			try {
+				result = run(job);
+			} catch (Exception e) {
+				RetroReplay.LOGGER.error("Rendering failed", e);
+				result = "Rendering failed: " + e;
+			}
+			RetroReplay.LOGGER.info(job.label + ": " + result);
+			if (cancelled || !result.startsWith("Video saved")) {
+				break; // a failure or Esc stops the queue
+			}
+			done++;
 		}
-		RetroReplay.LOGGER.info(result);
+		if (jobs.size() > 1) {
+			result = done == jobs.size() ? "Render queue done: " + done + " videos" : "Render queue stopped after " + done + " of " + jobs.size() + " videos: " + result;
+			RetroReplay.LOGGER.info(result);
+		}
 		return true;
 	}
 
-	private static String run(RenderSettings settings) throws IOException {
+	private static String run(RenderJob job) throws IOException {
+		RenderSettings settings = job.settings;
 		Minecraft minecraft = Mc.minecraft();
 		ReplayHandler replay = ReplayHandler.get();
 		if (replay == null) {
 			return "No replay is open";
 		}
-		CameraPath path = PathingState.of(replay.getFile()).path;
+		CameraPath path = job.path(PathingState.of(replay.getFile()).path);
 		String problem = path.playbackProblem(false);
 		if (problem != null) {
 			return problem;

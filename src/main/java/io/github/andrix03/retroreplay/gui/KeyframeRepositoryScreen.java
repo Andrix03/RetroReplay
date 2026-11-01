@@ -29,6 +29,7 @@ public class KeyframeRepositoryScreen extends NoPauseScreen {
 	private static final int CLOSE = 1005;
 	private static final int COPY = 1006;
 	private static final int PASTE = 1007;
+	private static final int QUEUE = 1008;
 
 	private final PathingState state;
 	private final List<String> names = new ArrayList<>();
@@ -49,13 +50,13 @@ public class KeyframeRepositoryScreen extends NoPauseScreen {
 		if (selected != null && !names.contains(selected)) {
 			selected = null;
 		}
-		int rows = Math.max(1, (height - 120) / 22);
+		int rows = Math.max(1, (height - 150) / 22);
 		for (int i = 0; i < names.size() && i < rows; i++) {
 			String name = names.get(i);
 			buttons.add(new ButtonWidget(i, width / 2 - 100, 34 + i * 22, 200, 20, name.equals(selected) ? "> " + name + " <" : name));
 		}
 		String text = nameField == null ? "" : nameField.getText();
-		nameField = Mc.textField(this, width / 2 - 100, height - 78, 200, 20);
+		nameField = Mc.textField(this, width / 2 - 100, height - 102, 200, 20);
 		nameField.setText(text);
 		nameField.setFocused(true);
 		int x = width / 2 - (75 * 4 + 3 * 5) / 2;
@@ -71,6 +72,9 @@ public class KeyframeRepositoryScreen extends NoPauseScreen {
 		}
 		buttons.add(new ButtonWidget(PASTE, x + 160, height - 28, 75, 20, "Paste"));
 		buttons.add(new ButtonWidget(CLOSE, x + 240, height - 28, 75, 20, "Close"));
+		ButtonWidget queue = new ButtonWidget(QUEUE, x, height - 76, 75, 20, "Add to Queue");
+		queue.active = selected != null;
+		buttons.add(queue);
 	}
 
 	@Override
@@ -134,6 +138,10 @@ public class KeyframeRepositoryScreen extends NoPauseScreen {
 				selected = name;
 				message = "Pasted as \"" + name + "\"";
 				break;
+			case QUEUE:
+				// Replay Mod's "Add to queue": render settings for this preset, then queued
+				minecraft.openScreen(new RenderSettingsScreen(state.presets.all().get(selected), selected));
+				return;
 			case CLOSE:
 				minecraft.openScreen(new ReplayOverlayScreen());
 				return;
@@ -171,7 +179,7 @@ public class KeyframeRepositoryScreen extends NoPauseScreen {
 		if (names.isEmpty()) {
 			ReplayGui.centered("No saved camera paths yet: type a name and Save As...", width / 2, 50, ReplayGui.LIGHT_GRAY);
 		}
-		ReplayGui.text("Name", width / 2 - 100, height - 88, ReplayGui.LIGHT_GRAY);
+		ReplayGui.text("Name", width / 2 - 100, height - 112, ReplayGui.LIGHT_GRAY);
 		nameField.render();
 		if (message != null) {
 			ReplayGui.centered(message, width / 2, 22, ReplayGui.LIGHT_GRAY);
