@@ -21,6 +21,7 @@ public class MinecraftMixin {
 
 	@Inject(method = "tick", at = @At("TAIL"))
 	private void retroreplay$recordLocalPlayer(CallbackInfo ci) {
+		ReplayHandler.tickEnd();
 		DevAutorecord.tick();
 		LocalPlayerRecorder.tick();
 	}

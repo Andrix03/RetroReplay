@@ -18,6 +18,8 @@ import io.github.andrix03.retroreplay.RetroReplay;
 import io.github.andrix03.retroreplay.mixin.MinecraftAccessor;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.entity.living.player.LocalClientPlayerEntity;
+import net.minecraft.client.gui.screen.menu.multiplayer.DownloadingTerrainScreen;
 import net.minecraft.client.network.handler.ClientNetworkHandler;
 import net.minecraft.network.LocalConnection;
 import net.minecraft.network.packet.LoginPacket;
@@ -39,8 +41,11 @@ public final class ReplayHandler {
 	 */
 	public static final int CAMERA_ID = -1_000_000;
 
+	private static final double SEEK_STEP_MS = 10_000;
+
 	private static ReplayHandler active;
 	private static boolean starting;
+	private static boolean hideGuiBefore;
 
 	private final File file;
 	private final int[] times;
@@ -52,6 +57,9 @@ public final class ReplayHandler {
 	private int speedIndex = 3;
 	private boolean paused;
 	private boolean positioned;
+	/** Camera x, feet y, z, yaw, pitch to restore after a seek rebuilt the world. */
+	private double[] camera;
+	private double pendingSeek = -1;
 	private final boolean[] keyWasDown = new boolean[256];
 
 	private ReplayHandler(File file, int[] times, byte[][] packets) {
@@ -78,10 +86,19 @@ public final class ReplayHandler {
 		}
 		Minecraft minecraft = Minecraft.getInstance();
 		minecraft.setWorld(null);
+		hideGuiBefore = minecraft.options.hideGui;
+		minecraft.options.hideGui = true;
+		start(handler);
+		RetroReplay.LOGGER.info("Replay opened: " + file.getName() + " (" + handler.times.length + " packets)");
+	}
+
+	private static void start(ReplayHandler handler) {
+		Minecraft minecraft = Minecraft.getInstance();
 		active = handler;
 		starting = true;
+		ClientNetworkHandler networkHandler;
 		try {
-			ClientNetworkHandler networkHandler = new ClientNetworkHandler(minecraft, (IntegratedServer) null);
+			networkHandler = new ClientNetworkHandler(minecraft, (IntegratedServer) null);
 			((MinecraftAccessor) minecraft).retroreplay$setConnection(networkHandler.getConnection());
 			handler.client = (LocalConnection) networkHandler.getConnection();
 		} catch (IOException e) {
@@ -92,7 +109,36 @@ public final class ReplayHandler {
 			starting = false;
 		}
 		handler.lastNanos = System.nanoTime();
-		RetroReplay.LOGGER.info("Replay opened: " + file.getName() + " (" + handler.times.length + " packets)");
+		// without a world the client expects a screen until the login packet builds one
+		minecraft.openScreen(new DownloadingTerrainScreen(networkHandler));
+	}
+
+	/**
+	 * Packets only move the world forward, so going back rebuilds it: the replay restarts
+	 * and every packet up to the target is fed at once. The camera keeps its place.
+	 */
+	private void seek(double target) {
+		Minecraft minecraft = Minecraft.getInstance();
+		target = Math.max(0, Math.min(target, duration()));
+		if (target >= timeMs) {
+			timeMs = target;
+			return;
+		}
+		ReplayHandler fresh = new ReplayHandler(file, times, packets);
+		fresh.speedIndex = speedIndex;
+		fresh.paused = paused;
+		fresh.timeMs = target;
+		if (minecraft.player != null) {
+			fresh.camera = new double[] { minecraft.player.x, minecraft.player.y - minecraft.player.eyeHeight, minecraft.player.z,
+				minecraft.player.yaw, minecraft.player.pitch };
+		}
+		active = null;
+		minecraft.setWorld(null);
+		start(fresh);
+	}
+
+	private int duration() {
+		return times.length == 0 ? 0 : times[times.length - 1];
 	}
 
 	/** Called when the client binds its connection: give it a sink as the other end. */
@@ -104,12 +150,22 @@ public final class ReplayHandler {
 		if (active != null && !starting) {
 			RetroReplay.LOGGER.info("Replay closed: " + active.file.getName());
 			active = null;
+			Minecraft.getInstance().options.hideGui = hideGuiBefore;
 		}
 	}
 
 	public static void tick() {
 		if (active != null && active.client != null) {
 			active.update();
+		}
+	}
+
+	/** End of the client tick: the only safe moment to tear the world down for a seek. */
+	public static void tickEnd() {
+		if (active != null && active.pendingSeek >= 0) {
+			double target = active.pendingSeek;
+			active.pendingSeek = -1;
+			active.seek(target);
 		}
 	}
 
@@ -134,18 +190,38 @@ public final class ReplayHandler {
 				speedIndex--;
 				chat("Replay speed " + SPEEDS[speedIndex] + "x");
 			}
+			if (pressed(Keyboard.KEY_LEFT)) {
+				pendingSeek = Math.max(0, timeMs - SEEK_STEP_MS);
+			}
+			if (pressed(Keyboard.KEY_RIGHT)) {
+				pendingSeek = timeMs + SEEK_STEP_MS;
+			}
+		}
+		double devSeek = DevAutoplay.seekRequest(timeMs);
+		if (devSeek >= 0) {
+			pendingSeek = devSeek;
 		}
 
 		while (index < times.length && times[index] <= timeMs) {
 			feed(packets[index++]);
 		}
 
-		if (minecraft.player != null) {
-			minecraft.player.abilities.canFly = true;
-			minecraft.player.abilities.flying = true;
-			minecraft.player.abilities.invulnerable = true;
+		LocalClientPlayerEntity player = minecraft.player;
+		if (player != null) {
+			player.abilities.canFly = true;
+			player.abilities.flying = true;
+			player.abilities.invulnerable = true;
+			player.noClip = true;
+			if (camera != null && positioned) {
+				player.setPositionAndAngles(camera[0], camera[1], camera[2], (float) camera[3], (float) camera[4]);
+				camera = null;
+			}
 		}
 		DevAutoplay.afterTick(minecraft, timeMs, index, times.length);
+	}
+
+	public static double currentTime() {
+		return active == null ? -1 : active.timeMs;
 	}
 
 	private void feed(byte[] data) {
@@ -174,6 +250,7 @@ public final class ReplayHandler {
 		switch (id) {
 			case 0x08: // health: no death screen for the camera
 			case 0xCA: // abilities: keep the camera flying
+			case 0xFA: // custom payload: mod handshakes and trade/book screens, nothing to show
 				return true;
 			case 0x0D: // position: only the first one places the camera
 				if (positioned) {
@@ -200,10 +277,6 @@ public final class ReplayHandler {
 
 	private static void chat(String message) {
 		Minecraft.getInstance().gui.getChat().addMessage(message);
-	}
-
-	private static int readInt(byte[] data, int offset) {
-		return (data[offset] & 0xFF) << 24 | (data[offset + 1] & 0xFF) << 16 | (data[offset + 2] & 0xFF) << 8 | data[offset + 3] & 0xFF;
 	}
 
 	private static ReplayHandler load(File file) throws IOException {

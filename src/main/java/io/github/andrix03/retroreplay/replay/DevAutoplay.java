@@ -24,7 +24,19 @@ public final class DevAutoplay {
 	private static boolean framed;
 	private static int shots;
 
+	private static boolean seeked;
+
 	private DevAutoplay() {
+	}
+
+	/** After the second picture, jump back to 3 s once so the third one checks the rebuilt world. */
+	static double seekRequest(double timeMs) {
+		if (ENABLED && !seeked && shots == 2) {
+			seeked = true;
+			RetroReplay.LOGGER.info("Autoplay: seeking back from " + (int) timeMs + " ms to 3000 ms");
+			return 3_000;
+		}
+		return -1;
 	}
 
 	public static void onTitleScreen() {
