@@ -459,6 +459,50 @@ public final class PathingOverlay {
 		}
 	}
 
+	/**
+	 * Replay Mod's V (sync timeline): the cursor moves to where the path reaches the replay's
+	 * current time, counting from the last time keyframe before it at the current speed
+	 * (Shift: 1x). Repeated until it stops moving, and given up if it would go backwards.
+	 */
+	public static void syncTimeline() {
+		PathingState state = state();
+		if (state == null || PathPlayer.isActive()) {
+			return;
+		}
+		Long cursor = syncTime(state, state.cursor);
+		if (cursor == null) {
+			show("No time keyframe before the cursor");
+			return;
+		}
+		for (int i = 0; i < 100; i++) {
+			Long updated = syncTime(state, cursor);
+			if (updated == null || updated.equals(cursor)) {
+				break;
+			}
+			if (updated < cursor) {
+				return;
+			}
+			cursor = updated;
+		}
+		state.cursor = Math.max(0, Math.min(PathingState.LENGTH_MS, cursor));
+		if (state.cursor < state.scroll || state.cursor > state.scroll + state.visibleLength()) {
+			state.scroll = state.cursor - state.visibleLength() / 10;
+			state.clampScroll();
+		}
+		state.clearSelection(); // so a keyframe can be added right away
+	}
+
+	private static Long syncTime(PathingState state, long cursor) {
+		Map.Entry<Long, Integer> keyframe = state.path.times().floorEntry(cursor);
+		if (keyframe == null) {
+			return null;
+		}
+		double replayPassed = ReplayHandler.get().getTime() - keyframe.getValue();
+		boolean shift = Keyboard.isKeyDown(Keyboard.KEY_LSHIFT) || Keyboard.isKeyDown(Keyboard.KEY_RSHIFT);
+		double speed = shift ? 1 : ReplayHandler.speed(ReplayHandler.get().getSpeedStep());
+		return keyframe.getKey() + Math.round(replayPassed / speed);
+	}
+
 	/** M in a replay: an event marker at the replay's current time. */
 	public static void addMarker() {
 		PathingState state = state();

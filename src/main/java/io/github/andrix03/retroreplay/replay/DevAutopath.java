@@ -5,6 +5,7 @@ import java.io.File;
 import io.github.andrix03.retroreplay.RetroReplay;
 import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.gui.EditKeyframeScreen;
+import io.github.andrix03.retroreplay.gui.PathingOverlay;
 import io.github.andrix03.retroreplay.gui.RenderSettingsScreen;
 import io.github.andrix03.retroreplay.gui.ReplayOverlayScreen;
 import io.github.andrix03.retroreplay.pathing.CameraPath;
@@ -94,6 +95,10 @@ public final class DevAutopath {
 					shot(minecraft, "edit_keyframe");
 					minecraft.openScreen(null);
 					PathingState state = PathingState.current();
+					// V: with time keyframes 0 -> 3000 ms and 4000 -> 7000 ms the cursor lands at replay time - 3000
+					int now = (int) ReplayHandler.get().getTime();
+					PathingOverlay.syncTimeline();
+					RetroReplay.LOGGER.info("Autopath: sync timeline at replay " + now + " ms put the cursor at " + state.cursor + " ms (expected about " + (now - 3000) + ")");
 					state.beforeChange();
 					state.path.removePosition(2000);
 					int removed = state.path.positions().size();
