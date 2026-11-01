@@ -37,6 +37,8 @@ public final class Recorder {
 	private DataOutputStream out;
 	private int lastTime;
 	private int packetCount;
+	private long pausedSince;
+	private long pausedNanos;
 
 	private Recorder(File folder, boolean singleplayer, String serverName) throws IOException {
 		String name = new SimpleDateFormat("yyyy_MM_dd_HH_mm_ss").format(new Date(startDate));
@@ -72,6 +74,25 @@ public final class Recorder {
 		}
 	}
 
+	/** Singleplayer pause menu: the world stands still, so the recording clock does too. */
+	public static synchronized void setPaused(boolean paused) {
+		if (current == null || !current.singleplayer || paused == (current.pausedSince != 0)) {
+			return;
+		}
+		long now = System.nanoTime();
+		if (paused) {
+			current.pausedSince = now;
+		} else {
+			current.pausedNanos += now - current.pausedSince;
+			current.pausedSince = 0;
+		}
+	}
+
+	private int elapsedMs() {
+		long now = pausedSince != 0 ? pausedSince : System.nanoTime();
+		return (int) ((now - startNanos - pausedNanos) / 1_000_000L);
+	}
+
 	public static synchronized void stop() {
 		if (current != null) {
 			Recorder recorder = current;
@@ -93,7 +114,7 @@ public final class Recorder {
 			return;
 		}
 		try {
-			lastTime = (int) ((System.nanoTime() - startNanos) / 1_000_000L);
+			lastTime = Math.max(lastTime, elapsedMs());
 			out.writeInt(lastTime);
 			out.writeInt(buffer.size());
 			buffer.writeTo(out);

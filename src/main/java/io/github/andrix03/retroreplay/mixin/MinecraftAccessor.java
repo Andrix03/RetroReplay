@@ -11,4 +11,7 @@ public interface MinecraftAccessor {
 
 	@Accessor("connection")
 	void retroreplay$setConnection(Connection connection);
+
+	@Accessor("paused")
+	boolean retroreplay$isPaused();
 }

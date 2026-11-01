@@ -1,5 +1,7 @@
 package io.github.andrix03.retroreplay.recording;
 
+import io.github.andrix03.retroreplay.mixin.MinecraftAccessor;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.living.player.LocalClientPlayerEntity;
 import net.minecraft.item.ItemStack;
@@ -38,6 +40,7 @@ public final class LocalPlayerRecorder {
 			return;
 		}
 		Minecraft minecraft = Minecraft.getInstance();
+		Recorder.setPaused(((MinecraftAccessor) minecraft).retroreplay$isPaused());
 		LocalClientPlayerEntity player = minecraft.player;
 		if (player == null || minecraft.world == null) {
 			return;

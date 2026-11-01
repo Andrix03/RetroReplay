@@ -4,6 +4,7 @@ import io.github.andrix03.retroreplay.RetroReplay;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.living.player.LocalClientPlayerEntity;
+import net.minecraft.client.gui.screen.menu.GameMenuScreen;
 import net.minecraft.client.gui.screen.menu.TitleScreen;
 import net.minecraft.world.WorldSettings;
 import net.minecraft.world.gen.WorldGeneratorType;
@@ -21,6 +22,7 @@ public final class DevAutorecord {
 	private static boolean finished;
 	private static int ticks;
 	private static int titleTicks;
+	private static long pauseStart;
 
 	private DevAutorecord() {
 	}
@@ -46,10 +48,21 @@ public final class DevAutorecord {
 			return;
 		}
 		LocalClientPlayerEntity player = minecraft.player;
+		if (minecraft.screen instanceof GameMenuScreen && System.nanoTime() - pauseStart > 3_000_000_000L) {
+			RetroReplay.LOGGER.info("Autorecord: closing the pause menu");
+			minecraft.openScreen(null);
+		}
 		if (player == null || minecraft.world == null || minecraft.screen != null) {
 			return;
 		}
 		ticks++;
+		if (ticks == 120 && pauseStart == 0) {
+			// 3 s in the pause menu: the recording clock must not count them
+			RetroReplay.LOGGER.info("Autorecord: opening the pause menu");
+			pauseStart = System.nanoTime();
+			minecraft.openScreen(new GameMenuScreen());
+			return;
+		}
 		player.yaw += 3.0F;
 		double rad = Math.toRadians(player.yaw);
 		player.velocityX = -Math.sin(rad) * 0.2;
