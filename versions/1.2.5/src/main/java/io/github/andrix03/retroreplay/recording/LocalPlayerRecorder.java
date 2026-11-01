@@ -51,6 +51,18 @@ public final class LocalPlayerRecorder {
 		if (player == null || minecraft.world == null) {
 			return;
 		}
+		// the local player's y is at its eyes (eyeHeight above the feet), another player's at its
+		// feet: the packets are made at the feet, as the server makes them for the other clients
+		double eyes = player.y;
+		player.y -= player.eyeHeight;
+		try {
+			record(player);
+		} finally {
+			player.y = eyes;
+		}
+	}
+
+	private static void record(ClientPlayerEntity player) {
 		if (player != spawned) {
 			spawned = player;
 			Recorder.record(new AddPlayerPacket(player));
