@@ -3,6 +3,7 @@ package io.github.andrix03.retroreplay.gui;
 import java.util.Map;
 
 import org.lwjgl.input.Keyboard;
+import org.lwjgl.opengl.GL11;
 
 import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.pathing.CameraPath;
@@ -86,6 +87,7 @@ public final class PathingOverlay {
 		int contentY = ROW_Y + INSET;
 		int contentH = 20 - 2 * INSET;
 		drawIndicatorsAndLabels(state, contentX, contentW, contentY, contentH);
+		drawTimeLines(state, width, contentX, contentW, contentY);
 		drawKeyframes(state, contentX, contentW, contentY);
 		drawCursor(state, contentX, contentW, contentY, contentH);
 
@@ -147,6 +149,36 @@ public final class PathingOverlay {
 				ReplayGui.text(label, lx - half, ROW_Y - 8, ReplayGui.WHITE);
 			}
 		}
+	}
+
+	/**
+	 * LineToReplayTimelineEffect: from each time keyframe up to its replay time on the replay
+	 * bar, a 2 px blue line: down the replay bar, across to the keyframe, into the border.
+	 */
+	private static void drawTimeLines(PathingState state, int width, int x, int w, int contentTop) {
+		int duration = ReplayHandler.get().getDuration();
+		GL11.glDisable(GL11.GL_TEXTURE_2D);
+		GL11.glEnable(GL11.GL_BLEND);
+		GL11.glEnable(GL11.GL_LINE_SMOOTH);
+		GL11.glLineWidth(2);
+		GL11.glColor4f(0, 0, 1, 1);
+		for (Map.Entry<Long, Integer> keyframe : state.path.times().entrySet()) {
+			int keyX = xOf(state, keyframe.getKey(), x, w);
+			if (keyX < x || keyX > x + w) {
+				continue; // scrolled out of view
+			}
+			int barX = ReplayOverlay.barX(keyframe.getValue(), duration, width);
+			GL11.glBegin(GL11.GL_LINE_STRIP);
+			GL11.glVertex2f(barX + 0.5f, ReplayOverlay.barTop());
+			GL11.glVertex2f(barX + 0.5f, ReplayOverlay.barBottom());
+			GL11.glVertex2f(keyX + 0.5f, ROW_Y);
+			GL11.glVertex2f(keyX + 0.5f, contentTop);
+			GL11.glEnd();
+		}
+		GL11.glDisable(GL11.GL_LINE_SMOOTH);
+		GL11.glLineWidth(1);
+		GL11.glColor4f(1, 1, 1, 1);
+		GL11.glEnable(GL11.GL_TEXTURE_2D);
 	}
 
 	/** UITimelineKeyframes: position row on top, time row below, 5x5 icons, colored time segments. */

@@ -175,6 +175,20 @@ public final class ReplayOverlay {
 		}
 	}
 
+	/** Where a replay time is on the replay bar (for the lines from time keyframes). */
+	static int barX(int time, int duration, int width) {
+		int body = timelineWidth(width) - BORDER_LEFT - BORDER_RIGHT;
+		return TIMELINE_X + BORDER_LEFT + (int) ((long) body * Math.max(0, Math.min(time, duration)) / Math.max(1, duration));
+	}
+
+	static int barTop() {
+		return TOP + BORDER_TOP;
+	}
+
+	static int barBottom() {
+		return TOP + 20;
+	}
+
 	private static int timelineWidth(int width) {
 		return width - SIDE - TIMELINE_X;
 	}
