@@ -27,8 +27,10 @@ import io.github.andrix03.retroreplay.agent.PauseAgent;
 import io.github.andrix03.retroreplay.agent.PauseClock;
 import io.github.andrix03.retroreplay.compat.Mc;
 
+import net.minecraft.client.network.handler.ClientNetworkHandler;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtIo;
+import net.minecraft.network.packet.KeepAlivePacket;
 
 /**
  * Singleplayer before 1.3 runs the world inside the client, with no packets to record. So the
@@ -62,6 +64,7 @@ public final class LocalServer {
 
 	private static final int START_TIMEOUT_MS = 180_000;
 	private static final int STOP_TIMEOUT_MS = 60_000;
+	private static final int KEEP_ALIVE_MS = 5_000;
 
 	private static volatile State state = State.IDLE;
 	private static volatile String error;
@@ -72,7 +75,8 @@ public final class LocalServer {
 	private static String worldName;
 	private static String username;
 	private static volatile boolean joined;
-	private static boolean paused;
+	private static volatile boolean paused;
+	private static long lastKeepAlive;
 	private static boolean shutdownHook;
 
 	private LocalServer() {
@@ -217,6 +221,10 @@ public final class LocalServer {
 		return joined;
 	}
 
+	public static boolean isPaused() {
+		return paused;
+	}
+
 	/** Freezes or resumes the server's world, like the singleplayer pause menu (see PauseAgent). */
 	public static synchronized void setPaused(boolean pause) {
 		if (pause == paused || process == null || state != State.RUNNING) {
@@ -224,6 +232,22 @@ public final class LocalServer {
 		}
 		paused = pause;
 		command(pause ? PauseAgent.PAUSE : PauseAgent.RESUME);
+	}
+
+	/**
+	 * Every client tick. While paused the client sends nothing either, and the server drops
+	 * a connection after 30 s without data: a keep-alive every few seconds prevents that
+	 * (the paused server only queues them).
+	 */
+	public static void keepAlive(ClientNetworkHandler handler) {
+		if (!paused || handler == null) {
+			return;
+		}
+		long now = System.currentTimeMillis();
+		if (now - lastKeepAlive >= KEEP_ALIVE_MS) {
+			lastKeepAlive = now;
+			handler.sendPacket(new KeepAlivePacket(0));
+		}
 	}
 
 	private static synchronized void command(String line) {

@@ -18,6 +18,8 @@ public final class DevAutorecord {
 	public static final boolean ENABLED = System.getenv("RETROREPLAY_AUTORECORD") != null;
 	/** host:port to record a multiplayer session instead of the singleplayer test world. */
 	private static final String SERVER = System.getenv("RETROREPLAY_AUTORECORD_SERVER");
+	/** Seconds spent in the pause menu (default 3; long pauses test connection timeouts). */
+	private static final long PAUSE_NANOS = Long.parseLong(System.getenv().getOrDefault("RETROREPLAY_AUTORECORD_PAUSE", "3")) * 1_000_000_000L;
 
 	private static boolean started;
 	private static boolean finished;
@@ -53,7 +55,7 @@ public final class DevAutorecord {
 			}
 			return;
 		}
-		if (minecraft.screen instanceof GameMenuScreen && System.nanoTime() - pauseStart > 3_000_000_000L) {
+		if (minecraft.screen instanceof GameMenuScreen && System.nanoTime() - pauseStart > PAUSE_NANOS) {
 			Screenshot.take(minecraft.gameDir, "autorecord_paused.png", minecraft.width, minecraft.height);
 			RetroReplay.LOGGER.info("Autorecord: closing the pause menu");
 			minecraft.openScreen(null);
