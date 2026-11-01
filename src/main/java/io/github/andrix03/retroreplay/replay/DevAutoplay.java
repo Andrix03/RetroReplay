@@ -113,11 +113,16 @@ public final class DevAutoplay {
 		}
 	}
 
-	/** The recorded player is the only other player entity (class name: dev environment only). */
+	/**
+	 * The recorded player is the only other player entity. Found without class names (they are
+	 * obfuscated in real installs): the camera's class is two levels below a class every
+	 * client-side player shares (PlayerEntity before 1.6, AbstractClientPlayerEntity in 1.6).
+	 */
 	private static Entity findRecordedPlayer(Minecraft minecraft) {
-		if (minecraft.world != null) {
+		if (minecraft.world != null && minecraft.player != null) {
+			Class<?> players = minecraft.player.getClass().getSuperclass().getSuperclass();
 			for (Object entity : minecraft.world.entities) {
-				if (entity.getClass().getSimpleName().equals("RemoteClientPlayerEntity")) {
+				if (entity != minecraft.player && players.isInstance(entity)) {
 					return (Entity) entity;
 				}
 			}
