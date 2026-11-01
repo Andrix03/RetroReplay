@@ -20,6 +20,7 @@ import io.github.andrix03.retroreplay.gui.PathingOverlay;
 import io.github.andrix03.retroreplay.gui.ReplayOverlayScreen;
 import io.github.andrix03.retroreplay.pathing.PathPlayer;
 import io.github.andrix03.retroreplay.pathing.PathPreview;
+import io.github.andrix03.retroreplay.pathing.PathingState;
 import io.github.andrix03.retroreplay.render.VideoRenderer;
 
 import net.minecraft.client.Minecraft;
@@ -194,6 +195,8 @@ public final class ReplayHandler {
 
 	public static void stop() {
 		if (active != null && !starting) {
+			PathPlayer.stop();
+			PathingState.saveCurrent();
 			RetroReplay.LOGGER.info("Replay closed: " + active.file.getName());
 			active = null;
 		}

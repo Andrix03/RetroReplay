@@ -1,6 +1,9 @@
 package io.github.andrix03.retroreplay.pathing;
 
 import java.io.File;
+import java.io.IOException;
+
+import io.github.andrix03.retroreplay.RetroReplay;
 
 /**
  * The camera path being edited in the open replay and the pathing timeline's view: cursor,
@@ -27,16 +30,45 @@ public final class PathingState {
 	public Kind selectedKind;
 	public long selectedTime;
 
+	/** The path as last loaded or saved, to save only real changes. */
+	private String savedJson;
+
 	private PathingState(File replay) {
 		this.replay = replay;
+		try {
+			CameraPath saved = PathStore.load(replay);
+			PathStore.fromJson(PathStore.toJson(saved), path);
+		} catch (IOException e) {
+			RetroReplay.LOGGER.error("Cannot read the camera path of " + replay, e);
+		}
+		savedJson = PathStore.toJson(path);
 	}
 
-	/** The state of this replay, a fresh one when another replay was open before. */
+	/** The state of this replay, a fresh one (with the path saved in it) when another replay was open before. */
 	public static PathingState of(File replay) {
 		if (current == null || !current.replay.equals(replay)) {
 			current = new PathingState(replay);
 		}
 		return current;
+	}
+
+	/** The replay closes: its camera path goes into the replay file, like Replay Mod's timelines. */
+	public static void saveCurrent() {
+		PathingState state = current;
+		if (state == null) {
+			return;
+		}
+		String json = PathStore.toJson(state.path);
+		if (json.equals(state.savedJson)) {
+			return;
+		}
+		try {
+			PathStore.save(state.replay, state.path);
+			state.savedJson = json;
+			RetroReplay.LOGGER.info("Camera path saved in " + state.replay.getName());
+		} catch (IOException e) {
+			RetroReplay.LOGGER.error("Cannot save the camera path in " + state.replay, e);
+		}
 	}
 
 	public static PathingState current() {
