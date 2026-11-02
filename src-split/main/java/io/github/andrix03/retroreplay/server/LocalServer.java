@@ -16,6 +16,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Locale;
 import java.util.Properties;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
@@ -198,6 +199,12 @@ public final class LocalServer {
 		while ((line = output.readLine()) != null) {
 			if (line.contains("FAILED TO BIND")) {
 				throw new IOException("The local server could not open port " + freePort);
+			}
+			// the old servers log a crash and then stay running with no world: stop waiting at once
+			if (line.contains("[SEVERE]") && line.toLowerCase(Locale.ROOT).contains("unexpected exception")) {
+				throw new IOException(newWorld != null
+					? "Minecraft " + Mc.VERSION + " crashed generating this world (a bug of the game with some seeds): create it again with another seed"
+					: "The local server crashed loading the world (see " + new File(folder, "server.log") + ")");
 			}
 			if (line.contains("Done (")) {
 				break;
