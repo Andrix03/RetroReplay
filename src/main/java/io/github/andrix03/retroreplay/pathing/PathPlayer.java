@@ -69,7 +69,9 @@ public final class PathPlayer {
 			return;
 		}
 		if (replay == null) {
-			active = null;
+			if (!ReplayHandler.isSeeking()) {
+				active = null; // the replay was closed
+			}
 			return;
 		}
 		player.time = player.startTime + (System.nanoTime() - player.startNanos) / 1_000_000L;

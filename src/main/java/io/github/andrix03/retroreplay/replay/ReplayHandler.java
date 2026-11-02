@@ -47,6 +47,8 @@ public final class ReplayHandler {
 
 	private static ReplayHandler active;
 	private static boolean starting;
+	/** Between closing the old world and starting the new one: 1.13 draws a loading frame in there. */
+	private static boolean seeking;
 
 	private final File file;
 	private final int[] times;
@@ -191,8 +193,18 @@ public final class ReplayHandler {
 				minecraft.player.yaw, minecraft.player.pitch };
 		}
 		active = null;
-		minecraft.setWorld(null);
-		start(fresh);
+		seeking = true;
+		try {
+			minecraft.setWorld(null);
+			start(fresh);
+		} finally {
+			seeking = false;
+		}
+	}
+
+	/** A seek is rebuilding the world: get() is null for a moment, the replay goes on. */
+	public static boolean isSeeking() {
+		return seeking;
 	}
 
 	private int duration() {

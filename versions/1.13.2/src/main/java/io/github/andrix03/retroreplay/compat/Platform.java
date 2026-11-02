@@ -119,6 +119,16 @@ public final class Platform {
 		Utils.getOS().openFile(folder);
 	}
 
+	/** The system clipboard's text, through GLFW: 1.13 runs Java's AWT headless. */
+	public static void setClipboard(String text) {
+		GLFW.glfwSetClipboardString(window(), text);
+	}
+
+	/** Null when the clipboard holds no text. */
+	public static String getClipboard() {
+		return GLFW.glfwGetClipboardString(window());
+	}
+
 	public static boolean hasFramebuffers() {
 		return GLX.useFbo();
 	}

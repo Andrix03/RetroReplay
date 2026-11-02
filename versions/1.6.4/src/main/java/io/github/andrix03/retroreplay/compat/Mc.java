@@ -181,6 +181,11 @@ public final class Mc {
 		minecraft().player.swingArm();
 	}
 
+	/** How high the camera's eyes are above its feet. */
+	public static double eyeHeight() {
+		return minecraft().player.eyeHeight;
+	}
+
 	/** Dev self-test only: opens (or creates, seed 1234) a survival singleplayer world. */
 	public static void startSelftestWorld(String name) {
 		minecraft().startGame(name, name, new net.minecraft.world.WorldSettings(1234L, net.minecraft.world.WorldSettings.GameMode.SURVIVAL, true, false, net.minecraft.world.gen.WorldGeneratorType.DEFAULT));

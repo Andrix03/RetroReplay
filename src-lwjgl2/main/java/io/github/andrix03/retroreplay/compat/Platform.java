@@ -97,6 +97,21 @@ public final class Platform {
 		Sys.openURL("file://" + folder.getAbsolutePath());
 	}
 
+	/** The system clipboard's text (AWT works in these versions). */
+	public static void setClipboard(String text) {
+		java.awt.datatransfer.StringSelection selection = new java.awt.datatransfer.StringSelection(text);
+		java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, selection);
+	}
+
+	/** Null when the clipboard holds no text. */
+	public static String getClipboard() {
+		try {
+			return (String) java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().getData(java.awt.datatransfer.DataFlavor.stringFlavor);
+		} catch (java.awt.datatransfer.UnsupportedFlavorException | java.io.IOException e) {
+			return null;
+		}
+	}
+
 	public static boolean hasFramebuffers() {
 		return GLContext.getCapabilities().GL_EXT_framebuffer_object;
 	}

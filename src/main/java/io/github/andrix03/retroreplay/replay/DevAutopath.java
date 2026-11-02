@@ -4,6 +4,7 @@ import java.io.File;
 
 import io.github.andrix03.retroreplay.RetroReplay;
 import io.github.andrix03.retroreplay.compat.Mc;
+import io.github.andrix03.retroreplay.compat.Platform;
 import io.github.andrix03.retroreplay.gui.EditKeyframeScreen;
 import io.github.andrix03.retroreplay.gui.PathingOverlay;
 import io.github.andrix03.retroreplay.gui.RenderSettingsScreen;
@@ -126,14 +127,9 @@ public final class DevAutopath {
 					CameraPath copy = new CameraPath();
 					state.presets.load("Autopath", copy);
 					// Copy then Paste, as the repository buttons do
-					java.awt.datatransfer.StringSelection text = new java.awt.datatransfer.StringSelection(state.presets.all().get("Autopath"));
-					java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(text, text);
-					try {
-						String back = (String) java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().getData(java.awt.datatransfer.DataFlavor.stringFlavor);
-						RetroReplay.LOGGER.info("Autopath: clipboard round trip " + (back.equals(state.presets.all().get("Autopath")) ? "ok" : "different"));
-					} catch (Exception e) {
-						RetroReplay.LOGGER.error("Autopath: clipboard failed", e);
-					}
+					Platform.setClipboard(state.presets.all().get("Autopath"));
+					String back = Platform.getClipboard();
+					RetroReplay.LOGGER.info("Autopath: clipboard round trip " + (state.presets.all().get("Autopath").equals(back) ? "ok" : "different: " + back));
 					RetroReplay.LOGGER.info("Autopath: preset holds " + copy.positions().size() + " position and " + copy.times().size() + " time keyframes");
 					stage = 3;
 					waitTicks = 0;
@@ -220,6 +216,9 @@ public final class DevAutopath {
 				}
 				break;
 			case 4:
+				if (minecraft.player == null) {
+					break; // a seek is rebuilding the world: the camera comes back with the login packet
+				}
 				if (!checkedMiddle && PathPlayer.time() >= 2000) {
 					checkedMiddle = true;
 					check(minecraft, "middle", PathPlayer.time());

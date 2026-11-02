@@ -47,7 +47,9 @@ public final class PathPreview {
 		if (path.positions().isEmpty()) {
 			return;
 		}
-		double eye = Mc.feetOffset();
+		// keyframes hold the camera's feet: icons go at its eyes, distances compare feet
+		double eye = Mc.eyeHeight();
+		double feetOffset = Mc.feetOffset();
 		double viewX = minecraft.player.prevX + (minecraft.player.x - minecraft.player.prevX) * tickDelta;
 		double viewY = minecraft.player.prevY + (minecraft.player.y - minecraft.player.prevY) * tickDelta;
 		double viewZ = minecraft.player.prevZ + (minecraft.player.z - minecraft.player.prevZ) * tickDelta;
@@ -98,12 +100,12 @@ public final class PathPreview {
 		GL11.glBlendFunc(GL11.GL_DST_COLOR, GL11.GL_SRC_COLOR);
 		ReplayGui.bind(ReplayGui.REPLAY_GUI);
 		List<Map.Entry<Long, CameraPath.Position>> keyframes = new ArrayList<>(path.positions().entrySet());
-		keyframes.sort((a, b) -> Double.compare(distanceSq(b.getValue(), viewX, viewY - eye, viewZ), distanceSq(a.getValue(), viewX, viewY - eye, viewZ)));
+		keyframes.sort((a, b) -> Double.compare(distanceSq(b.getValue(), viewX, viewY - feetOffset, viewZ), distanceSq(a.getValue(), viewX, viewY - feetOffset, viewZ)));
 		float cameraYaw = minecraft.player.lastYaw + (minecraft.player.yaw - minecraft.player.lastYaw) * tickDelta;
 		float cameraPitch = minecraft.player.lastPitch + (minecraft.player.pitch - minecraft.player.lastPitch) * tickDelta;
 		for (Map.Entry<Long, CameraPath.Position> keyframe : keyframes) {
 			CameraPath.Position p = keyframe.getValue();
-			if (nearCamera(p, viewX, viewY - eye, viewZ)) {
+			if (nearCamera(p, viewX, viewY - feetOffset, viewZ)) {
 				continue; // a keyframe where the camera stands would cover the whole screen
 			}
 			boolean selected = state.isSelected(PathingState.Kind.POSITION, keyframe.getKey());
@@ -114,7 +116,7 @@ public final class PathPreview {
 
 		// the camera at the cursor
 		CameraPath.Position at = path.positionAt(state.cursor);
-		if (path.spectatedAt(state.cursor) == CameraPath.Position.NO_ENTITY && !nearCamera(at, viewX, viewY - eye, viewZ)) {
+		if (path.spectatedAt(state.cursor) == CameraPath.Position.NO_ENTITY && !nearCamera(at, viewX, viewY - feetOffset, viewZ)) {
 			drawCamera(at.x - viewX, at.y + eye - viewY, at.z - viewZ, at.yaw, at.pitch, at.roll);
 		}
 
