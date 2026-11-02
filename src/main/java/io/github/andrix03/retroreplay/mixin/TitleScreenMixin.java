@@ -5,6 +5,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import io.github.andrix03.retroreplay.compat.Button;
 import io.github.andrix03.retroreplay.gui.ReplayGui;
 import io.github.andrix03.retroreplay.gui.ReplayViewerScreen;
 import io.github.andrix03.retroreplay.replay.DevAutoplay;
@@ -36,7 +37,7 @@ public abstract class TitleScreenMixin extends Screen {
 		}
 		int x = anchor == null ? width - 25 : anchor.x + 200 + 4;
 		int y = anchor == null ? 5 : anchor.y;
-		buttons.add(retroreplay$button = new ButtonWidget(REPLAY_VIEWER_BUTTON, x, y, 20, 20, ""));
+		buttons.add(retroreplay$button = new Button(REPLAY_VIEWER_BUTTON, x, y, 20, 20, ""));
 		if (!DevAutorecord.onTitleScreen()) {
 			DevAutoplay.onTitleScreen();
 		}

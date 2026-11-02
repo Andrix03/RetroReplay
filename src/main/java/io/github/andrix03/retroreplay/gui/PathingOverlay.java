@@ -2,10 +2,10 @@ package io.github.andrix03.retroreplay.gui;
 
 import java.util.Map;
 
-import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.GL11;
 
 import io.github.andrix03.retroreplay.compat.Mc;
+import io.github.andrix03.retroreplay.compat.Platform;
 import io.github.andrix03.retroreplay.pathing.CameraPath;
 import io.github.andrix03.retroreplay.pathing.PathPlayer;
 import io.github.andrix03.retroreplay.pathing.PathingState;
@@ -391,7 +391,7 @@ public final class PathingOverlay {
 			return;
 		}
 		int steps = wheel > 0 ? 1 : -1;
-		if (Keyboard.isKeyDown(Keyboard.KEY_LCONTROL) || Keyboard.isKeyDown(Keyboard.KEY_RCONTROL)) {
+		if (Platform.isKeyDown(Platform.KEY_LCONTROL) || Platform.isKeyDown(Platform.KEY_RCONTROL)) {
 			state.setZoom(state.zoom * Math.pow(1.2, -steps), timeAt(state, mouseX, width));
 		} else {
 			state.scroll -= steps * state.visibleLength() / 10;
@@ -444,8 +444,8 @@ public final class PathingOverlay {
 			show("Camera path stopped");
 			return;
 		}
-		boolean shift = Keyboard.isKeyDown(Keyboard.KEY_LSHIFT) || Keyboard.isKeyDown(Keyboard.KEY_RSHIFT);
-		boolean ctrl = Keyboard.isKeyDown(Keyboard.KEY_LCONTROL) || Keyboard.isKeyDown(Keyboard.KEY_RCONTROL);
+		boolean shift = Platform.isKeyDown(Platform.KEY_LSHIFT) || Platform.isKeyDown(Platform.KEY_RSHIFT);
+		boolean ctrl = Platform.isKeyDown(Platform.KEY_LCONTROL) || Platform.isKeyDown(Platform.KEY_RCONTROL);
 		String problem = PathPlayer.start(state, shift, ctrl);
 		show(problem != null ? problem : "Camera path started");
 	}
@@ -530,7 +530,7 @@ public final class PathingOverlay {
 			return null;
 		}
 		double replayPassed = ReplayHandler.get().getTime() - keyframe.getValue();
-		boolean shift = Keyboard.isKeyDown(Keyboard.KEY_LSHIFT) || Keyboard.isKeyDown(Keyboard.KEY_RSHIFT);
+		boolean shift = Platform.isKeyDown(Platform.KEY_LSHIFT) || Platform.isKeyDown(Platform.KEY_RSHIFT);
 		double speed = shift ? 1 : ReplayHandler.speed(ReplayHandler.get().getSpeedStep());
 		return keyframe.getKey() + Math.round(replayPassed / speed);
 	}

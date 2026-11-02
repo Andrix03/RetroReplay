@@ -2,10 +2,10 @@ package io.github.andrix03.retroreplay.gui;
 
 import java.util.List;
 
-import org.lwjgl.input.Keyboard;
-
+import io.github.andrix03.retroreplay.compat.Button;
 import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.compat.NoPauseScreen;
+import io.github.andrix03.retroreplay.compat.Platform;
 import io.github.andrix03.retroreplay.pathing.Spectator;
 
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -32,9 +32,9 @@ public class PlayerOverviewScreen extends NoPauseScreen {
 			String name = Mc.playerName(players.get(i));
 			int x = left + (i / perColumn) * 154;
 			int y = 40 + (i % perColumn) * 24;
-			buttons.add(new ButtonWidget(i, x, y, 150, 20, name == null ? "?" : name));
+			buttons.add(new Button(i, x, y, 150, 20, name == null ? "?" : name));
 		}
-		buttons.add(new ButtonWidget(FREE_CAMERA, width / 2 - 75, height - 30, 150, 20, Spectator.isSpectating() ? "Free Camera" : "Done"));
+		buttons.add(new Button(FREE_CAMERA, width / 2 - 75, height - 30, 150, 20, Spectator.isSpectating() ? "Free Camera" : "Done"));
 	}
 
 	@Override
@@ -49,7 +49,7 @@ public class PlayerOverviewScreen extends NoPauseScreen {
 
 	@Override
 	protected void keyPressed(char chr, int key) {
-		if (key == Keyboard.KEY_ESCAPE || key == Keyboard.KEY_B) {
+		if (key == Platform.KEY_ESCAPE || key == Platform.KEY_B) {
 			minecraft.openScreen(null);
 		}
 	}

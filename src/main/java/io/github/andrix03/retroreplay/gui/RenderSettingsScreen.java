@@ -5,10 +5,10 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
-import org.lwjgl.input.Keyboard;
-
+import io.github.andrix03.retroreplay.compat.Button;
 import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.compat.NoPauseScreen;
+import io.github.andrix03.retroreplay.compat.Platform;
 import io.github.andrix03.retroreplay.pathing.PathStore;
 import io.github.andrix03.retroreplay.pathing.PathingState;
 import io.github.andrix03.retroreplay.render.FrameWriter;
@@ -79,16 +79,16 @@ public class RenderSettingsScreen extends NoPauseScreen {
 
 	@Override
 	public void init() {
-		Keyboard.enableRepeatEvents(true);
+		Platform.enableRepeatEvents(true);
 		buttons.clear();
 		int x = left();
 		int right = x + 204;
 		int y = top();
-		buttons.add(new ButtonWidget(PRESET, x, y, 200, 20, presetLabel()));
-		buttons.add(bitrateButton = new ButtonWidget(BITRATE, x, y + 24, 200, 20, bitrateLabel()));
-		buttons.add(new ButtonWidget(FPS, x, y + 48, 200, 20, "Frame Rate: " + LAST.fps + " fps"));
-		buttons.add(new ButtonWidget(RESOLUTION, x, y + 72, 200, 20, resolutionLabel()));
-		buttons.add(new ButtonWidget(NAMETAGS, right, y, 200, 20, nametagsLabel()));
+		buttons.add(new Button(PRESET, x, y, 200, 20, presetLabel()));
+		buttons.add(bitrateButton = new Button(BITRATE, x, y + 24, 200, 20, bitrateLabel()));
+		buttons.add(new Button(FPS, x, y + 48, 200, 20, "Frame Rate: " + LAST.fps + " fps"));
+		buttons.add(new Button(RESOLUTION, x, y + 72, 200, 20, resolutionLabel()));
+		buttons.add(new Button(NAMETAGS, right, y, 200, 20, nametagsLabel()));
 		nameField = Mc.textField(this, right, y + 36, 200, 20);
 		nameField.setMaxLength(128);
 		String stamp = new SimpleDateFormat("yyyy_MM_dd_HH_mm_ss").format(new Date());
@@ -99,12 +99,12 @@ public class RenderSettingsScreen extends NoPauseScreen {
 		argumentsField.setText(argumentsText());
 		argumentsField.setFocused(false);
 		int buttonsX = width / 2 - 100;
-		ButtonWidget render = new ButtonWidget(RENDER, buttonsX, y + 152, 98, 20, "Render");
+		ButtonWidget render = new Button(RENDER, buttonsX, y + 152, 98, 20, "Render");
 		render.active = pathJson == null; // a preset is queued, not rendered instead of the current path
 		buttons.add(render);
-		buttons.add(new ButtonWidget(CANCEL, buttonsX + 102, y + 152, 98, 20, "Cancel"));
-		buttons.add(new ButtonWidget(ADD_TO_QUEUE, buttonsX, y + 176, 98, 20, "Add to Queue"));
-		ButtonWidget renderQueue = new ButtonWidget(RENDER_QUEUE, buttonsX + 102, y + 176, 98, 20, "Render Queue (" + queue().size() + ")");
+		buttons.add(new Button(CANCEL, buttonsX + 102, y + 152, 98, 20, "Cancel"));
+		buttons.add(new Button(ADD_TO_QUEUE, buttonsX, y + 176, 98, 20, "Add to Queue"));
+		ButtonWidget renderQueue = new Button(RENDER_QUEUE, buttonsX + 102, y + 176, 98, 20, "Render Queue (" + queue().size() + ")");
 		renderQueue.active = !queue().isEmpty();
 		buttons.add(renderQueue);
 		updateBitrate();
@@ -114,7 +114,7 @@ public class RenderSettingsScreen extends NoPauseScreen {
 
 	@Override
 	public void removed() {
-		Keyboard.enableRepeatEvents(false);
+		Platform.enableRepeatEvents(false);
 	}
 
 	private static String presetLabel() {
@@ -123,7 +123,7 @@ public class RenderSettingsScreen extends NoPauseScreen {
 
 	private String resolutionLabel() {
 		int[] r = RESOLUTIONS[resolution];
-		return "Resolution: " + (r[0] == 0 ? "Window (" + minecraft.width + "x" + minecraft.height + ")" : r[0] + "x" + r[1]);
+		return "Resolution: " + (r[0] == 0 ? "Window (" + Platform.width() + "x" + Platform.height() + ")" : r[0] + "x" + r[1]);
 	}
 
 	private static String nametagsLabel() {
@@ -239,9 +239,9 @@ public class RenderSettingsScreen extends NoPauseScreen {
 	protected void keyPressed(char chr, int key) {
 		nameField.keyPressed(chr, key);
 		argumentsField.keyPressed(chr, key);
-		if (key == Keyboard.KEY_ESCAPE) {
+		if (key == Platform.KEY_ESCAPE) {
 			minecraft.openScreen(new ReplayOverlayScreen());
-		} else if (key == Keyboard.KEY_RETURN) {
+		} else if (key == Platform.KEY_RETURN) {
 			for (Object button : buttons) {
 				if (((ButtonWidget) button).id == RENDER) {
 					buttonClicked((ButtonWidget) button);

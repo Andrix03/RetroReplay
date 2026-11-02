@@ -7,10 +7,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
-import org.lwjgl.input.Keyboard;
-
 import io.github.andrix03.retroreplay.RetroReplay;
 import io.github.andrix03.retroreplay.compat.Mc;
+import io.github.andrix03.retroreplay.compat.Platform;
 import io.github.andrix03.retroreplay.gui.PathingOverlay;
 import io.github.andrix03.retroreplay.gui.PlayerOverviewScreen;
 import io.github.andrix03.retroreplay.gui.ReplayOverlayScreen;
@@ -66,7 +65,7 @@ public final class ReplayHandler {
 	/** Camera x, feet y, z, yaw, pitch to restore after a seek rebuilt the world. */
 	private double[] camera;
 	private double pendingSeek = -1;
-	private final boolean[] keyWasDown = new boolean[256];
+	private final boolean[] keyWasDown = new boolean[Platform.KEY_COUNT];
 
 	private ReplayHandler(File file, int[] times, PacketFile packets, ChunkIndex chunks) {
 		this.file = file;
@@ -244,70 +243,70 @@ public final class ReplayHandler {
 			minecraft.openScreen(new ReplayOverlayScreen());
 		}
 		if (minecraft.screen == null) {
-			if (pressed(Keyboard.KEY_P)) {
+			if (pressed(Platform.KEY_P)) {
 				togglePause();
 			}
-			if (pressed(Keyboard.KEY_RBRACKET)) {
+			if (pressed(Platform.KEY_RBRACKET)) {
 				setSpeedStep(speedStep + 1);
 			}
-			if (pressed(Keyboard.KEY_LBRACKET)) {
+			if (pressed(Platform.KEY_LBRACKET)) {
 				setSpeedStep(speedStep - 1);
 			}
-			if (pressed(Keyboard.KEY_LEFT)) {
+			if (pressed(Platform.KEY_LEFT)) {
 				jumpTo(timeMs - SEEK_STEP_MS);
 			}
-			if (pressed(Keyboard.KEY_RIGHT)) {
+			if (pressed(Platform.KEY_RIGHT)) {
 				jumpTo(timeMs + SEEK_STEP_MS);
 			}
 			// Replay Mod's pathing keys
-			if (pressed(Keyboard.KEY_I)) {
+			if (pressed(Platform.KEY_I)) {
 				PathingOverlay.togglePositionKeyframe();
 			}
-			if (pressed(Keyboard.KEY_O)) {
+			if (pressed(Platform.KEY_O)) {
 				PathingOverlay.toggleTimeKeyframe();
 			}
-			if (pressed(Keyboard.KEY_DELETE)) {
+			if (pressed(Platform.KEY_DELETE)) {
 				PathingOverlay.removeSelected();
 			}
-			if (pressed(Keyboard.KEY_C)) {
+			if (pressed(Platform.KEY_C)) {
 				PathingOverlay.clearKeyframes();
 			}
-			if (pressed(Keyboard.KEY_H)) {
+			if (pressed(Platform.KEY_H)) {
 				PathPreview.toggle();
 			}
 			if (!PathPlayer.isActive() && !Spectator.isSpectating()) {
 				// Replay Mod's roll keys: J / L while held, K back to level
-				CameraRoll.turn((Keyboard.isKeyDown(Keyboard.KEY_L) ? 1 : 0) - (Keyboard.isKeyDown(Keyboard.KEY_J) ? 1 : 0));
-				if (pressed(Keyboard.KEY_K)) {
+				CameraRoll.turn((Platform.isKeyDown(Platform.KEY_L) ? 1 : 0) - (Platform.isKeyDown(Platform.KEY_J) ? 1 : 0));
+				if (pressed(Platform.KEY_K)) {
 					CameraRoll.reset();
 				}
 			}
-			if (pressed(Keyboard.KEY_X)) {
+			if (pressed(Platform.KEY_X)) {
 				PathingOverlay.openRepository();
 			}
-			if (pressed(Keyboard.KEY_V)) {
+			if (pressed(Platform.KEY_V)) {
 				PathingOverlay.syncTimeline();
 			}
-			if (pressed(Keyboard.KEY_M)) {
+			if (pressed(Platform.KEY_M)) {
 				PathingOverlay.addMarker();
 			}
-			if (pressed(Keyboard.KEY_N)) {
+			if (pressed(Platform.KEY_N)) {
 				Thumbnail.request(); // Replay Mod's thumbnail key
 			}
-			if (pressed(Keyboard.KEY_B)) {
+			if (pressed(Platform.KEY_B)) {
 				minecraft.openScreen(new PlayerOverviewScreen());
 			}
-			if (pressed(Keyboard.KEY_LSHIFT) && Spectator.isSpectating() && !PathPlayer.isActive()) {
+			if (pressed(Platform.KEY_LSHIFT) && Spectator.isSpectating() && !PathPlayer.isActive()) {
 				Spectator.stop(); // like Replay Mod: sneak to leave spectating
 			}
-			boolean ctrl = Keyboard.isKeyDown(Keyboard.KEY_LCONTROL) || Keyboard.isKeyDown(Keyboard.KEY_RCONTROL);
-			boolean z = pressed(Keyboard.KEY_Z);
+			boolean ctrl = Platform.isKeyDown(Platform.KEY_LCONTROL) || Platform.isKeyDown(Platform.KEY_RCONTROL);
+			boolean z = pressed(Platform.KEY_Z);
 			if (z && ctrl) {
 				PathingOverlay.undo(false);
 			} else if (z) {
 				CameraControls.toggleAmbient(); // Replay Mod's ambient lighting key
 			}
-			if (pressed(Keyboard.KEY_Y) && ctrl) {
+			if (pressed(Platform.KEY_Y) && ctrl) {
 				PathingOverlay.undo(true);
 			}
 		}
@@ -405,7 +404,7 @@ public final class ReplayHandler {
 	}
 
 	private boolean pressed(int key) {
-		boolean down = Keyboard.isKeyDown(key);
+		boolean down = Platform.isKeyDown(key);
 		boolean was = keyWasDown[key];
 		keyWasDown[key] = down;
 		return down && !was;

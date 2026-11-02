@@ -6,12 +6,12 @@ import java.nio.ByteBuffer;
 import java.util.List;
 
 import org.lwjgl.BufferUtils;
-import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 
 import io.github.andrix03.retroreplay.RetroReplay;
 import io.github.andrix03.retroreplay.compat.Mc;
+import io.github.andrix03.retroreplay.compat.Platform;
 import io.github.andrix03.retroreplay.gui.RenderingScreen;
 import io.github.andrix03.retroreplay.mixin.WorldRendererAccessor;
 import io.github.andrix03.retroreplay.pathing.CameraPath;
@@ -120,15 +120,15 @@ public final class VideoRenderer {
 			}
 		}
 		// a chosen size renders off screen; 0 (or no framebuffer support) means the window's size
-		int width = settings.width > 0 ? settings.width : minecraft.width;
-		int height = settings.height > 0 ? settings.height : minecraft.height;
+		int width = settings.width > 0 ? settings.width : Platform.width();
+		int height = settings.height > 0 ? settings.height : Platform.height();
 		OffscreenTarget target = null;
-		if (width != minecraft.width || height != minecraft.height) {
+		if (width != Platform.width() || height != Platform.height()) {
 			target = OffscreenTarget.create(width, height);
 			if (target == null) {
 				RetroReplay.LOGGER.warn("No off-screen rendering at " + width + "x" + height + ", using the window size");
-				width = minecraft.width;
-				height = minecraft.height;
+				width = Platform.width();
+				height = Platform.height();
 			}
 		}
 		if (settings.needsEvenSize()) {
@@ -144,7 +144,7 @@ public final class VideoRenderer {
 
 		PathPlayer.stop();
 		boolean hideGui = minecraft.options.hideGui;
-		String title = Display.getTitle();
+		String title = Platform.getTitle();
 		rendering = true;
 		cancelled = false;
 		minecraft.options.hideGui = true;
@@ -165,9 +165,9 @@ public final class VideoRenderer {
 				begin(target);
 				renderComplete(0);
 				end(target);
-				Display.update();
+				Platform.updateDisplay();
 			}
-			for (; frame < frames && !cancelled && !Display.isCloseRequested(); frame++) {
+			for (; frame < frames && !cancelled && !Platform.isCloseRequested(); frame++) {
 				long videoTime = start + frame * 1000L / settings.fps;
 				int replayTime = path.replayTimeAt(videoTime);
 				if (replayTime < ReplayHandler.get().getTime() - 50) {
@@ -188,8 +188,8 @@ public final class VideoRenderer {
 				GL11.glReadPixels(0, 0, width, height, GL12.GL_BGRA, GL11.GL_UNSIGNED_BYTE, pixels);
 				end(target);
 				writer.write(pixels, width, height);
-				Display.setTitle("Rendering " + (frame + 1) + " / " + frames + " (Esc cancels)");
-				Display.update();
+				Platform.setTitle("Rendering " + (frame + 1) + " / " + frames + " (Esc cancels)");
+				Platform.updateDisplay();
 			}
 			ok = !cancelled && frame == frames;
 		} finally {
@@ -198,7 +198,7 @@ public final class VideoRenderer {
 			}
 			boolean closed = writer.close();
 			ok &= closed;
-			Display.setTitle(title);
+			Platform.setTitle(title);
 			minecraft.options.hideGui = hideGui;
 			Spectator.clear();
 			rendering = false;

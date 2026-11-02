@@ -3,10 +3,10 @@ package io.github.andrix03.retroreplay.gui;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.lwjgl.input.Keyboard;
-
+import io.github.andrix03.retroreplay.compat.Button;
 import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.compat.NoPauseScreen;
+import io.github.andrix03.retroreplay.compat.Platform;
 import io.github.andrix03.retroreplay.pathing.CameraPath;
 import io.github.andrix03.retroreplay.pathing.PathingState;
 
@@ -35,7 +35,7 @@ public class EditKeyframeScreen extends NoPauseScreen {
 
 	@Override
 	public void init() {
-		Keyboard.enableRepeatEvents(true);
+		Platform.enableRepeatEvents(true);
 		buttons.clear();
 		fields.clear();
 		int top = top();
@@ -58,10 +58,10 @@ public class EditKeyframeScreen extends NoPauseScreen {
 		if (kind == PathingState.Kind.POSITION) {
 			interpolation = state.path.interpolation();
 			// Replay Mod's interpolator choice (here for the whole position path)
-			buttons.add(new ButtonWidget(2, width / 2 - 100, top + 148, 200, 20, interpolationLabel()));
+			buttons.add(new Button(2, width / 2 - 100, top + 148, 200, 20, interpolationLabel()));
 		}
-		buttons.add(new ButtonWidget(0, width / 2 - 152, buttonsY, 150, 20, "Save"));
-		buttons.add(new ButtonWidget(1, width / 2 + 2, buttonsY, 150, 20, "Cancel"));
+		buttons.add(new Button(0, width / 2 - 152, buttonsY, 150, 20, "Save"));
+		buttons.add(new Button(1, width / 2 + 2, buttonsY, 150, 20, "Cancel"));
 	}
 
 	private String interpolationLabel() {
@@ -90,7 +90,7 @@ public class EditKeyframeScreen extends NoPauseScreen {
 
 	@Override
 	public void removed() {
-		Keyboard.enableRepeatEvents(false);
+		Platform.enableRepeatEvents(false);
 	}
 
 	@Override
@@ -145,9 +145,9 @@ public class EditKeyframeScreen extends NoPauseScreen {
 		for (TextFieldWidget field : fields) {
 			field.keyPressed(chr, key);
 		}
-		if (key == Keyboard.KEY_ESCAPE) {
+		if (key == Platform.KEY_ESCAPE) {
 			minecraft.openScreen(new ReplayOverlayScreen());
-		} else if (key == Keyboard.KEY_RETURN) {
+		} else if (key == Platform.KEY_RETURN) {
 			buttonClicked((ButtonWidget) buttons.get(0));
 		}
 	}

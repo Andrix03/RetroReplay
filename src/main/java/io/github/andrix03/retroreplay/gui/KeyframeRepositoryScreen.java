@@ -3,10 +3,10 @@ package io.github.andrix03.retroreplay.gui;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.lwjgl.input.Keyboard;
-
+import io.github.andrix03.retroreplay.compat.Button;
 import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.compat.NoPauseScreen;
+import io.github.andrix03.retroreplay.compat.Platform;
 import io.github.andrix03.retroreplay.pathing.CameraPath;
 import io.github.andrix03.retroreplay.pathing.PathStore;
 import io.github.andrix03.retroreplay.pathing.PathingState;
@@ -43,7 +43,7 @@ public class KeyframeRepositoryScreen extends NoPauseScreen {
 
 	@Override
 	public void init() {
-		Keyboard.enableRepeatEvents(true);
+		Platform.enableRepeatEvents(true);
 		buttons.clear();
 		names.clear();
 		names.addAll(state.presets.all().keySet());
@@ -53,33 +53,33 @@ public class KeyframeRepositoryScreen extends NoPauseScreen {
 		int rows = Math.max(1, (height - 150) / 22);
 		for (int i = 0; i < names.size() && i < rows; i++) {
 			String name = names.get(i);
-			buttons.add(new ButtonWidget(i, width / 2 - 100, 34 + i * 22, 200, 20, name.equals(selected) ? "> " + name + " <" : name));
+			buttons.add(new Button(i, width / 2 - 100, 34 + i * 22, 200, 20, name.equals(selected) ? "> " + name + " <" : name));
 		}
 		String text = nameField == null ? "" : nameField.getText();
 		nameField = Mc.textField(this, width / 2 - 100, height - 102, 200, 20);
 		nameField.setText(text);
 		nameField.setFocused(true);
 		int x = width / 2 - (75 * 4 + 3 * 5) / 2;
-		buttons.add(new ButtonWidget(SAVE_AS, x, height - 52, 75, 20, "Save As..."));
-		ButtonWidget overwrite = new ButtonWidget(OVERWRITE, x + 80, height - 52, 75, 20, "Overwrite");
-		ButtonWidget load = new ButtonWidget(LOAD, x + 160, height - 52, 75, 20, "Load");
-		ButtonWidget copy = new ButtonWidget(COPY, x + 240, height - 52, 75, 20, "Copy");
-		ButtonWidget rename = new ButtonWidget(RENAME, x, height - 28, 75, 20, "Rename");
-		ButtonWidget remove = new ButtonWidget(REMOVE, x + 80, height - 28, 75, 20, "Remove");
+		buttons.add(new Button(SAVE_AS, x, height - 52, 75, 20, "Save As..."));
+		ButtonWidget overwrite = new Button(OVERWRITE, x + 80, height - 52, 75, 20, "Overwrite");
+		ButtonWidget load = new Button(LOAD, x + 160, height - 52, 75, 20, "Load");
+		ButtonWidget copy = new Button(COPY, x + 240, height - 52, 75, 20, "Copy");
+		ButtonWidget rename = new Button(RENAME, x, height - 28, 75, 20, "Rename");
+		ButtonWidget remove = new Button(REMOVE, x + 80, height - 28, 75, 20, "Remove");
 		for (ButtonWidget button : new ButtonWidget[] { overwrite, load, copy, rename, remove }) {
 			button.active = selected != null;
 			buttons.add(button);
 		}
-		buttons.add(new ButtonWidget(PASTE, x + 160, height - 28, 75, 20, "Paste"));
-		buttons.add(new ButtonWidget(CLOSE, x + 240, height - 28, 75, 20, "Close"));
-		ButtonWidget queue = new ButtonWidget(QUEUE, x, height - 76, 75, 20, "Add to Queue");
+		buttons.add(new Button(PASTE, x + 160, height - 28, 75, 20, "Paste"));
+		buttons.add(new Button(CLOSE, x + 240, height - 28, 75, 20, "Close"));
+		ButtonWidget queue = new Button(QUEUE, x, height - 76, 75, 20, "Add to Queue");
 		queue.active = selected != null;
 		buttons.add(queue);
 	}
 
 	@Override
 	public void removed() {
-		Keyboard.enableRepeatEvents(false);
+		Platform.enableRepeatEvents(false);
 	}
 
 	@Override
@@ -156,7 +156,7 @@ public class KeyframeRepositoryScreen extends NoPauseScreen {
 	@Override
 	protected void keyPressed(char chr, int key) {
 		nameField.keyPressed(chr, key);
-		if (key == Keyboard.KEY_ESCAPE) {
+		if (key == Platform.KEY_ESCAPE) {
 			minecraft.openScreen(new ReplayOverlayScreen());
 		}
 	}

@@ -2,10 +2,10 @@ package io.github.andrix03.retroreplay.gui;
 
 import org.lwjgl.opengl.GL11;
 
+import io.github.andrix03.retroreplay.compat.Draw;
 import io.github.andrix03.retroreplay.compat.Mc;
 
 import net.minecraft.client.gui.GuiElement;
-import net.minecraft.client.render.vertex.Tesselator;
 
 /**
  * Drawing helpers with Replay Mod's own textures (replay_gui.png from Replay Mod, gui.png from
@@ -43,13 +43,7 @@ public final class ReplayGui {
 	/** The whole bound texture stretched over a rectangle (used for the logo). */
 	public static void stretched(int x, int y, int width, int height) {
 		GL11.glEnable(GL11.GL_BLEND);
-		Tesselator t = Tesselator.INSTANCE;
-		t.begin();
-		t.vertex(x, y + height, 0, 0, 1);
-		t.vertex(x + width, y + height, 0, 1, 1);
-		t.vertex(x + width, y, 0, 1, 0);
-		t.vertex(x, y, 0, 0, 0);
-		t.end();
+		Draw.texturedQuad(x, y, width, height);
 	}
 
 	/** A picture as a GL texture (linear filtering); the caller deletes it. */

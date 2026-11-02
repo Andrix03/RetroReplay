@@ -31,6 +31,10 @@ subprojects {
 				java.srcDir rootProject.file("${shared}/main/java")
 				resources.srcDir rootProject.file("${shared}/main/resources")
 			}
+			// keyboard, mouse, window and old-style screens: LWJGL 2 up to 1.12, 1.13 has its own (lwjgl = 3)
+			if (project.findProperty('lwjgl') != '3') {
+				java.srcDir rootProject.file('src-lwjgl2/main/java')
+			}
 		}
 		test {
 			// pure logic only (pathing): the same tests run in every version project
@@ -62,7 +66,9 @@ subprojects {
 		if (project.sparrow_build != "0") {
 			signatures side != null ? ploceus.sparrow(project.sparrow_build, side) : ploceus.sparrow(project.sparrow_build)
 		}
-		nests side != null ? ploceus.nests(project.nests_build, side) : ploceus.nests(project.nests_build)
+		if (project.nests_build != "0") {
+			nests side != null ? ploceus.nests(project.nests_build, side) : ploceus.nests(project.nests_build)
+		}
 		mappings ploceus.featherMappings(project.feather_build)
 
 		// only what the mod uses, the same in dev as in a player's game: OSL's networking sends

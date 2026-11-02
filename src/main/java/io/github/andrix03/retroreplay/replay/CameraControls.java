@@ -2,8 +2,7 @@ package io.github.andrix03.retroreplay.replay;
 
 import java.util.Arrays;
 
-import org.lwjgl.input.Mouse;
-
+import io.github.andrix03.retroreplay.compat.Platform;
 import io.github.andrix03.retroreplay.gui.ReplayOverlay;
 
 import net.minecraft.client.Minecraft;
@@ -58,7 +57,7 @@ public final class CameraControls {
 
 	/** Every replay tick; with no screen open the wheel changes the speed. */
 	static void readWheel(boolean apply) {
-		int wheel = Mouse.getDWheel();
+		int wheel = Platform.wheel();
 		if (apply && wheel != 0) {
 			speedStep = stepAfterWheel(speedStep, wheel);
 			ReplayOverlay.notice("Camera speed: " + format(speed()) + "x");
