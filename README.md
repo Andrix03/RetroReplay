@@ -58,8 +58,8 @@ singleplayer runs on one (see below).
 - Rendering: the render button renders the path frame by frame, at 1920x1080 by default
   (720p, 1440p, 4K or the window's size), with Replay Mod's presets (MP4, WebM, lossless
   MKV) through ffmpeg, or as PNG images without it. ffmpeg is found on the PATH or in
-  `.minecraft/ffmpeg/bin`; videos go to `.minecraft/replay_videos`. Esc cancels; progress is
-  shown in the window title. "Add to Queue" collects videos (each with a copy of its path),
+  `.minecraft/ffmpeg/bin`; videos go to `.minecraft/replay_videos`. Esc cancels; the window shows each
+  frame with a progress bar (frames, elapsed and remaining time), like Replay Mod's render screen. "Add to Queue" collects videos (each with a copy of its path),
   "Render Queue" renders them one after another. Like Replay Mod, the command line arguments
   of the preset can be edited, and "Render Nametags" keeps or hides the names above players.
 

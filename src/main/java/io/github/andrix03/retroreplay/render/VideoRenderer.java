@@ -149,6 +149,7 @@ public final class VideoRenderer {
 		minecraft.options.hideGui = true;
 		minecraft.openScreen(new RenderingScreen());
 		FrameWriter writer = FrameWriter.create(settings, ffmpeg);
+		RenderProgress progress = new RenderProgress(settings.output.getName());
 		boolean ok = false;
 		int frame = 0;
 		long start = path.start();
@@ -164,6 +165,7 @@ public final class VideoRenderer {
 				begin(target);
 				renderComplete(0);
 				end(target);
+				progress.showPreparing();
 				Platform.updateDisplay();
 			}
 			for (; frame < frames && !cancelled && !Platform.isCloseRequested(); frame++) {
@@ -187,11 +189,13 @@ public final class VideoRenderer {
 				GL11.glReadPixels(0, 0, width, height, GL12.GL_BGRA, GL11.GL_UNSIGNED_BYTE, pixels);
 				end(target);
 				writer.write(pixels, width, height);
+				progress.show(pixels, width, height, frame + 1, frames);
 				Platform.setTitle("Rendering " + (frame + 1) + " / " + frames + " (Esc cancels)");
 				Platform.updateDisplay();
 			}
 			ok = !cancelled && frame == frames;
 		} finally {
+			progress.delete();
 			if (target != null) {
 				target.delete();
 			}

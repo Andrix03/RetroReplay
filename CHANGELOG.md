@@ -4,6 +4,9 @@
 
 - Minecraft 1.13.2: recording (singleplayer and multiplayer), replay, camera paths, spectator
   keyframes, video rendering and every 0.2.0 tool, like the other versions.
+- Render screen like Replay Mod's on every version: while a video renders, the window shows each
+  frame with a progress bar (frames, percentage, elapsed and remaining time). The video itself is
+  unchanged.
 
 ## 0.2.0
 
