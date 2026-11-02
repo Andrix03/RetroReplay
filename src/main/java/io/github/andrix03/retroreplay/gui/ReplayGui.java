@@ -29,7 +29,10 @@ public final class ReplayGui {
 	private ReplayGui() {
 	}
 
+	/** Binds a texture for drawing, whatever the frame left behind (texturing off or lighting on draws it black). */
 	public static void bind(String texture) {
+		GL11.glEnable(GL11.GL_TEXTURE_2D);
+		GL11.glDisable(GL11.GL_LIGHTING);
 		GL11.glColor4f(1, 1, 1, 1);
 		Mc.bindTexture(texture);
 	}
