@@ -73,6 +73,7 @@ public final class LocalServer {
 
 	private static volatile State state = State.IDLE;
 	private static volatile String error;
+	private static volatile boolean worldRefused;
 	private static volatile int port;
 	private static Process process;
 	private static Thread worker;
@@ -117,6 +118,7 @@ public final class LocalServer {
 		}
 		Thread previous = worker;
 		error = null;
+		worldRefused = false;
 		state = State.STARTING;
 		worker = new Thread(() -> {
 			try {
@@ -158,7 +160,7 @@ public final class LocalServer {
 			RetroReplay.LOGGER.warn("Last local server session of " + dirName + " did not end cleanly, recovering the player");
 			copyPlayerBack();
 		}
-		NbtCompound level = readLevel();
+		NbtCompound level = readOwnLevel();
 		if (level != null) {
 			copyPlayerToServer(level);
 		}
@@ -368,6 +370,50 @@ public final class LocalServer {
 				}
 			}
 		}
+	}
+
+	/**
+	 * The world's level.dat, refusing a world of a newer Minecraft version: this version cannot read
+	 * it (newer tag types) or would mix its own files in. The world screens of these versions do not
+	 * see such a folder, so "Create New World" may pick its name. Nothing in the folder is touched.
+	 */
+	private static NbtCompound readOwnLevel() throws IOException {
+		String refused = "saves/" + world.getName() + " holds a world of a newer Minecraft version: create this world with another name";
+		if (isNewerWorldFolder(world)) {
+			worldRefused = true;
+			throw new IOException(refused);
+		}
+		NbtCompound level;
+		try {
+			level = readLevel();
+		} catch (IOException | RuntimeException e) {
+			worldRefused = true;
+			throw new IOException(refused, e);
+		}
+		if (level != null) {
+			NbtCompound data = level.getCompound("Data");
+			if (data.contains("DataVersion") || data.getInt("version") > Mc.LEVEL_VERSION) {
+				worldRefused = true;
+				throw new IOException(refused);
+			}
+		}
+		return level;
+	}
+
+	/** Folders and files only newer versions write (1.2's Anvil regions, 1.7+ player data, 1.13+ data packs...). */
+	private static boolean isNewerWorldFolder(File folder) {
+		for (String newer : new String[] { "datapacks", "dimensions", "playerdata", "advancements", "stats", "generated", "entities", "poi" }) {
+			if (new File(folder, newer).exists()) {
+				return true;
+			}
+		}
+		File[] anvil = new File(folder, "region").listFiles((dir, name) -> name.endsWith(".mca"));
+		return Mc.LEVEL_VERSION < 19133 && anvil != null && anvil.length > 0;
+	}
+
+	/** The last start refused the world (another version's): opening it the vanilla way would damage it too. */
+	public static boolean isWorldRefused() {
+		return worldRefused;
 	}
 
 	private static NbtCompound readLevel() throws IOException {

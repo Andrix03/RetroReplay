@@ -93,6 +93,7 @@ public final class DevAutorecord {
 			int before = (Integer) call(minecraft.world, "getBlock", breakAt[0], breakAt[1], breakAt[2]);
 			RetroReplay.LOGGER.info("Autorecord: breaking block " + before + " at " + breakAt[0] + "," + breakAt[1] + "," + breakAt[2]);
 			call(minecraft.interactionManager, "startMiningBlock", breakAt[0], breakAt[1], breakAt[2], 1);
+			holdStone(minecraft);
 		}
 		if (BREAK && ticks == 50) {
 			int after = (Integer) call(minecraft.world, "getBlock", breakAt[0], breakAt[1], breakAt[2]);
@@ -141,6 +142,23 @@ public final class DevAutorecord {
 	}
 
 	/** By name (dev mappings only): the method sits on a player class whose package differs between versions. */
+	/** Dev only: 8 stone in the first hotbar slot (the hand, the hotbar and items must render normally). */
+	private static void holdStone(Minecraft minecraft) {
+		try {
+			Object inventory = minecraft.player.getClass().getField("inventory").get(minecraft.player);
+			Class<?> stackClass = Class.forName("net.minecraft.item.ItemStack");
+			Object stack = stackClass.getConstructor(int.class, int.class, int.class).newInstance(1, 8, 0);
+			for (java.lang.reflect.Field field : inventory.getClass().getFields()) {
+				if (field.getType().isArray() && field.getType().getComponentType() == stackClass) {
+					java.lang.reflect.Array.set(field.get(inventory), 0, stack);
+					return;
+				}
+			}
+		} catch (ReflectiveOperationException e) {
+			RetroReplay.LOGGER.error("Autorecord: cannot give stone", e);
+		}
+	}
+
 	/** Dev mappings only: an int-argument method by name (its owner's class differs between versions). */
 	private static Object call(Object target, String method, int... args) {
 		try {

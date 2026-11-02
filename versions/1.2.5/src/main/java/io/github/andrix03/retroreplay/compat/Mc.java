@@ -15,6 +15,8 @@ public final class Mc {
 
 	/** The matching dedicated server, run in the background for singleplayer (see LocalServer). */
 	public static final String SERVER_JAR_URL = "https://launcher.mojang.com/v1/objects/d8321edc9470e56b8ad5c67bbd16beba25843336/server.jar";
+	/** level.dat's "version" this game writes (Anvil): a world above it is from a newer version. */
+	public static final int LEVEL_VERSION = 19133;
 	public static final String SERVER_JAR_SHA1 = "d8321edc9470e56b8ad5c67bbd16beba25843336";
 
 	private Mc() {

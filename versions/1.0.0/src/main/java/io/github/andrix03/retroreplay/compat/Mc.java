@@ -15,6 +15,8 @@ public final class Mc {
 
 	/** The matching dedicated server, run in the background for singleplayer (see LocalServer). */
 	public static final String SERVER_JAR_URL = "https://vault.omniarchive.uk/archive/java/server-release/1.0.0/1.0.0.jar";
+	/** level.dat's "version" this game writes (McRegion): a world above it is from a newer version. */
+	public static final int LEVEL_VERSION = 19132;
 	public static final String SERVER_JAR_SHA1 = "38cafa1bf1e927c5cdb4cfb8cc6a34dfdcfab2b8";
 
 	private Mc() {

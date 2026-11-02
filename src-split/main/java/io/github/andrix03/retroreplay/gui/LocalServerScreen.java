@@ -25,7 +25,10 @@ public class LocalServerScreen extends Screen {
 	public void init() {
 		buttons.clear();
 		if (LocalServer.state() == LocalServer.State.FAILED) {
-			buttons.add(new ButtonWidget(0, width / 2 - 100, height / 2 + 30, 200, 20, "Play without recording"));
+			// another version's world: the vanilla way would write this version's files over it
+			if (!LocalServer.isWorldRefused()) {
+				buttons.add(new ButtonWidget(0, width / 2 - 100, height / 2 + 30, 200, 20, "Play without recording"));
+			}
 			buttons.add(new ButtonWidget(1, width / 2 - 100, height / 2 + 54, 200, 20, "Back to title screen"));
 		}
 	}
