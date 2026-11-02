@@ -8,6 +8,8 @@ import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.GLContext;
 
+import io.github.andrix03.retroreplay.mixin.WorldRendererAccessor;
+
 import net.minecraft.client.Minecraft;
 
 /**
@@ -106,6 +108,22 @@ public final class Platform {
 
 	public static int height() {
 		return Mc.minecraft().height;
+	}
+
+	/** Draws one frame of the game (world, then the GUI unless it is hidden). */
+	public static void renderFrame(float partial) {
+		Mc.minecraft().gameRenderer.render(partial);
+	}
+
+	/** Chunks waiting for their mesh: a video frame waits until they are built. */
+	public static boolean hasChunksToBuild() {
+		return !((WorldRendererAccessor) Mc.minecraft().worldRenderer).retroreplay$getDirtyChunks().isEmpty();
+	}
+
+	/** Builds a batch of chunk meshes; true once none are waiting. */
+	public static boolean compileChunks() {
+		Minecraft minecraft = Mc.minecraft();
+		return minecraft.worldRenderer.compileChunks(minecraft.player, false);
 	}
 
 	/** Makes the game size its viewport and projection for this many pixels (a video frame). */

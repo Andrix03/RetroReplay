@@ -23,7 +23,8 @@ public final class ReplayGui {
 	public static final int LIGHT_GRAY = 0xFFC0C0C0;
 	public static final int HALF_TRANSPARENT = 0x80000000;
 
-	private static final GuiElement DRAW = new GuiElement();
+	private static final GuiElement DRAW = new GuiElement() {
+	};
 
 	private ReplayGui() {
 	}

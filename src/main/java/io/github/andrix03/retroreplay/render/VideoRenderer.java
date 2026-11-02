@@ -13,7 +13,6 @@ import io.github.andrix03.retroreplay.RetroReplay;
 import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.compat.Platform;
 import io.github.andrix03.retroreplay.gui.RenderingScreen;
-import io.github.andrix03.retroreplay.mixin.WorldRendererAccessor;
 import io.github.andrix03.retroreplay.pathing.CameraPath;
 import io.github.andrix03.retroreplay.pathing.PathPlayer;
 import io.github.andrix03.retroreplay.pathing.PathingState;
@@ -230,11 +229,10 @@ public final class VideoRenderer {
 
 	private static void renderComplete(float partial) {
 		Minecraft minecraft = Mc.minecraft();
-		List<?> dirty = ((WorldRendererAccessor) minecraft.worldRenderer).retroreplay$getDirtyChunks();
 		for (int pass = 0; pass < 10; pass++) {
 			buildAll();
-			minecraft.gameRenderer.render(partial);
-			if (minecraft.world == null || dirty.isEmpty()) {
+			Platform.renderFrame(partial);
+			if (minecraft.world == null || !Platform.hasChunksToBuild()) {
 				return;
 			}
 		}
@@ -242,7 +240,7 @@ public final class VideoRenderer {
 
 	private static void buildAll() {
 		Minecraft minecraft = Mc.minecraft();
-		for (int i = 0; i < 1000 && minecraft.world != null && !minecraft.worldRenderer.compileChunks(minecraft.player, false); i++) {
+		for (int i = 0; i < 1000 && minecraft.world != null && !Platform.compileChunks(); i++) {
 			// compiles a batch per call, true once the queue is empty
 		}
 	}

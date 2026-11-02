@@ -140,6 +140,20 @@ public final class Mc {
 	public static void bindGameTarget() {
 	}
 
+	/** The light-level-to-brightness table of the world shown now (null without a world). */
+	public static float[] brightnessTable() {
+		return minecraft().world == null ? null : minecraft().world.dimension.brightnessTable;
+	}
+
+	/** How far the local player's y is above its feet (its eyes before 1.8). */
+	public static double feetOffset() {
+		return minecraft().player.eyeHeight;
+	}
+
+	public static void swingArm() {
+		minecraft().player.swingArm();
+	}
+
 	/** Dev self-test only: opens (or creates, seed 1234) a survival singleplayer world. */
 	public static void startSelftestWorld(String name) {
 		minecraft().startGame(name, name, new net.minecraft.world.WorldSettings(1234L, Integer.parseInt(System.getenv().getOrDefault("RETROREPLAY_AUTORECORD_GAMEMODE", "0")), true, System.getenv("RETROREPLAY_AUTORECORD_HARDCORE") != null, net.minecraft.world.gen.WorldGeneratorType.DEFAULT));

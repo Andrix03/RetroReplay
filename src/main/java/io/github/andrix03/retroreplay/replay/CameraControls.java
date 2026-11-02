@@ -2,12 +2,12 @@ package io.github.andrix03.retroreplay.replay;
 
 import java.util.Arrays;
 
+import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.compat.Platform;
 import io.github.andrix03.retroreplay.gui.ReplayOverlay;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
-import net.minecraft.world.dimension.Dimension;
 
 /**
  * Replay Mod's camera speed (mouse wheel) and ambient lighting (Z) for the free camera.
@@ -22,8 +22,8 @@ public final class CameraControls {
 
 	private static int speedStep;
 	private static boolean ambient;
-	/** The world whose brightness table is overwritten, and its original values. */
-	private static Dimension brightened;
+	/** The brightness table overwritten (one per world), and its original values. */
+	private static float[] brightened;
 	private static float[] brightness;
 	/** Where the camera was when this tick started (null: not tracked this tick). */
 	private static Entity tracked;
@@ -92,14 +92,14 @@ public final class CameraControls {
 	}
 
 	private static void applyLighting(Minecraft minecraft) {
-		Dimension dimension = minecraft.world == null ? null : minecraft.world.dimension;
-		if (ambient && dimension != null && dimension != brightened) {
-			brightened = dimension;
-			brightness = dimension.brightnessTable.clone();
-			Arrays.fill(dimension.brightnessTable, 1.0F);
+		float[] table = Mc.brightnessTable();
+		if (ambient && table != null && table != brightened) {
+			brightened = table;
+			brightness = table.clone();
+			Arrays.fill(table, 1.0F);
 		} else if (!ambient && brightened != null) {
-			if (brightened == dimension) {
-				System.arraycopy(brightness, 0, dimension.brightnessTable, 0, brightness.length);
+			if (brightened == table) {
+				System.arraycopy(brightness, 0, table, 0, brightness.length);
 			}
 			brightened = null;
 			brightness = null;

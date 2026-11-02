@@ -187,7 +187,7 @@ public final class ReplayHandler {
 		fresh.paused = paused;
 		fresh.timeMs = target;
 		if (minecraft.player != null) {
-			fresh.camera = new double[] { minecraft.player.x, minecraft.player.y - minecraft.player.eyeHeight, minecraft.player.z,
+			fresh.camera = new double[] { minecraft.player.x, minecraft.player.y - Mc.feetOffset(), minecraft.player.z,
 				minecraft.player.yaw, minecraft.player.pitch };
 		}
 		active = null;

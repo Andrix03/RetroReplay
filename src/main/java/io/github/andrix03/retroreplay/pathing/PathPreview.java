@@ -47,7 +47,7 @@ public final class PathPreview {
 		if (path.positions().isEmpty()) {
 			return;
 		}
-		double eye = minecraft.player.eyeHeight;
+		double eye = Mc.feetOffset();
 		double viewX = minecraft.player.prevX + (minecraft.player.x - minecraft.player.prevX) * tickDelta;
 		double viewY = minecraft.player.prevY + (minecraft.player.y - minecraft.player.prevY) * tickDelta;
 		double viewZ = minecraft.player.prevZ + (minecraft.player.z - minecraft.player.prevZ) * tickDelta;

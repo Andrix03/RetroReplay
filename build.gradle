@@ -34,6 +34,7 @@ subprojects {
 			// keyboard, mouse, window and old-style screens: LWJGL 2 up to 1.12, 1.13 has its own (lwjgl = 3)
 			if (project.findProperty('lwjgl') != '3') {
 				java.srcDir rootProject.file('src-lwjgl2/main/java')
+				resources.srcDir rootProject.file('src-lwjgl2/main/resources')
 			}
 		}
 		test {
@@ -98,6 +99,7 @@ subprojects {
 	tasks.withType(JavaCompile).configureEach {
 		it.options.encoding = 'UTF-8'
 		it.options.release = 8
+		it.options.compilerArgs += ['-Xmaxerrs', '2000']
 	}
 
 	java {

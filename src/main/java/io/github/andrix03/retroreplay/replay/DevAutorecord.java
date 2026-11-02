@@ -110,7 +110,7 @@ public final class DevAutorecord {
 			minecraft.player.velocityY = 0.42;
 		}
 		if (ticks % 30 == 0) {
-			minecraft.player.swingArm();
+			Mc.swingArm();
 		}
 		if (ticks >= LENGTH_TICKS) {
 			finished = true;

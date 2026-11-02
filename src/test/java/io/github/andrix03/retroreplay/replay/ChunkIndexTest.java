@@ -183,6 +183,56 @@ class ChunkIndexTest {
 		assertTrue(old.skippable(0, 2));
 	}
 
+	private static byte[] flattenedBlock(int x, int y, int z) throws IOException {
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+		DataOutputStream out = new DataOutputStream(bytes);
+		out.writeByte(0x0B);
+		out.writeLong(((long) (x & 0x3FFFFFF) << 38) | ((long) (y & 0xFFF) << 26) | (z & 0x3FFFFFF));
+		out.writeByte(1); // the state, a VarInt
+		return bytes.toByteArray();
+	}
+
+	private static byte[] flattenedMulti(int chunkX, int chunkZ, int[]... blocks) throws IOException {
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+		DataOutputStream out = new DataOutputStream(bytes);
+		out.writeByte(0x0F);
+		out.writeInt(chunkX);
+		out.writeInt(chunkZ);
+		out.writeByte(blocks.length);
+		for (int[] b : blocks) {
+			out.writeByte(b[0] << 4 | b[2]);
+			out.writeByte(b[1]);
+			out.writeByte(0x80 | 5); // a two byte VarInt state
+			out.writeByte(1);
+		}
+		return bytes.toByteArray();
+	}
+
+	private static byte[] forget(int x, int z) throws IOException {
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+		DataOutputStream out = new DataOutputStream(bytes);
+		out.writeByte(0x1F);
+		out.writeInt(x);
+		out.writeInt(z);
+		return bytes.toByteArray();
+	}
+
+	@Test
+	void theFlattenedFormatHasItsOwnUnloadPacket() throws IOException {
+		ChunkIndex index = index(ChunkIndex.FLATTENED,
+			chunk(0x22, -2, 3, true, 0xFFFF), // 0
+			flattenedBlock(-20, 70, 50), // 1: chunk -2,3
+			flattenedMulti(5, 5, new int[] { 1, 64, 2 }), // 2: chunk 5,5 stays loaded
+			flattenedBlock(81, 64, 82), // 3: the same block as packet 2 (5 * 16 + 1, 64, 5 * 16 + 2)
+			forget(-2, 3)); // 4
+		assertTrue(index.skippable(0, 5));
+		assertTrue(index.skippable(1, 5));
+		assertFalse(index.skippable(1, 4));
+		assertTrue(index.skippable(2, 4), "its only block is set again by packet 3");
+		assertFalse(index.skippable(3, 100));
+		assertFalse(index.skippable(4, 100), "the unload is kept");
+	}
+
 	@Test
 	void splitVersionsUsePreChunkPacketsAndRegions() throws IOException {
 		ChunkIndex column = index(ChunkIndex.SPLIT_COLUMN,

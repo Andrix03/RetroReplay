@@ -134,7 +134,7 @@ public final class PathPlayer {
 	/** The camera now, as a keyframe position (feet y, like setPositionAndAngles takes it). */
 	public static CameraPath.Position cameraPosition() {
 		Minecraft minecraft = Mc.minecraft();
-		return new CameraPath.Position(minecraft.player.x, minecraft.player.y - minecraft.player.eyeHeight, minecraft.player.z,
+		return new CameraPath.Position(minecraft.player.x, minecraft.player.y - Mc.feetOffset(), minecraft.player.z,
 			minecraft.player.yaw, minecraft.player.pitch, CameraRoll.get());
 	}
 }

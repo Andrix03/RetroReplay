@@ -4,20 +4,19 @@ import java.io.File;
 
 import io.github.andrix03.retroreplay.RetroReplay;
 import io.github.andrix03.retroreplay.compat.Button;
-import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.compat.Platform;
 import io.github.andrix03.retroreplay.compat.RetroScreen;
+import io.github.andrix03.retroreplay.compat.TextField;
 
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
 
 /** Replay Mod's rename popup: a 200 px name field with Done / Cancel. */
 public class RenameReplayScreen extends RetroScreen {
 
 	private final Screen parent;
 	private final File file;
-	private TextFieldWidget nameField;
+	private TextField nameField;
 
 	public RenameReplayScreen(Screen parent, File file) {
 		this.parent = parent;
@@ -28,7 +27,7 @@ public class RenameReplayScreen extends RetroScreen {
 	public void init() {
 		Platform.enableRepeatEvents(true);
 		buttons.clear();
-		nameField = Mc.textField(this, width / 2 - 100, height / 2 - 20, 200, 20);
+		nameField = TextField.create(this, width / 2 - 100, height / 2 - 20, 200, 20);
 		nameField.setFocused(true);
 		nameField.setText(file.getName().substring(0, file.getName().length() - ".mcpr".length()));
 		buttons.add(new Button(0, width / 2 - 100, height / 2 + 10, 98, 20, "Done"));

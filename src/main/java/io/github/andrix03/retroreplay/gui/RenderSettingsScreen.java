@@ -6,9 +6,9 @@ import java.util.Date;
 import java.util.List;
 
 import io.github.andrix03.retroreplay.compat.Button;
-import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.compat.NoPauseScreen;
 import io.github.andrix03.retroreplay.compat.Platform;
+import io.github.andrix03.retroreplay.compat.TextField;
 import io.github.andrix03.retroreplay.pathing.PathStore;
 import io.github.andrix03.retroreplay.pathing.PathingState;
 import io.github.andrix03.retroreplay.render.FrameWriter;
@@ -17,7 +17,6 @@ import io.github.andrix03.retroreplay.render.RenderSettings;
 import io.github.andrix03.retroreplay.render.VideoRenderer;
 
 import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
 
 /**
  * The render button's settings (a reduced GuiRenderSettings), in two columns: encoding preset,
@@ -45,8 +44,8 @@ public class RenderSettingsScreen extends NoPauseScreen {
 	/** A preset's path from the keyframe repository, or null for the current path. */
 	private final String pathJson;
 	private final String pathLabel;
-	private TextFieldWidget nameField;
-	private TextFieldWidget argumentsField;
+	private TextField nameField;
+	private TextField argumentsField;
 	private ButtonWidget bitrateButton;
 	private String ffmpegStatus;
 
@@ -89,12 +88,12 @@ public class RenderSettingsScreen extends NoPauseScreen {
 		buttons.add(new Button(FPS, x, y + 48, 200, 20, "Frame Rate: " + LAST.fps + " fps"));
 		buttons.add(new Button(RESOLUTION, x, y + 72, 200, 20, resolutionLabel()));
 		buttons.add(new Button(NAMETAGS, right, y, 200, 20, nametagsLabel()));
-		nameField = Mc.textField(this, right, y + 36, 200, 20);
+		nameField = TextField.create(this, right, y + 36, 200, 20);
 		nameField.setMaxLength(128);
 		String stamp = new SimpleDateFormat("yyyy_MM_dd_HH_mm_ss").format(new Date());
 		nameField.setText(pathLabel == null ? stamp : safeName(pathLabel) + "_" + stamp);
 		nameField.setFocused(true);
-		argumentsField = Mc.textField(this, x, y + 108, 404, 20);
+		argumentsField = TextField.create(this, x, y + 108, 404, 20);
 		argumentsField.setMaxLength(1024);
 		argumentsField.setText(argumentsText());
 		argumentsField.setFocused(false);

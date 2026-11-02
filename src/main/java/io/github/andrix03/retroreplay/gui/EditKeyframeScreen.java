@@ -4,14 +4,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 import io.github.andrix03.retroreplay.compat.Button;
-import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.compat.NoPauseScreen;
 import io.github.andrix03.retroreplay.compat.Platform;
+import io.github.andrix03.retroreplay.compat.TextField;
 import io.github.andrix03.retroreplay.pathing.CameraPath;
 import io.github.andrix03.retroreplay.pathing.PathingState;
 
 import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
 
 /**
  * Replay Mod's GuiEditKeyframe (double click on a keyframe): the timeline position as
@@ -23,7 +22,7 @@ public class EditKeyframeScreen extends NoPauseScreen {
 	private final PathingState state;
 	private final PathingState.Kind kind;
 	private final long time;
-	private final List<TextFieldWidget> fields = new ArrayList<>();
+	private final List<TextField> fields = new ArrayList<>();
 	private String error;
 	private CameraPath.Interpolation interpolation;
 
@@ -49,7 +48,7 @@ public class EditKeyframeScreen extends NoPauseScreen {
 			int right = width / 2 + 5;
 			double[] values = { p.x, p.yaw, p.y, p.pitch, p.z, p.roll };
 			for (int i = 0; i < 6; i++) {
-				TextFieldWidget field = Mc.textField(this, i % 2 == 0 ? left : right, top + 54 + (i / 2) * 32, 90, 20);
+				TextField field = TextField.create(this, i % 2 == 0 ? left : right, top + 54 + (i / 2) * 32, 90, 20);
 				field.setText(format(values[i]));
 				fields.add(field);
 			}
@@ -77,7 +76,7 @@ public class EditKeyframeScreen extends NoPauseScreen {
 	private void addTime(int x, int y, long ms) {
 		String[] parts = { Long.toString(ms / 60_000), Long.toString(ms / 1000 % 60), Long.toString(ms % 1000) };
 		for (int i = 0; i < 3; i++) {
-			TextFieldWidget field = Mc.textField(this, x + i * 54, y, 50, 20);
+			TextField field = TextField.create(this, x + i * 54, y, 50, 20);
 			field.setText(parts[i]);
 			fields.add(field);
 		}
@@ -142,7 +141,7 @@ public class EditKeyframeScreen extends NoPauseScreen {
 
 	@Override
 	protected void keyPressed(char chr, int key) {
-		for (TextFieldWidget field : fields) {
+		for (TextField field : fields) {
 			field.keyPressed(chr, key);
 		}
 		if (key == Platform.KEY_ESCAPE) {
@@ -155,14 +154,14 @@ public class EditKeyframeScreen extends NoPauseScreen {
 	@Override
 	protected void mouseClicked(int mouseX, int mouseY, int button) {
 		super.mouseClicked(mouseX, mouseY, button);
-		for (TextFieldWidget field : fields) {
+		for (TextField field : fields) {
 			field.mouseClicked(mouseX, mouseY, button);
 		}
 	}
 
 	@Override
 	public void tick() {
-		for (TextFieldWidget field : fields) {
+		for (TextField field : fields) {
 			field.tick();
 		}
 	}
@@ -181,7 +180,7 @@ public class EditKeyframeScreen extends NoPauseScreen {
 				ReplayGui.text(labels[i], i % 2 == 0 ? width / 2 - 95 : width / 2 + 5, top + 43 + (i / 2) * 32, ReplayGui.LIGHT_GRAY);
 			}
 		}
-		for (TextFieldWidget field : fields) {
+		for (TextField field : fields) {
 			field.render();
 		}
 		if (error != null) {

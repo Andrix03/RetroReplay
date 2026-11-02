@@ -1,20 +1,19 @@
 package io.github.andrix03.retroreplay.gui;
 
 import io.github.andrix03.retroreplay.compat.Button;
-import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.compat.NoPauseScreen;
 import io.github.andrix03.retroreplay.compat.Platform;
+import io.github.andrix03.retroreplay.compat.TextField;
 import io.github.andrix03.retroreplay.pathing.PathingState;
 
 import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
 
 /** Replay Mod's GuiEditMarkerPopup (double click on a marker): its name, Save / Delete / Cancel. */
 public class EditMarkerScreen extends NoPauseScreen {
 
 	private final PathingState state;
 	private final int time;
-	private TextFieldWidget nameField;
+	private TextField nameField;
 
 	public EditMarkerScreen(PathingState state, int time) {
 		this.state = state;
@@ -25,7 +24,7 @@ public class EditMarkerScreen extends NoPauseScreen {
 	public void init() {
 		Platform.enableRepeatEvents(true);
 		buttons.clear();
-		nameField = Mc.textField(this, width / 2 - 100, height / 2 - 10, 200, 20);
+		nameField = TextField.create(this, width / 2 - 100, height / 2 - 10, 200, 20);
 		String name = state.markers.all().get(time);
 		nameField.setText(name == null ? "" : name);
 		nameField.setFocused(true);

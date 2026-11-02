@@ -25,6 +25,11 @@ public final class ChunkIndex {
 	public static final int INTEGRATED = 3;
 	/** 1.7: chunk 0x21, bulk 0x26 (VarInt ids, one byte for these). */
 	public static final int NETTY = 4;
+	/**
+	 * 1.13: chunk 0x22, unload 0x1F (its own packet), block change 0x0B (packed position),
+	 * multi block change 0x0F (VarInt count, VarInt block states), no bulk packet.
+	 */
+	public static final int FLATTENED = 5;
 
 	private final int[] packets;
 	private final int[] ends;
@@ -78,6 +83,10 @@ public final class ChunkIndex {
 
 		private void classify(int index, byte[] d, int length) {
 			int id = d[0] & 0xFF;
+			if (format == FLATTENED) {
+				classifyFlattened(index, d, id);
+				return;
+			}
 			// block changes: each one relights its column, together they cost more than the chunk data.
 			// One is not needed either once every block it sets is set again.
 			if (id == (format == NETTY ? 0x22 : 0x34)) {
@@ -156,6 +165,55 @@ public final class ChunkIndex {
 						}
 					}
 			}
+		}
+
+		private void classifyFlattened(int index, byte[] d, int id) {
+			switch (id) {
+				case 0x22: // chunk: x, z, full, ...
+					data(index, key(readInt(d, 1), readInt(d, 5)));
+					return;
+				case 0x1F: // unload: x, z
+					end(index, key(readInt(d, 1), readInt(d, 5)));
+					return;
+				case 0x0B: { // block change: position as x << 38 | y << 26 | z (signed), then the state
+					long position = (long) readInt(d, 1) << 32 | (readInt(d, 5) & 0xFFFFFFFFL);
+					int x = (int) (position >> 38);
+					int y = (int) (position << 26 >> 52);
+					int z = (int) (position << 38 >> 38);
+					blockChange(index, key(x >> 4, z >> 4), block(x, y, z));
+					return;
+				}
+				case 0x0F: { // multi block change: chunk x, z, count, then (x << 4 | z, y, state) each
+					int chunkX = readInt(d, 1);
+					int chunkZ = readInt(d, 5);
+					int[] at = { 9 };
+					int changes = readVarInt(d, at);
+					long[] blocks = new long[changes];
+					for (int i = 0; i < changes; i++) {
+						int horizontal = d[at[0]] & 0xFF;
+						int y = d[at[0] + 1] & 0xFF;
+						at[0] += 2;
+						readVarInt(d, at);
+						blocks[i] = block(chunkX * 16 + (horizontal >> 4), y, chunkZ * 16 + (horizontal & 15));
+					}
+					blockChange(index, key(chunkX, chunkZ), blocks);
+					return;
+				}
+				default:
+			}
+		}
+
+		/** A VarInt at at[0]; at[0] moves past it. */
+		private static int readVarInt(byte[] d, int[] at) {
+			int value = 0;
+			for (int shift = 0; shift < 35; shift += 7) {
+				byte b = d[at[0]++];
+				value |= (b & 0x7F) << shift;
+				if (b >= 0) {
+					return value;
+				}
+			}
+			throw new ArrayIndexOutOfBoundsException("VarInt too long");
 		}
 
 		private int data(int index, long... keys) {

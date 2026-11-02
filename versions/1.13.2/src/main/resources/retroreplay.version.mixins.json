@@ -1,0 +1,15 @@
+{
+	"required": true,
+	"minVersion": "0.8",
+	"package": "io.github.andrix03.retroreplay.mixin",
+	"compatibilityLevel": "JAVA_8",
+	"client": [
+		"ClientNetworkHandlerMixin",
+		"ConnectionMixin",
+		"PacketDecoderMixin",
+		"WorldCloseMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

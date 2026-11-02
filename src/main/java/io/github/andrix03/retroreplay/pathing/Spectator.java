@@ -71,7 +71,7 @@ public final class Spectator {
 			return;
 		}
 		// the free camera rides along, so chunks load and sound plays around the entity
-		minecraft.player.setPositionAndAngles(entity.x, entity.y - minecraft.player.eyeHeight, entity.z, entity.yaw, entity.pitch);
+		minecraft.player.setPositionAndAngles(entity.x, entity.y - Mc.feetOffset(), entity.z, entity.yaw, entity.pitch);
 	}
 
 	public static Entity find(int entityId) {
@@ -103,7 +103,7 @@ public final class Spectator {
 
 	/** An entity's place as a keyframe position (feet y like the free camera's keyframes). */
 	public static CameraPath.Position positionOf(Entity entity, int spectated) {
-		double feet = entity.y - Mc.minecraft().player.eyeHeight;
+		double feet = entity.y - Mc.feetOffset();
 		return new CameraPath.Position(entity.x, feet, entity.z, entity.yaw, entity.pitch, 0, spectated);
 	}
 }

@@ -4,15 +4,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 import io.github.andrix03.retroreplay.compat.Button;
-import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.compat.NoPauseScreen;
 import io.github.andrix03.retroreplay.compat.Platform;
+import io.github.andrix03.retroreplay.compat.TextField;
 import io.github.andrix03.retroreplay.pathing.CameraPath;
 import io.github.andrix03.retroreplay.pathing.PathStore;
 import io.github.andrix03.retroreplay.pathing.PathingState;
 
 import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
 
 /**
  * Replay Mod's keyframe repository (X): camera paths saved under a name in this replay. A click
@@ -34,7 +33,7 @@ public class KeyframeRepositoryScreen extends NoPauseScreen {
 	private final PathingState state;
 	private final List<String> names = new ArrayList<>();
 	private String selected;
-	private TextFieldWidget nameField;
+	private TextField nameField;
 	private String message;
 
 	public KeyframeRepositoryScreen(PathingState state) {
@@ -56,7 +55,7 @@ public class KeyframeRepositoryScreen extends NoPauseScreen {
 			buttons.add(new Button(i, width / 2 - 100, 34 + i * 22, 200, 20, name.equals(selected) ? "> " + name + " <" : name));
 		}
 		String text = nameField == null ? "" : nameField.getText();
-		nameField = Mc.textField(this, width / 2 - 100, height - 102, 200, 20);
+		nameField = TextField.create(this, width / 2 - 100, height - 102, 200, 20);
 		nameField.setText(text);
 		nameField.setFocused(true);
 		int x = width / 2 - (75 * 4 + 3 * 5) / 2;
