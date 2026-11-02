@@ -52,6 +52,40 @@ public final class ReplayGui {
 		t.end();
 	}
 
+	/** A picture as a GL texture (linear filtering); the caller deletes it. */
+	public static int upload(java.awt.image.BufferedImage image) {
+		int width = image.getWidth();
+		int height = image.getHeight();
+		java.nio.ByteBuffer pixels = org.lwjgl.BufferUtils.createByteBuffer(width * height * 4);
+		for (int y = 0; y < height; y++) {
+			for (int x = 0; x < width; x++) {
+				int argb = image.getRGB(x, y);
+				pixels.put((byte) (argb >> 16)).put((byte) (argb >> 8)).put((byte) argb).put((byte) 0xFF);
+			}
+		}
+		pixels.flip();
+		int previous = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+		int texture = GL11.glGenTextures();
+		GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture);
+		GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+		GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+		GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, width, height, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, pixels);
+		GL11.glBindTexture(GL11.GL_TEXTURE_2D, previous);
+		return texture;
+	}
+
+	/**
+	 * Draws a texture made by upload(), then binds back what was bound: old versions remember
+	 * the last texture they bound and would skip binding it again.
+	 */
+	public static void drawTexture(int texture, int x, int y, int width, int height) {
+		int previous = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+		GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture);
+		GL11.glColor4f(1, 1, 1, 1);
+		stretched(x, y, width, height);
+		GL11.glBindTexture(GL11.GL_TEXTURE_2D, previous);
+	}
+
 	/** jGui's Utils.drawDynamicRect: a 9-slice of the bound texture, edges and middle tiled. */
 	public static void dynamicRect(int x, int y, int width, int height, int u, int v, int texW, int texH, int top, int bottom, int left, int right) {
 		int midTexW = texW - left - right;

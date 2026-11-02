@@ -33,6 +33,8 @@ public final class VideoRenderer {
 
 	private static java.util.List<RenderJob> pending;
 	private static boolean rendering;
+	/** The settings of the video being rendered. */
+	private static RenderSettings current;
 	private static volatile boolean cancelled;
 	private static String result;
 
@@ -47,6 +49,11 @@ public final class VideoRenderer {
 	/** Replay Mod's render queue: the jobs one after another, Esc stops the rest. */
 	public static void scheduleAll(java.util.List<RenderJob> jobs) {
 		pending = new java.util.ArrayList<>(jobs);
+	}
+
+	/** The render's nametag setting (nametags are drawn only while the GUI is shown, and rendering hides it). */
+	public static boolean showsNametags() {
+		return current != null && current.nametags;
 	}
 
 	public static boolean isRendering() {
@@ -94,6 +101,7 @@ public final class VideoRenderer {
 
 	private static String run(RenderJob job) throws IOException {
 		RenderSettings settings = job.settings;
+		current = settings;
 		Minecraft minecraft = Mc.minecraft();
 		ReplayHandler replay = ReplayHandler.get();
 		if (replay == null) {
@@ -123,7 +131,7 @@ public final class VideoRenderer {
 				height = minecraft.height;
 			}
 		}
-		if (settings.preset.needsEvenSize()) {
+		if (settings.needsEvenSize()) {
 			width &= ~1;
 			height &= ~1;
 		}
@@ -194,6 +202,7 @@ public final class VideoRenderer {
 			minecraft.options.hideGui = hideGui;
 			Spectator.clear();
 			rendering = false;
+			current = null;
 			minecraft.openScreen(null);
 		}
 		if (cancelled) {

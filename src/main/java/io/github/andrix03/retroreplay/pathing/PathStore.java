@@ -120,11 +120,21 @@ public final class PathStore {
 		}
 	}
 
+	/** Text entries (UTF-8), see saveRawEntries. */
+	public static void saveEntries(File replay, Map<String, String> replaced) throws IOException {
+		Map<String, byte[]> raw = new java.util.LinkedHashMap<>();
+		for (Map.Entry<String, String> entry : replaced.entrySet()) {
+			raw.put(entry.getKey(), entry.getValue() == null ? null : entry.getValue().getBytes(StandardCharsets.UTF_8));
+		}
+		saveRawEntries(replay, raw);
+	}
+
 	/**
 	 * Rewrites the replay with these entries replaced (null: removed), the others copied as
-	 * they are. Temp file + rename, never a half file.
+	 * they are. Temp file + rename, never a half file. One rewrite at a time: a thumbnail is
+	 * saved from its own thread while the paths may be saved on the client's.
 	 */
-	public static void saveEntries(File replay, Map<String, String> replaced) throws IOException {
+	public static synchronized void saveRawEntries(File replay, Map<String, byte[]> replaced) throws IOException {
 		File temp = new File(replay.getPath() + ".tmp");
 		try (ZipFile zip = new ZipFile(replay); ZipOutputStream out = new ZipOutputStream(new FileOutputStream(temp))) {
 			Enumeration<? extends ZipEntry> entries = zip.entries();
@@ -143,10 +153,10 @@ public final class PathStore {
 				}
 				out.closeEntry();
 			}
-			for (Map.Entry<String, String> entry : replaced.entrySet()) {
+			for (Map.Entry<String, byte[]> entry : replaced.entrySet()) {
 				if (entry.getValue() != null) {
 					out.putNextEntry(new ZipEntry(entry.getKey()));
-					out.write(entry.getValue().getBytes(StandardCharsets.UTF_8));
+					out.write(entry.getValue());
 					out.closeEntry();
 				}
 			}

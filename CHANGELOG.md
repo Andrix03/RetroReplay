@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0
+
+More of Replay Mod's camera and render tools, on every supported version.
+
+- Camera speed: the mouse wheel makes the free camera faster or slower (1/8x to 8x).
+- Ambient lighting: Z lights caves and nights fully, in the replay and in videos.
+- Thumbnails: N in a replay saves the current view (without the interface) into the replay
+  file the way Replay Mod does; the Replay Viewer shows it.
+- Render settings: "Render Nametags" (on by default, as in Replay Mod; videos had none
+  before) and editable command line arguments for ffmpeg.
+
 ## 0.1.0
 
 First public pre-release. Replay Mod's features on the Minecraft Java versions it does not

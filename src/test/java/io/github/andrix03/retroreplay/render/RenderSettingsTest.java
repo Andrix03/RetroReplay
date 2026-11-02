@@ -25,6 +25,23 @@ class RenderSettingsTest {
 	}
 
 	@Test
+	void customArgumentsReplaceThePresetsButKeepTheInput() {
+		RenderSettings settings = new RenderSettings();
+		settings.width = 1280;
+		settings.height = 720;
+		settings.fps = 30;
+		settings.bitrateKbps = 5_000;
+		settings.output = new File("out.mp4");
+		settings.customArguments = "  -an  -c:v libx264 -crf 18 -b:v %BITRATE% -pix_fmt yuv444p ";
+		assertEquals("-y -f rawvideo -pix_fmt bgra -s 1280x720 -r 30 -i - -vf vflip -an -c:v libx264 -crf 18 -b:v 5000K -pix_fmt yuv444p "
+			+ new File("out.mp4").getAbsolutePath(), String.join(" ", settings.ffmpegArguments()));
+		assertFalse(settings.needsEvenSize(), "yuv444p takes any size");
+		settings.customArguments = " ";
+		assertTrue(settings.needsEvenSize(), "blank: back to the preset");
+		assertTrue(settings.nametags, "on by default like Replay Mod");
+	}
+
+	@Test
 	void presetsKnowWhatTheyNeed() {
 		assertTrue(RenderSettings.Preset.MP4_CUSTOM.hasBitrate());
 		assertFalse(RenderSettings.Preset.MKV_LOSSLESS.hasBitrate());

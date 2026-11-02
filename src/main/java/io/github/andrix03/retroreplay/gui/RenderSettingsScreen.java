@@ -20,8 +20,9 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 
 /**
- * The render button's settings (a reduced GuiRenderSettings): encoding preset, bitrate, frame
- * rate, resolution and file name. Videos go to .minecraft/replay_videos.
+ * The render button's settings (a reduced GuiRenderSettings), in two columns: encoding preset,
+ * bitrate, frame rate and resolution on the left, nametags and file name on the right, then
+ * ffmpeg's command line arguments (the preset's, editable). Videos go to .minecraft/replay_videos.
  */
 public class RenderSettingsScreen extends NoPauseScreen {
 
@@ -33,6 +34,7 @@ public class RenderSettingsScreen extends NoPauseScreen {
 	private static final int RESOLUTION = 5;
 	private static final int ADD_TO_QUEUE = 6;
 	private static final int RENDER_QUEUE = 7;
+	private static final int NAMETAGS = 8;
 	/** width, height; 0 = the window's size. Replay Mod renders 1920x1080 by default. */
 	private static final int[][] RESOLUTIONS = { { 1920, 1080 }, { 1280, 720 }, { 2560, 1440 }, { 3840, 2160 }, { 0, 0 } };
 	private static int resolution;
@@ -44,6 +46,7 @@ public class RenderSettingsScreen extends NoPauseScreen {
 	private final String pathJson;
 	private final String pathLabel;
 	private TextFieldWidget nameField;
+	private TextFieldWidget argumentsField;
 	private ButtonWidget bitrateButton;
 	private String ffmpegStatus;
 
@@ -61,9 +64,13 @@ public class RenderSettingsScreen extends NoPauseScreen {
 		return PathingState.current().renderQueue;
 	}
 
-	/** First button row: title (16 px above) to the queue buttons (208 px below) centered. */
+	/** First button row: title (16 px above) to the queue buttons (196 px below) centered. */
 	private int top() {
-		return Math.max(18, (height - 208 + 16) / 2);
+		return Math.max(18, (height - 196 + 16) / 2);
+	}
+
+	private int left() {
+		return width / 2 - 202;
 	}
 
 	private static String safeName(String name) {
@@ -74,22 +81,30 @@ public class RenderSettingsScreen extends NoPauseScreen {
 	public void init() {
 		Keyboard.enableRepeatEvents(true);
 		buttons.clear();
-		int x = width / 2 - 100;
+		int x = left();
+		int right = x + 204;
 		int y = top();
 		buttons.add(new ButtonWidget(PRESET, x, y, 200, 20, presetLabel()));
 		buttons.add(bitrateButton = new ButtonWidget(BITRATE, x, y + 24, 200, 20, bitrateLabel()));
 		buttons.add(new ButtonWidget(FPS, x, y + 48, 200, 20, "Frame Rate: " + LAST.fps + " fps"));
 		buttons.add(new ButtonWidget(RESOLUTION, x, y + 72, 200, 20, resolutionLabel()));
-		nameField = Mc.textField(this, x, y + 108, 200, 20);
+		buttons.add(new ButtonWidget(NAMETAGS, right, y, 200, 20, nametagsLabel()));
+		nameField = Mc.textField(this, right, y + 36, 200, 20);
+		nameField.setMaxLength(128);
 		String stamp = new SimpleDateFormat("yyyy_MM_dd_HH_mm_ss").format(new Date());
 		nameField.setText(pathLabel == null ? stamp : safeName(pathLabel) + "_" + stamp);
 		nameField.setFocused(true);
-		ButtonWidget render = new ButtonWidget(RENDER, x, y + 164, 98, 20, "Render");
+		argumentsField = Mc.textField(this, x, y + 108, 404, 20);
+		argumentsField.setMaxLength(1024);
+		argumentsField.setText(argumentsText());
+		argumentsField.setFocused(false);
+		int buttonsX = width / 2 - 100;
+		ButtonWidget render = new ButtonWidget(RENDER, buttonsX, y + 152, 98, 20, "Render");
 		render.active = pathJson == null; // a preset is queued, not rendered instead of the current path
 		buttons.add(render);
-		buttons.add(new ButtonWidget(CANCEL, x + 102, y + 164, 98, 20, "Cancel"));
-		buttons.add(new ButtonWidget(ADD_TO_QUEUE, x, y + 188, 98, 20, "Add to Queue"));
-		ButtonWidget renderQueue = new ButtonWidget(RENDER_QUEUE, x + 102, y + 188, 98, 20, "Render Queue (" + queue().size() + ")");
+		buttons.add(new ButtonWidget(CANCEL, buttonsX + 102, y + 152, 98, 20, "Cancel"));
+		buttons.add(new ButtonWidget(ADD_TO_QUEUE, buttonsX, y + 176, 98, 20, "Add to Queue"));
+		ButtonWidget renderQueue = new ButtonWidget(RENDER_QUEUE, buttonsX + 102, y + 176, 98, 20, "Render Queue (" + queue().size() + ")");
 		renderQueue.active = !queue().isEmpty();
 		buttons.add(renderQueue);
 		updateBitrate();
@@ -111,6 +126,22 @@ public class RenderSettingsScreen extends NoPauseScreen {
 		return "Resolution: " + (r[0] == 0 ? "Window (" + minecraft.width + "x" + minecraft.height + ")" : r[0] + "x" + r[1]);
 	}
 
+	private static String nametagsLabel() {
+		return "Render Nametags: " + (LAST.nametags ? "On" : "Off");
+	}
+
+	/** The arguments shown in the field: the custom ones, else the preset's (PNG has none). */
+	private static String argumentsText() {
+		String arguments = LAST.arguments();
+		return arguments == null ? "" : arguments;
+	}
+
+	/** An edit that differs from the preset becomes the custom arguments. */
+	private void readArguments() {
+		String text = argumentsField.getText().trim();
+		LAST.customArguments = text.isEmpty() || text.equals(LAST.preset.arguments) || !LAST.preset.needsFfmpeg() ? null : text;
+	}
+
 	private static String bitrateLabel() {
 		return "Bitrate: " + LAST.bitrateKbps / 1000 + " Mbps";
 	}
@@ -125,6 +156,8 @@ public class RenderSettingsScreen extends NoPauseScreen {
 			case PRESET:
 				RenderSettings.Preset[] presets = RenderSettings.Preset.values();
 				LAST.preset = presets[(LAST.preset.ordinal() + 1) % presets.length];
+				LAST.customArguments = null; // a new preset brings its own arguments
+				argumentsField.setText(argumentsText());
 				button.message = presetLabel();
 				updateBitrate();
 				break;
@@ -135,6 +168,10 @@ public class RenderSettingsScreen extends NoPauseScreen {
 			case RESOLUTION:
 				resolution = (resolution + 1) % RESOLUTIONS.length;
 				button.message = resolutionLabel();
+				break;
+			case NAMETAGS:
+				LAST.nametags = !LAST.nametags;
+				button.message = nametagsLabel();
 				break;
 			case FPS:
 				LAST.fps = next(RenderSettings.FRAME_RATES, LAST.fps);
@@ -175,8 +212,11 @@ public class RenderSettingsScreen extends NoPauseScreen {
 			return null;
 		}
 		File folder = new File(minecraft.gameDir, "replay_videos");
+		readArguments();
 		RenderSettings settings = new RenderSettings();
 		settings.preset = LAST.preset;
+		settings.nametags = LAST.nametags;
+		settings.customArguments = LAST.customArguments;
 		settings.fps = LAST.fps;
 		settings.bitrateKbps = LAST.bitrateKbps;
 		settings.width = RESOLUTIONS[resolution][0];
@@ -198,6 +238,7 @@ public class RenderSettingsScreen extends NoPauseScreen {
 	@Override
 	protected void keyPressed(char chr, int key) {
 		nameField.keyPressed(chr, key);
+		argumentsField.keyPressed(chr, key);
 		if (key == Keyboard.KEY_ESCAPE) {
 			minecraft.openScreen(new ReplayOverlayScreen());
 		} else if (key == Keyboard.KEY_RETURN) {
@@ -214,22 +255,27 @@ public class RenderSettingsScreen extends NoPauseScreen {
 	protected void mouseClicked(int mouseX, int mouseY, int button) {
 		super.mouseClicked(mouseX, mouseY, button);
 		nameField.mouseClicked(mouseX, mouseY, button);
+		argumentsField.mouseClicked(mouseX, mouseY, button);
 	}
 
 	@Override
 	public void tick() {
 		nameField.tick();
+		argumentsField.tick();
 	}
 
 	@Override
 	public void render(int mouseX, int mouseY, float tickDelta) {
 		ReplayGui.fill(0, 0, width, height, 0xA0000000);
-		int x = width / 2 - 100;
+		int x = left();
 		int y = top();
 		ReplayGui.centered("Render Settings", width / 2, y - 16, ReplayGui.WHITE);
-		ReplayGui.text("File name", x, y + 98, ReplayGui.LIGHT_GRAY);
+		ReplayGui.text("File name", x + 204, y + 26, ReplayGui.LIGHT_GRAY);
 		nameField.render();
-		ReplayGui.text(ffmpegStatus, x, y + 140, ReplayGui.LIGHT_GRAY);
+		ReplayGui.text(LAST.preset.needsFfmpeg() ? "Command line arguments (%BITRATE% = the bitrate)" : "Command line arguments (not used for PNG)",
+			x, y + 98, ReplayGui.LIGHT_GRAY);
+		argumentsField.render();
+		ReplayGui.text(ffmpegStatus, x, y + 134, ReplayGui.LIGHT_GRAY);
 		super.render(mouseX, mouseY, tickDelta);
 	}
 }

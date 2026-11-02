@@ -24,6 +24,10 @@ public final class ReplayOverlay {
 	private static final int BORDER_BOTTOM = 3;
 	private static final int MARKER_SIZE = 5;
 	private static long lastMarkerClick;
+	/** A short message under the bars (camera speed, lighting), shown for NOTICE_MS. */
+	private static String notice;
+	private static long noticeSince;
+	private static final long NOTICE_MS = 1500;
 
 	private ReplayOverlay() {
 	}
@@ -66,6 +70,14 @@ public final class ReplayOverlay {
 			ReplayGui.text(time, mouseX + 9, mouseY + 8, ReplayGui.WHITE);
 		}
 		PathingOverlay.render(width, mouseX, mouseY, mouseFree);
+		if (notice != null && System.currentTimeMillis() - noticeSince < NOTICE_MS) {
+			ReplayGui.centered(notice, width / 2, 75, ReplayGui.WHITE);
+		}
+	}
+
+	public static void notice(String text) {
+		notice = text;
+		noticeSince = System.currentTimeMillis();
 	}
 
 	/** GuiMarkerTimeline: 5x5 marks on the bottom edge, (109, 20), selected (114, 20). */

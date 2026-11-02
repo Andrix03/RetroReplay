@@ -221,6 +221,9 @@ public final class ReplayHandler {
 
 	/** End of the client tick: the only safe moment to tear the world down for a seek. */
 	public static void tickEnd() {
+		if (active != null) {
+			CameraControls.afterTick(Mc.minecraft());
+		}
 		if (active != null && active.pendingSeek >= 0) {
 			double target = active.pendingSeek;
 			active.pendingSeek = -1;
@@ -288,6 +291,9 @@ public final class ReplayHandler {
 			if (pressed(Keyboard.KEY_M)) {
 				PathingOverlay.addMarker();
 			}
+			if (pressed(Keyboard.KEY_N)) {
+				Thumbnail.request(); // Replay Mod's thumbnail key
+			}
 			if (pressed(Keyboard.KEY_B)) {
 				minecraft.openScreen(new PlayerOverviewScreen());
 			}
@@ -295,13 +301,18 @@ public final class ReplayHandler {
 				Spectator.stop(); // like Replay Mod: sneak to leave spectating
 			}
 			boolean ctrl = Keyboard.isKeyDown(Keyboard.KEY_LCONTROL) || Keyboard.isKeyDown(Keyboard.KEY_RCONTROL);
-			if (pressed(Keyboard.KEY_Z) && ctrl) {
+			boolean z = pressed(Keyboard.KEY_Z);
+			if (z && ctrl) {
 				PathingOverlay.undo(false);
+			} else if (z) {
+				CameraControls.toggleAmbient(); // Replay Mod's ambient lighting key
 			}
 			if (pressed(Keyboard.KEY_Y) && ctrl) {
 				PathingOverlay.undo(true);
 			}
 		}
+		// a wheel turned in a screen (lists scroll) must not change the speed once it closes
+		CameraControls.readWheel(minecraft.screen == null);
 		double devSeek = DevAutoplay.seekRequest(timeMs);
 		if (devSeek >= 0) {
 			pendingSeek = devSeek;
@@ -345,6 +356,7 @@ public final class ReplayHandler {
 				camera = null;
 			}
 		}
+		CameraControls.beforeTick(minecraft, !PathPlayer.isActive() && !Spectator.isSpectating() && !VideoRenderer.isRendering());
 		DevAutoplay.afterTick(minecraft, timeMs, index, times.length);
 	}
 

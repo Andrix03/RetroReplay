@@ -31,10 +31,12 @@ singleplayer runs on one (see below).
   packets are stored as VarInt id + payload, like Replay Mod),
   including your own player, with a Replay Mod style "RECORDING" indicator. The recording
   clock stops while a singleplayer game is paused.
-- Replay Viewer from the main menu (logo button): load, open folder, rename, delete.
+- Replay Viewer from the main menu (logo button): load, open folder, rename, delete; each
+  replay shows its thumbnail (N in a replay takes one, stored like Replay Mod's).
 - In a replay: free flying camera, play/pause, speed slider, timeline (click to jump),
   "Exit Replay" in the pause menu. Keys: P pause, [ ] speed, Left/Right jump 10 s,
-  T (chat key) frees the mouse for the replay bar.
+  T (chat key) frees the mouse for the replay bar, the mouse wheel sets the camera speed
+  (1/8x to 8x), Z turns ambient lighting on and off (caves and nights fully lit).
 - Jumping back replays the recording from the start up to there, leaving out the chunk data
   and block changes of chunks unloaded again before that moment (the world is the same).
   Near the end of a 3 minute 1.0 exploration: 0.9 s instead of 1.8 s; 1.7.10 needs ~0.2 s
@@ -58,7 +60,8 @@ singleplayer runs on one (see below).
   MKV) through ffmpeg, or as PNG images without it. ffmpeg is found on the PATH or in
   `.minecraft/ffmpeg/bin`; videos go to `.minecraft/replay_videos`. Esc cancels; progress is
   shown in the window title. "Add to Queue" collects videos (each with a copy of its path),
-  "Render Queue" renders them one after another.
+  "Render Queue" renders them one after another. Like Replay Mod, the command line arguments
+  of the preset can be edited, and "Render Nametags" keeps or hides the names above players.
 
 ### Singleplayer before 1.3
 

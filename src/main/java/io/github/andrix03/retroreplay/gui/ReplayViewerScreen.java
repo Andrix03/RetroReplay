@@ -1,5 +1,6 @@
 package io.github.andrix03.retroreplay.gui;
 
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
@@ -18,6 +19,7 @@ import io.github.andrix03.retroreplay.RetroReplay;
 import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.recording.Recorder;
 import io.github.andrix03.retroreplay.replay.ReplayHandler;
+import io.github.andrix03.retroreplay.replay.Thumbnail;
 
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -59,6 +61,7 @@ public class ReplayViewerScreen extends Screen {
 	}
 
 	private void reload() {
+		deleteTextures();
 		entries.clear();
 		Recorder.recoverLeftovers(folder());
 		File[] files = folder().listFiles((dir, name) -> name.endsWith(".mcpr"));
@@ -70,6 +73,20 @@ public class ReplayViewerScreen extends Screen {
 		entries.sort((a, b) -> Long.compare(b.date, a.date));
 		selected = Math.min(selected, entries.size() - 1);
 		updateButtons();
+	}
+
+	@Override
+	public void removed() {
+		deleteTextures();
+	}
+
+	private void deleteTextures() {
+		for (Entry entry : entries) {
+			if (entry.texture != 0) {
+				org.lwjgl.opengl.GL11.glDeleteTextures(entry.texture);
+				entry.texture = 0;
+			}
+		}
 	}
 
 	private void updateButtons() {
@@ -182,8 +199,15 @@ public class ReplayViewerScreen extends Screen {
 				ReplayGui.fill(x - 1, y - 1, x + ENTRY_W + 1, y + ENTRY_H + 1, 0xFF000000);
 			}
 			ReplayGui.fill(x, y, x + THUMB_W, y + ENTRY_H, 0xFF2B2B2B);
-			ReplayGui.bind(ReplayGui.LOGO);
-			ReplayGui.stretched(x + (THUMB_W - 24) / 2, y + 3, 24, 24);
+			if (entry.thumb != null) {
+				if (entry.texture == 0) {
+					entry.texture = ReplayGui.upload(entry.thumb);
+				}
+				ReplayGui.drawTexture(entry.texture, x, y, THUMB_W, ENTRY_H);
+			} else {
+				ReplayGui.bind(ReplayGui.LOGO);
+				ReplayGui.stretched(x + (THUMB_W - 24) / 2, y + 3, 24, 24);
+			}
 			String duration = ReplayGui.formatTime(entry.duration);
 			int dw = ReplayGui.width(duration);
 			ReplayGui.fill(x + THUMB_W - dw - 4, y + ENTRY_H - 12, x + THUMB_W, y + ENTRY_H, ReplayGui.HALF_TRANSPARENT);
@@ -212,6 +236,9 @@ public class ReplayViewerScreen extends Screen {
 		String dateText = "";
 		long date;
 		long duration;
+		/** Replay Mod's thumbnail, small (the list draws it 53x30), and its GL texture once drawn. */
+		BufferedImage thumb;
+		int texture;
 
 		private Entry(File file) {
 			this.file = file;
@@ -237,6 +264,8 @@ public class ReplayViewerScreen extends Screen {
 				Matcher s = SERVER.matcher(json);
 				String server = s.find() ? s.group(1) : "";
 				entry.server = json.contains("\"singleplayer\":true") || server.isEmpty() ? "Singleplayer" : server;
+				BufferedImage thumb = Thumbnail.read(zip);
+				entry.thumb = thumb == null ? null : Thumbnail.scaled(thumb, THUMB_W * 3, ENTRY_H * 3);
 			} catch (Exception e) {
 				entry.server = "Unreadable replay file";
 			}

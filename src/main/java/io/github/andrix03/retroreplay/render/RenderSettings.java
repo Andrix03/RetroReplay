@@ -19,7 +19,8 @@ public final class RenderSettings {
 
 		public final String title;
 		public final String extension;
-		final String arguments;
+		/** What goes after the input arguments, %BITRATE% replaced (null: PNG, no ffmpeg). */
+		public final String arguments;
 
 		Preset(String title, String extension, String arguments) {
 			this.title = title;
@@ -51,6 +52,20 @@ public final class RenderSettings {
 	public File output;
 	public int width;
 	public int height;
+	/** Replay Mod's "Render Nametags" (players' names above their heads); on by default like there. */
+	public boolean nametags = true;
+	/** Replay Mod's editable command line arguments: replaces the preset's when set. */
+	public String customArguments;
+
+	/** The output arguments in use: the custom ones, else the preset's. */
+	public String arguments() {
+		return customArguments != null && !customArguments.trim().isEmpty() ? customArguments.trim() : preset.arguments;
+	}
+
+	/** yuv420p (most presets) needs an even width and height. */
+	public boolean needsEvenSize() {
+		return preset.needsFfmpeg() && arguments().contains("yuv420p");
+	}
 
 	/** ffmpeg arguments after the executable, like Replay Mod: rawvideo bgra from stdin, flipped. */
 	public List<String> ffmpegArguments() {
@@ -58,7 +73,7 @@ public final class RenderSettings {
 		for (String arg : ("-y -f rawvideo -pix_fmt bgra -s " + width + "x" + height + " -r " + fps + " -i - -vf vflip").split(" ")) {
 			args.add(arg);
 		}
-		for (String arg : preset.arguments.replace("%BITRATE%", bitrateKbps + "K").split(" ")) {
+		for (String arg : arguments().replace("%BITRATE%", bitrateKbps + "K").split(" +")) {
 			args.add(arg);
 		}
 		args.add(output.getAbsolutePath());

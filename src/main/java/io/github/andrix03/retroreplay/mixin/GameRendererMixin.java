@@ -12,6 +12,7 @@ import io.github.andrix03.retroreplay.pathing.CameraRoll;
 import io.github.andrix03.retroreplay.pathing.PathPlayer;
 import io.github.andrix03.retroreplay.pathing.PathPreview;
 import io.github.andrix03.retroreplay.render.VideoRenderer;
+import io.github.andrix03.retroreplay.replay.Thumbnail;
 import io.github.andrix03.retroreplay.replay.ReplayHandler;
 
 import net.minecraft.client.render.GameRenderer;
@@ -35,6 +36,12 @@ public class GameRendererMixin {
 			return;
 		}
 		PathPlayer.onFrame();
+		Thumbnail.beforeFrame();
+	}
+
+	@Inject(method = "render", at = @At("RETURN"))
+	private void retroreplay$thumbnail(float tickDelta, CallbackInfo ci) {
+		Thumbnail.afterFrame();
 	}
 
 	/** The path preview is part of the world: after the weather, before clouds and the hand. */

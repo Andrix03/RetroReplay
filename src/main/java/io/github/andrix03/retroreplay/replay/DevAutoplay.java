@@ -24,6 +24,11 @@ public final class DevAutoplay {
 	private static final int SEEK_TARGET = Integer.parseInt(System.getenv().getOrDefault("RETROREPLAY_AUTOPLAY_SEEK", "3000"));
 	/** Dev A/B check only: seeks handle every chunk packet, to compare the world with the skipping one. */
 	public static final boolean NO_CHUNK_SKIP = System.getenv("RETROREPLAY_NO_CHUNK_SKIP") != null;
+	/** RETROREPLAY_AUTOPLAY_CAMERA: first checks the camera speed (2x flies twice as far) and ambient lighting. */
+	private static final boolean CAMERA_TEST = System.getenv("RETROREPLAY_AUTOPLAY_CAMERA") != null;
+	private static int cameraTicks;
+	private static double cameraFrom;
+	private static double cameraNormal;
 
 	private static boolean armed;
 	private static int stage;
@@ -73,6 +78,42 @@ public final class DevAutoplay {
 		stageStart = System.nanoTime();
 	}
 
+	/** 20 ticks pushed upwards at 1x, 20 at 2x (the distances logged), then a picture with ambient lighting. */
+	private static void cameraTest(Minecraft minecraft) {
+		if (minecraft.player == null || minecraft.world == null || minecraft.screen != null) {
+			return;
+		}
+		int tick = cameraTicks++;
+		if (tick == 0 || tick == 20) {
+			if (tick == 20) {
+				cameraNormal = minecraft.player.y - cameraFrom;
+			}
+			CameraControls.setSpeedStep(tick == 0 ? 0 : 4);
+			cameraFrom = minecraft.player.y;
+		}
+		if (tick < 40) {
+			// straight up into the empty sky (nothing to collide with), pushed again every tick before the player moves
+			minecraft.player.velocityX = 0;
+			minecraft.player.velocityY = 0.5;
+			minecraft.player.velocityZ = 0;
+		} else if (tick == 40) {
+			double fast = minecraft.player.y - cameraFrom;
+			CameraControls.setSpeedStep(0);
+			RetroReplay.LOGGER.info("Autoplay camera: 20 ticks flew " + String.format(java.util.Locale.ROOT, "%.2f", cameraNormal) + " blocks at 1x, "
+				+ String.format(java.util.Locale.ROOT, "%.2f", fast) + " at 2x (ratio " + String.format(java.util.Locale.ROOT, "%.2f", fast / cameraNormal) + ")");
+			minecraft.player.velocityY = 0;
+			CameraControls.toggleAmbient();
+		} else if (tick == 43) {
+			Thumbnail.request(); // saved into the replay, shown by the viewer on the next run
+		} else if (tick == 45) {
+			shot(minecraft, "ambient");
+		} else if (tick == 46) {
+			CameraControls.toggleAmbient();
+		} else if (tick == 49) {
+			shot(minecraft, "ambient_off");
+		}
+	}
+
 	private static void shot(Minecraft minecraft, String name) {
 		RetroReplay.LOGGER.info("Autoplay screenshot " + name);
 		Mc.screenshot("autoplay_" + name + ".png");
@@ -90,6 +131,10 @@ public final class DevAutoplay {
 
 	static void afterTick(Minecraft minecraft, double timeMs, int fed, int total) {
 		if (!ENABLED || stage != 3) {
+			return;
+		}
+		if (CAMERA_TEST && cameraTicks < 50) {
+			cameraTest(minecraft);
 			return;
 		}
 		if (framed) {
