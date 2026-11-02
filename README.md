@@ -6,7 +6,7 @@ Ornithe (Fabric Loader + Mixin for old versions).
 
 ## Versions
 
-1.0.0, 1.1, 1.2.5, 1.3.2, 1.4.7, 1.5.2, 1.6.4, 1.7.10 (one jar per version).
+1.0.0, 1.1, 1.2.5, 1.3.2, 1.4.7, 1.5.2, 1.6.4, 1.7.10, 1.13.2 (one jar per version).
 
 ## Install
 
@@ -88,7 +88,8 @@ Self-tests: `RETROREPLAY_AUTORECORD=1` records a short session in the world `rr_
 
 Code shared by every version is in `src/`, by 1.3 - 1.6.4 in `src-integrated/`, by the versions
 before 1.3 in `src-split/`; `versions/<version>/src/` holds only what differs (1.7.10, on
-Netty, has its own network layer there). Releases: pushing a `v<version>` tag builds every
+Netty, has its own network layer there). Keyboard, mouse, window, the screens' base class and the
+version-sensitive mixins are in `src-lwjgl2/` for 1.0 - 1.7.10; 1.13.2 (LWJGL 3) has its own in its folder. Releases: pushing a `v<version>` tag builds every
 jar and publishes them on GitHub (`.github/workflows/release.yml`, notes from `CHANGELOG.md`).
 
 ## License and credits

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0
+
+- Minecraft 1.13.2: recording (singleplayer and multiplayer), replay, camera paths, spectator
+  keyframes, video rendering and every 0.2.0 tool, like the other versions.
+
 ## 0.2.0
 
 More of Replay Mod's camera and render tools, on every supported version.

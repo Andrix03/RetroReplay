@@ -20,7 +20,8 @@ pluginManagement {
 rootProject.name = 'retroreplay'
 
 // one Gradle project per Minecraft version; shared code in src/, version-only files in versions/<mc>/src/
-include '1.7.10', '1.6.4', '1.5.2', '1.4.7', '1.3.2', '1.2.5', '1.1', '1.0.0'
+include '1.13.2', '1.7.10', '1.6.4', '1.5.2', '1.4.7', '1.3.2', '1.2.5', '1.1', '1.0.0'
+project(':1.13.2').projectDir = file('versions/1.13.2')
 project(':1.7.10').projectDir = file('versions/1.7.10')
 project(':1.6.4').projectDir = file('versions/1.6.4')
 project(':1.5.2').projectDir = file('versions/1.5.2')
@@ -29,9 +30,3 @@ project(':1.3.2').projectDir = file('versions/1.3.2')
 project(':1.2.5').projectDir = file('versions/1.2.5')
 project(':1.1').projectDir = file('versions/1.1')
 project(':1.0.0').projectDir = file('versions/1.0.0')
-
-// work in progress, built only with -Pwip (not in CI or releases until it works)
-if (startParameter.projectProperties.containsKey('wip')) {
-	include '1.13.2'
-	project(':1.13.2').projectDir = file('versions/1.13.2')
-}
