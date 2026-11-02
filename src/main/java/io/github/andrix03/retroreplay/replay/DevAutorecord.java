@@ -26,6 +26,9 @@ public final class DevAutorecord {
 	/** "quit" or "crash": end the game in the middle of the world instead of leaving it. */
 	private static final String EXIT = System.getenv("RETROREPLAY_AUTORECORD_EXIT");
 	/** RETROREPLAY_AUTORECORD_MENU: open the world the way the world screens do (they close right after). */
+	/** RETROREPLAY_AUTORECORD_BREAK: break the block under the player at the spawn (use with GAMEMODE=1). */
+	private static final boolean BREAK = System.getenv("RETROREPLAY_AUTORECORD_BREAK") != null;
+	private static int[] breakAt;
 	private static final boolean VIA_MENU = System.getenv("RETROREPLAY_AUTORECORD_MENU") != null;
 	/** How long the walk lasts, in ticks (default 240 = 12 s). */
 	private static final int LENGTH_TICKS = Integer.parseInt(System.getenv().getOrDefault("RETROREPLAY_AUTORECORD_TICKS", "240"));
@@ -84,6 +87,17 @@ public final class DevAutorecord {
 			return;
 		}
 		ticks++;
+		if (BREAK && ticks == 20) {
+			// the block under the feet, at the spawn (protected on old servers for non-operators)
+			breakAt = new int[] { (int) Math.floor(minecraft.player.x), (int) Math.floor(minecraft.player.y - Mc.feetOffset()) - 1, (int) Math.floor(minecraft.player.z) };
+			int before = (Integer) call(minecraft.world, "getBlock", breakAt[0], breakAt[1], breakAt[2]);
+			RetroReplay.LOGGER.info("Autorecord: breaking block " + before + " at " + breakAt[0] + "," + breakAt[1] + "," + breakAt[2]);
+			call(minecraft.interactionManager, "startMiningBlock", breakAt[0], breakAt[1], breakAt[2], 1);
+		}
+		if (BREAK && ticks == 50) {
+			int after = (Integer) call(minecraft.world, "getBlock", breakAt[0], breakAt[1], breakAt[2]);
+			RetroReplay.LOGGER.info("Autorecord: block at the spawn " + (after == 0 ? "broken" : "still there (" + after + ")"));
+		}
 		if (ticks == 60) {
 			Mc.screenshot("autorecord_recording.png");
 			Recorder.addMarker(); // what the M key does
@@ -127,6 +141,29 @@ public final class DevAutorecord {
 	}
 
 	/** By name (dev mappings only): the method sits on a player class whose package differs between versions. */
+	/** Dev mappings only: an int-argument method by name (its owner's class differs between versions). */
+	private static Object call(Object target, String method, int... args) {
+		try {
+			Class<?>[] types = new Class<?>[args.length];
+			Object[] values = new Object[args.length];
+			for (int i = 0; i < args.length; i++) {
+				types[i] = int.class;
+				values[i] = args[i];
+			}
+			for (Class<?> type = target.getClass(); type != null; type = type.getSuperclass()) {
+				try {
+					return type.getMethod(method, types).invoke(target, values);
+				} catch (NoSuchMethodException e) {
+					// up the hierarchy
+				}
+			}
+			throw new NoSuchMethodException(method);
+		} catch (ReflectiveOperationException e) {
+			RetroReplay.LOGGER.error("Autorecord: cannot call " + method, e);
+			return -1;
+		}
+	}
+
 	private static void callPlayer(Minecraft minecraft, String method, Object... args) {
 		try {
 			Class<?>[] types = new Class<?>[args.length];

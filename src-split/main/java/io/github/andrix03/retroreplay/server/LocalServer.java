@@ -181,6 +181,10 @@ public final class LocalServer {
 				RetroReplay.LOGGER.warn("Cannot clear " + list);
 			}
 		}
+		// these servers keep 16 blocks around the spawn unbreakable for everyone but operators (no
+		// setting turns it off), which singleplayer does not have: the player is the only operator
+		java.nio.file.Files.write(new File(folder, "ops.txt").toPath(),
+			(player.toLowerCase(Locale.ROOT) + "\n").getBytes(StandardCharsets.UTF_8));
 
 		File agent = new File(folder, "retroreplay-agent.jar");
 		writeAgentJar(agent);
