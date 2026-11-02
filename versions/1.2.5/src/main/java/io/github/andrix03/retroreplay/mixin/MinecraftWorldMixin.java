@@ -12,6 +12,7 @@ import io.github.andrix03.retroreplay.replay.ReplayHandler;
 import io.github.andrix03.retroreplay.server.LocalServer;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.entity.mob.player.PlayerEntity;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldSettings;
@@ -46,6 +47,15 @@ public abstract class MinecraftWorldMixin {
 				retroreplay$vanilla = false;
 			}
 		}));
+	}
+
+	// The world screens close themselves right after starting the world (openScreen(null), the title
+	// screen with no world): the local server's waiting screen must stay until it connects or fails
+	@Inject(method = "openScreen", at = @At("HEAD"), cancellable = true)
+	private void retroreplay$keepWaitingScreen(Screen screen, CallbackInfo ci) {
+		if (screen == null && ((Minecraft) (Object) this).screen instanceof LocalServerScreen) {
+			ci.cancel();
+		}
 	}
 
 	@Inject(method = "setWorld(Lnet/minecraft/world/World;Ljava/lang/String;Lnet/minecraft/entity/mob/player/PlayerEntity;)V", at = @At("HEAD"))

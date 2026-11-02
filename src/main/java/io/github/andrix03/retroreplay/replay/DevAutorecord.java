@@ -25,6 +25,8 @@ public final class DevAutorecord {
 	private static int deathTicks;
 	/** "quit" or "crash": end the game in the middle of the world instead of leaving it. */
 	private static final String EXIT = System.getenv("RETROREPLAY_AUTORECORD_EXIT");
+	/** RETROREPLAY_AUTORECORD_MENU: open the world the way the world screens do (they close right after). */
+	private static final boolean VIA_MENU = System.getenv("RETROREPLAY_AUTORECORD_MENU") != null;
 	/** How long the walk lasts, in ticks (default 240 = 12 s). */
 	private static final int LENGTH_TICKS = Integer.parseInt(System.getenv().getOrDefault("RETROREPLAY_AUTORECORD_TICKS", "240"));
 	/** Seconds spent in the pause menu (default 3; long pauses test connection timeouts). */
@@ -60,6 +62,9 @@ public final class DevAutorecord {
 				} else {
 					RetroReplay.LOGGER.info("Autorecord: opening " + WORLD);
 					Mc.startSelftestWorld(WORLD);
+					if (VIA_MENU) {
+						minecraft.openScreen(null); // what Create New World and Select World do right after
+					}
 				}
 			}
 			return;
