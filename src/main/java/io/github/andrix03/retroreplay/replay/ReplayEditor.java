@@ -26,9 +26,10 @@ import io.github.andrix03.retroreplay.pathing.PathStore;
 /**
  * Replay Mod's Replay Editor, on files: a new replay is written, the original stays.
  * Trim keeps a part: the packets before it keep their effect (they move to its start, where the
- * replay takes them all at once, like Replay Mod), the ones after it are dropped. Connect puts a
- * second replay of the same Minecraft version after the first; its world starts with its own
- * login. Markers and time keyframes move with the replay time.
+ * replay takes them all at once, like Replay Mod's squash), the ones after it are dropped. Cut
+ * takes a part out the same way (its packets move to where it was), Split makes two replays at a
+ * moment. Connect (not in Replay Mod) puts a second replay of the same Minecraft version after
+ * the first; its world starts with its own login. Markers and time keyframes move along.
  */
 public final class ReplayEditor {
 
@@ -75,7 +76,58 @@ public final class ReplayEditor {
 			}
 			packets.flush();
 			target.closeEntry();
-			copyRest(zip, target, last, -start, end - start);
+			int length = end - start;
+			copyRest(zip, target, last, time -> time < start || time > end ? -1 : time - start,
+				time -> Math.max(0, Math.min(length, time - start)));
+		}
+	}
+
+	/** Takes {@code from} to {@code to} ms out of {@code in}: what happened there still counts, at {@code from}. */
+	public static void cut(File in, File out, int from, int to) throws IOException {
+		if (from < 0 || to <= from) {
+			throw new IOException("The end must come after the start");
+		}
+		int removed = to - from;
+		try (ZipFile zip = new ZipFile(in); ZipOutputStream target = open(out)) {
+			target.putNextEntry(new ZipEntry(RECORDING));
+			DataOutputStream packets = new DataOutputStream(target);
+			int last = 0;
+			try (DataInputStream source = packets(zip)) {
+				while (true) {
+					int time;
+					try {
+						time = source.readInt();
+					} catch (EOFException done) {
+						break;
+					}
+					byte[] data = new byte[source.readInt()];
+					source.readFully(data);
+					last = time < from ? time : time < to ? from : time - removed;
+					packets.writeInt(last);
+					packets.writeInt(data.length);
+					packets.write(data);
+				}
+			}
+			packets.flush();
+			target.closeEntry();
+			copyRest(zip, target, last, time -> time < from ? time : time < to ? -1 : time - removed, time -> time < from ? time : time < to ? from : time - removed);
+		}
+	}
+
+	/** Replay Mod's split: {@code in} up to {@code at} as {@code first}, from {@code at} on as {@code second}. */
+	public static void split(File in, File first, File second, int at) throws IOException {
+		int duration = duration(in);
+		if (at <= 0 || at >= duration) {
+			throw new IOException("The split must be inside the replay");
+		}
+		trim(in, first, 0, at);
+		try {
+			trim(in, second, at, duration);
+		} catch (IOException e) {
+			if (!first.delete()) {
+				first.deleteOnExit();
+			}
+			throw e;
 		}
 	}
 
@@ -130,8 +182,16 @@ public final class ReplayEditor {
 		}
 	}
 
-	/** Metadata, markers and camera path after a trim; other entries (the thumbnail) as they are. */
-	private static void copyRest(ZipFile zip, ZipOutputStream target, int duration, int shift, int length) throws IOException {
+	/** A replay time moved by an edit; markers get -1 when they go. */
+	private interface Shift {
+		int apply(int time);
+	}
+
+	/**
+	 * Metadata, markers and camera path after an edit (markers by {@code marker}, time keyframes
+	 * by {@code keyframe}); other entries (the thumbnail) as they are.
+	 */
+	private static void copyRest(ZipFile zip, ZipOutputStream target, int duration, Shift marker, Shift keyframe) throws IOException {
 		Enumeration<? extends ZipEntry> entries = zip.entries();
 		while (entries.hasMoreElements()) {
 			ZipEntry entry = entries.nextElement();
@@ -146,10 +206,10 @@ public final class ReplayEditor {
 				Markers markers = new Markers();
 				Markers kept = new Markers();
 				markers.readJson(entry(zip, name));
-				for (Map.Entry<Integer, String> marker : markers.all().entrySet()) {
-					int time = marker.getKey() + shift;
-					if (time >= 0 && time <= length) {
-						kept.put(time, marker.getValue());
+				for (Map.Entry<Integer, String> mark : markers.all().entrySet()) {
+					int time = marker.apply(mark.getKey());
+					if (time >= 0) {
+						kept.put(time, mark.getValue());
 					}
 				}
 				if (kept.isEmpty()) {
@@ -162,7 +222,8 @@ public final class ReplayEditor {
 				CameraPath moved = new CameraPath();
 				moved.setInterpolation(path.interpolation());
 				path.positions().forEach(moved::putPosition);
-				path.times().forEach((time, replayTime) -> moved.putTime(time, Math.max(0, Math.min(length, replayTime + shift))));
+				path.times().forEach((time, replayTime) -> moved.putTime(time, keyframe.apply(replayTime)));
+				path.segments().forEach(moved::setSegmentInterpolation);
 				text = PathStore.toJson(moved);
 			} else {
 				target.putNextEntry(new ZipEntry(name));

@@ -7,8 +7,9 @@
 - Camera paths: each segment can have its own interpolation (keyframe editor, "Next:"),
   like Replay Mod; the path's choice stays for the others.
 - Replay Editor ("Edit" in the Replay Viewer), like Replay Mod's: Trim keeps a part of a replay
-  (what happened before it still counts: the world is as it was there), Connect puts another
-  replay of the same version after it. A new replay is written, the original stays; markers and
+  (what happened before it still counts: the world is as it was there), Cut Out takes a part
+  out the same way, Split makes two replays, and Connect puts another replay of the same
+  version after it. A new replay is written, the original stays; markers and
   time keyframes move along.
 - Replay Mod's other render methods and options, on every version (Render Settings, Advanced):
   Stereoscopic (both eyes side by side), Cubic (the six faces of a cube in a cross), 360

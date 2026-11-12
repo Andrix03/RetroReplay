@@ -131,7 +131,10 @@ public final class DevAutoplay {
 		try {
 			java.io.File folder = latest.getParentFile();
 			java.io.File out = new java.io.File(folder, "autoplay_edit_" + System.currentTimeMillis() + ".mcpr");
-			if (edit.startsWith("trim:")) {
+			if (edit.startsWith("cut:")) {
+				String[] parts = edit.split(":");
+				ReplayEditor.cut(latest, out, Integer.parseInt(parts[1]), Integer.parseInt(parts[2]));
+			} else if (edit.startsWith("trim:")) {
 				String[] parts = edit.split(":");
 				ReplayEditor.trim(latest, out, Integer.parseInt(parts[1]), Integer.parseInt(parts[2]));
 			} else {

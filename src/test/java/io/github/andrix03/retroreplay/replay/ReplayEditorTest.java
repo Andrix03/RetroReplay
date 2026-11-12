@@ -150,4 +150,39 @@ class ReplayEditorTest {
 		File other = replay(folder, "c", "1.7.10", new int[] { 0 }, null, null);
 		assertThrows(IOException.class, () -> ReplayEditor.connect(a, other, new File(folder, "x.mcpr")));
 	}
+
+	@Test
+	void cutTakesAPartOutAndSplitMakesTwo() throws IOException {
+		File folder = Files.createTempDirectory("rr_editor").toFile();
+		Markers markers = new Markers();
+		markers.put(1000, "before");
+		markers.put(4000, "inside");
+		markers.put(8000, "after");
+		File in = replay(folder, "a", "1.0.0", new int[] { 0, 1000, 3000, 4000, 6000, 8000, 10000 }, markers.toJson(), null);
+		File cut = new File(folder, "a cut.mcpr");
+		ReplayEditor.cut(in, cut, 3000, 6000);
+		List<int[]> kept = packets(cut);
+		assertEquals(7, kept.size()); // nothing is lost: the cut part is taken at once
+		assertEquals(1000, kept.get(1)[0]);
+		assertEquals(3000, kept.get(2)[0]); // 3000 and 4000 squashed at the cut
+		assertEquals(3000, kept.get(3)[0]);
+		assertEquals(3000, kept.get(4)[0]); // 6000 is the cut's end: right after it
+		assertEquals(5000, kept.get(5)[0]);
+		assertEquals(7000, kept.get(6)[0]);
+		assertTrue(entry(cut, "metaData.json").contains("\"duration\":7000"));
+		Markers moved = new Markers();
+		moved.readJson(entry(cut, Markers.ENTRY));
+		assertEquals("before", moved.all().get(1000));
+		assertEquals("after", moved.all().get(5000));
+		assertEquals(2, moved.all().size());
+
+		File first = new File(folder, "a 1.mcpr");
+		File second = new File(folder, "a 2.mcpr");
+		ReplayEditor.split(in, first, second, 4000);
+		assertEquals(4, packets(first).size());
+		List<int[]> rest = packets(second);
+		assertEquals(7, rest.size()); // the world before the split is in the second part at 0
+		assertEquals(0, rest.get(3)[0]);
+		assertEquals(6000, rest.get(6)[0]);
+	}
 }

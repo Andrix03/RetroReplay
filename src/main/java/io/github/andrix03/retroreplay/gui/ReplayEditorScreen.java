@@ -16,8 +16,9 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 
 /**
- * Replay Mod's Replay Editor for the replay chosen in the viewer: Trim keeps a part of it (start
- * and end as m:ss), Connect puts another replay after it. Both write a new replay next to it.
+ * Replay Mod's Replay Editor for the replay chosen in the viewer, with start and end as m:ss:
+ * Trim keeps that part, Cut takes it out, Split makes two replays at the start; Connect puts
+ * another replay after it. Each writes new replays next to it.
  */
 public class ReplayEditorScreen extends RetroScreen {
 
@@ -25,6 +26,8 @@ public class ReplayEditorScreen extends RetroScreen {
 	private static final int OTHER = 1;
 	private static final int CONNECT = 2;
 	private static final int BACK = 3;
+	private static final int CUT = 4;
+	private static final int SPLIT = 5;
 
 	private final Screen parent;
 	private final File file;
@@ -68,7 +71,9 @@ public class ReplayEditorScreen extends RetroScreen {
 		endField = TextField.create(this, x + 102, y, 98, 20);
 		endField.setText(format(duration));
 		endField.setFocused(false);
-		buttons.add(new Button(TRIM, x, y + 24, 200, 20, "Trim"));
+		buttons.add(new Button(TRIM, x, y + 24, 64, 20, "Trim"));
+		buttons.add(new Button(CUT, x + 68, y + 24, 64, 20, "Cut Out"));
+		buttons.add(new Button(SPLIT, x + 136, y + 24, 64, 20, "Split"));
 		buttons.add(otherButton = new Button(OTHER, x, y + 64, 200, 20, otherLabel()));
 		ButtonWidget connect = new Button(CONNECT, x, y + 88, 200, 20, "Connect");
 		connect.active = !others.isEmpty();
@@ -138,6 +143,31 @@ public class ReplayEditorScreen extends RetroScreen {
 				run(() -> ReplayEditor.trim(file, out, start, end), out);
 				break;
 			}
+			case CUT: {
+				int start = parse(startField.getText());
+				int end = Math.min(duration, parse(endField.getText()));
+				if (start < 0 || end <= start) {
+					status = "The end must come after the start (m:ss)";
+					return;
+				}
+				File out = free(baseName(file) + " cut");
+				run(() -> ReplayEditor.cut(file, out, start, end), out);
+				break;
+			}
+			case SPLIT: {
+				int at = parse(startField.getText());
+				if (at <= 0 || at >= duration) {
+					status = "Split at the start time: it must be inside the replay";
+					return;
+				}
+				File first = free(baseName(file) + " part 1");
+				File second = free(baseName(file) + " part 2");
+				run(() -> ReplayEditor.split(file, first, second, at), second);
+				if (first.isFile()) {
+					status = "Saved as " + first.getName() + " and " + second.getName();
+				}
+				break;
+			}
 			case OTHER:
 				other = (other + 1) % others.size();
 				otherButton.message = otherLabel();
@@ -204,7 +234,8 @@ public class ReplayEditorScreen extends RetroScreen {
 		ReplayGui.text("End", x + 102, y - 10, ReplayGui.LIGHT_GRAY);
 		startField.render();
 		endField.render();
-		ReplayGui.text("Connect another replay after this one", x, y + 54, ReplayGui.LIGHT_GRAY);
+		ReplayGui.text("Trim keeps Start-End, Cut Out removes it, Split cuts at Start", x - 30, y + 46, ReplayGui.LIGHT_GRAY);
+		ReplayGui.text("Connect another replay after this one", x, y + 56, ReplayGui.LIGHT_GRAY);
 		ReplayGui.centered(status, width / 2, y + 146, ReplayGui.WHITE);
 		super.render(mouseX, mouseY, tickDelta);
 	}
