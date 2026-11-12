@@ -365,8 +365,7 @@ public final class PathingOverlay {
 				if (position == null || state.path.positions().containsKey(time)) {
 					return;
 				}
-				state.path.removePosition(dragTime);
-				state.path.putPosition(time, position);
+				state.path.movePosition(dragTime, time, position);
 			} else {
 				Integer replayTime = state.path.times().get(dragTime);
 				if (replayTime == null || state.path.times().containsKey(time)) {

@@ -25,6 +25,8 @@ public class EditKeyframeScreen extends NoPauseScreen {
 	private final List<TextField> fields = new ArrayList<>();
 	private String error;
 	private CameraPath.Interpolation interpolation;
+	/** This keyframe's segment (to the next one): its own interpolation, or null for the path's. */
+	private CameraPath.Interpolation segment;
 
 	public EditKeyframeScreen(PathingState state, PathingState.Kind kind, long time) {
 		this.state = state;
@@ -56,15 +58,21 @@ public class EditKeyframeScreen extends NoPauseScreen {
 		int buttonsY = kind == PathingState.Kind.TIME ? top + 90 : top + 174;
 		if (kind == PathingState.Kind.POSITION) {
 			interpolation = state.path.interpolation();
-			// Replay Mod's interpolator choice (here for the whole position path)
-			buttons.add(new Button(2, width / 2 - 100, top + 148, 200, 20, interpolationLabel()));
+			segment = state.path.segmentInterpolation(time);
+			// Replay Mod's interpolator choice: the whole path's, and this segment's own
+			buttons.add(new Button(2, width / 2 - 152, top + 148, 150, 20, interpolationLabel()));
+			buttons.add(new Button(3, width / 2 + 2, top + 148, 150, 20, segmentLabel()));
 		}
 		buttons.add(new Button(0, width / 2 - 152, buttonsY, 150, 20, "Save"));
 		buttons.add(new Button(1, width / 2 + 2, buttonsY, 150, 20, "Cancel"));
 	}
 
 	private String interpolationLabel() {
-		return "Interpolation: " + interpolation.title;
+		return "Path: " + interpolation.title;
+	}
+
+	private String segmentLabel() {
+		return "Next: " + (segment == null ? "Path's" : segment.title);
 	}
 
 	/** Top of the fields: the whole popup (title to Save / Cancel) centered, at least 20 px down. */
@@ -94,6 +102,12 @@ public class EditKeyframeScreen extends NoPauseScreen {
 
 	@Override
 	protected void buttonClicked(ButtonWidget button) {
+		if (button.id == 3) {
+			CameraPath.Interpolation[] types = CameraPath.Interpolation.values();
+			segment = segment == null ? types[0] : segment.ordinal() + 1 < types.length ? types[segment.ordinal() + 1] : null;
+			button.message = segmentLabel();
+			return;
+		}
 		if (button.id == 2) {
 			CameraPath.Interpolation[] types = CameraPath.Interpolation.values();
 			interpolation = types[(interpolation.ordinal() + 1) % types.length];
@@ -127,6 +141,7 @@ public class EditKeyframeScreen extends NoPauseScreen {
 			state.path.removePosition(time);
 			state.path.putPosition(newTime, new CameraPath.Position(v[0], v[2], v[4], (float) v[1], (float) v[3], (float) v[5], spectated));
 			state.path.setInterpolation(interpolation);
+			state.path.setSegmentInterpolation(newTime, segment);
 		}
 		state.select(kind, newTime);
 	}
