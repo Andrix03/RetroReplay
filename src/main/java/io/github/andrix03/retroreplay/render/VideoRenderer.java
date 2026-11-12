@@ -188,6 +188,7 @@ public final class VideoRenderer {
 			long tick = goTo(Math.max(0, path.replayTimeAt(start) - 100));
 			// a few frames drawn and thrown away: the first ones after the world rebuilt are not clean
 			for (int i = 0; i < 5; i++) {
+				keepRenderingScreen();
 				PathPlayer.applyCamera(path, start);
 				shot.take(0);
 				progress.showPreparing();
@@ -207,6 +208,7 @@ public final class VideoRenderer {
 				}
 				ReplayHandler.get().setTimeFromPath(replayTime);
 				float partial = (replayTime - targetTick * 50) / 50f;
+				keepRenderingScreen();
 				PathPlayer.applyCamera(path, videoTime);
 				pixels = shot.take(partial);
 				if (depth) {
@@ -249,12 +251,18 @@ public final class VideoRenderer {
 	private static void begin(OffscreenTarget target) {
 		if (target != null) {
 			target.begin();
+		} else {
+			// at the window's size too: from 1.7 the game draws into its own framebuffer, and the
+			// window keeps whatever was last shown there (the joining screen after a seek)
+			Mc.bindGameTarget();
 		}
 	}
 
 	private static void end(OffscreenTarget target) {
 		if (target != null) {
 			target.end();
+		} else if (Platform.hasFramebuffers()) {
+			org.lwjgl.opengl.EXTFramebufferObject.glBindFramebufferEXT(org.lwjgl.opengl.EXTFramebufferObject.GL_FRAMEBUFFER_EXT, 0);
 		}
 	}
 
@@ -408,6 +416,15 @@ public final class VideoRenderer {
 		Minecraft minecraft = Mc.minecraft();
 		for (int i = 0; i < 1000 && minecraft.world != null && !Platform.compileChunks(); i++) {
 			// compiles a batch per call, true once the queue is empty
+		}
+	}
+
+	/** A screen the replay opened (terrain after a login or dimension change) would be drawn into the video. */
+	private static void keepRenderingScreen() {
+		Minecraft minecraft = Mc.minecraft();
+		if (!(minecraft.screen instanceof RenderingScreen)) {
+			RetroReplay.LOGGER.info("Render: closed " + (minecraft.screen == null ? "no screen" : minecraft.screen.getClass().getSimpleName()));
+			minecraft.openScreen(new RenderingScreen());
 		}
 	}
 
