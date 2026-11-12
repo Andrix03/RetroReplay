@@ -50,6 +50,10 @@ public final class ReplayConnection {
 		packet.handle(handler);
 	}
 
+	/** Packets are handled as they come here: nothing waits. */
+	public void flush() {
+	}
+
 	private static final class SinkConnection extends Connection {
 
 		private SinkConnection(Socket socket, String name, PacketHandler listener) throws IOException {

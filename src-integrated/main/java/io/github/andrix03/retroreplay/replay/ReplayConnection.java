@@ -44,4 +44,9 @@ public final class ReplayConnection {
 	public void accept(Packet packet) {
 		client.accept(packet);
 	}
+
+	/** Handles the queued packets now (Quick Mode places entities right after its teleports). */
+	public void flush() {
+		client.tick();
+	}
 }

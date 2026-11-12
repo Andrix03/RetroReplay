@@ -95,13 +95,13 @@ public final class DevAutorecord {
 		if (BREAK && ticks == 20) {
 			// the block under the feet, at the spawn (protected on old servers for non-operators)
 			breakAt = new int[] { (int) Math.floor(minecraft.player.x), (int) Math.floor(minecraft.player.y - Mc.feetOffset()) - 1, (int) Math.floor(minecraft.player.z) };
-			int before = (Integer) call(minecraft.world, "getBlock", breakAt[0], breakAt[1], breakAt[2]);
+			int before = Mc.blockState(breakAt[0], breakAt[1], breakAt[2]) >> 4;
 			RetroReplay.LOGGER.info("Autorecord: breaking block " + before + " at " + breakAt[0] + "," + breakAt[1] + "," + breakAt[2]);
 			call(minecraft.interactionManager, "startMiningBlock", breakAt[0], breakAt[1], breakAt[2], 1);
 			holdStone(minecraft);
 		}
 		if (BREAK && ticks == 50) {
-			int after = (Integer) call(minecraft.world, "getBlock", breakAt[0], breakAt[1], breakAt[2]);
+			int after = Mc.blockState(breakAt[0], breakAt[1], breakAt[2]) >> 4;
 			RetroReplay.LOGGER.info("Autorecord: block at the spawn " + (after == 0 ? "broken" : "still there (" + after + ")"));
 		}
 		if (MINE && ticks >= 20 && ticks < 200) {
@@ -143,8 +143,15 @@ public final class DevAutorecord {
 		}
 		if (FAR && ticks > 40) {
 			minecraft.player.abilities.flying = true;
-			minecraft.player.velocityX = 1.5;
-			minecraft.player.velocityY = minecraft.player.y < 100 ? 0.3 : 0;
+			// straight up first (nothing in the way up there), then east
+			boolean high = minecraft.player.y >= 100;
+			minecraft.player.noClip = !high; // through the trees it often spawns under
+			if (ticks % 40 == 0) {
+				RetroReplay.LOGGER.info("Autorecord far: tick " + ticks + " at " + (int) minecraft.player.x + "," + (int) minecraft.player.y + "," + (int) minecraft.player.z
+					+ " flying=" + minecraft.player.abilities.flying + " canFly=" + minecraft.player.abilities.canFly);
+			}
+			minecraft.player.velocityX = high ? 1.5 : 0;
+			minecraft.player.velocityY = high ? 0 : 0.8;
 			minecraft.player.velocityZ = 0;
 			if (ticks >= LENGTH_TICKS) {
 				finished = true;

@@ -39,7 +39,7 @@ singleplayer runs on one (see below).
   (1/8x to 8x), Z turns ambient lighting on and off (caves and nights fully lit).
 - Block cracks: the cracks of the blocks you break are recorded and shown in the replay and
   in videos, on every version (older recordings have none).
-- Quick Mode (1.0.0 for now, on by default, Q turns it off and on): dragging the replay bar
+- Quick Mode (1.0.0 to 1.7.10 for now, on by default, Q turns it off and on): dragging the replay bar
   moves players, mobs, items and blocks live, back and forth, with no world reload; the replay
   goes on from where the bar is let go. Held items, entity states, riding, rain, blown up
   blocks and chunks unloaded since are put back too; what is left approximate is what a

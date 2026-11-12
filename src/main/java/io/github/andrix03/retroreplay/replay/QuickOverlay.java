@@ -23,11 +23,17 @@ final class QuickOverlay {
 		byte[] read(long offset) throws IOException;
 	}
 
+	/** Puts an entity at once where a teleport would take it over three ticks. */
+	interface Placer {
+		void place(int id, double[] where);
+	}
+
 	private static final int[] KINDS = { 0, 1, 2, 3, 4, QuickIndex.KIND_DATA, QuickIndex.KIND_RIDE, QuickIndex.KIND_HEAD };
 
 	private final QuickIndex index;
 	private final Consumer<byte[]> feed;
 	private final PacketReader file;
+	private final Placer placer;
 	/** Packets really handled: the world under the overlay. */
 	private final int real;
 	/** The moment shown (in handled packets). */
@@ -35,10 +41,11 @@ final class QuickOverlay {
 	/** Tracks in the world -> the entry they were last put at. */
 	private final Map<QuickIndex.Track, Integer> placed = new HashMap<>();
 
-	QuickOverlay(QuickIndex index, int real, Consumer<byte[]> feed, PacketReader file) {
+	QuickOverlay(QuickIndex index, int real, Consumer<byte[]> feed, PacketReader file, Placer placer) {
 		this.index = index;
 		this.feed = feed;
 		this.file = file;
+		this.placer = placer;
 		this.real = real;
 		this.shown = real;
 		for (QuickIndex.Track track : index.tracks) {
@@ -90,12 +97,15 @@ final class QuickOverlay {
 			int load = log.loadedAt(target);
 			if (load < 0) {
 				if (log.loadedAt(shown) >= 0) {
-					feed.accept(QuickIndex.chunkLoad(log.x, log.z, false));
+					feed.accept(index.chunkUnloadPacket(log.x, log.z));
 				}
 				continue;
 			}
 			if (log.loadedAt(shown) >= 0 && !log.reloadedBetween(from, to)) {
 				continue; // the same chunk: its block changes are put back with the others
+			}
+			if (System.getenv("RETROREPLAY_QUICK_DEBUG") != null) {
+				io.github.andrix03.retroreplay.RetroReplay.LOGGER.info("Quick rebuild chunk " + log.x + "," + log.z + " at " + target + " from load " + load);
 			}
 			try {
 				rebuild(log, load, target);
@@ -106,7 +116,12 @@ final class QuickOverlay {
 	}
 
 	private void rebuild(QuickIndex.ChunkLog log, int load, int target) throws IOException {
-		feed.accept(QuickIndex.chunkLoad(log.x, log.z, true));
+		for (int i = 0; i < log.count; i++) {
+			if (log.index[i] == load && log.kind[i] == QuickIndex.ChunkLog.LOAD) {
+				feed.accept(index.loadPacket(log, i, file)); // from 1.3 with the chunk's data in it
+				break;
+			}
+		}
 		int change = 0;
 		while (change < log.changes && index.blockChangeIndexOf(log.change[change]) < load) {
 			change++;
@@ -131,7 +146,7 @@ final class QuickOverlay {
 		for (Iterator<QuickIndex.Track> it = placed.keySet().iterator(); it.hasNext();) {
 			QuickIndex.Track track = it.next();
 			if (!track.aliveAt(target)) {
-				feed.accept(QuickIndex.remove(track.id));
+				feed.accept(index.removePacket(track.id));
 				it.remove();
 			}
 		}
@@ -147,7 +162,10 @@ final class QuickOverlay {
 			}
 			int entry = track.entryAt(target);
 			if (entry != at && !track.still) {
-				feed.accept(track.teleport(entry));
+				feed.accept(index.teleportPacket(track, entry)); // what the next moves count from
+				// and there at once: the game moves it over three ticks, and not at all while its
+				// chunk is unloaded, which Quick Mode may just have done
+				placer.place(track.id, track.place(entry));
 			}
 			placed.put(track, entry);
 			states(track, target, spawned ? track.spawnIndex + 1 : shown);
@@ -164,7 +182,7 @@ final class QuickOverlay {
 			if (then == track.stateAt(kind, now)) {
 				continue;
 			}
-			byte[] packet = then >= 0 ? track.stateBytes[then] : track.noState(kind);
+			byte[] packet = then >= 0 ? track.stateBytes[then] : index.noStatePacket(track, kind);
 			if (packet != null) {
 				feed.accept(packet);
 			}
@@ -183,7 +201,11 @@ final class QuickOverlay {
 				value = index.baseValue(position);
 			}
 			if (value >= 0) {
-				feed.accept(QuickIndex.block(position, value));
+				feed.accept(index.blockPacket(position, value));
+			}
+			if (System.getenv("RETROREPLAY_QUICK_DEBUG") != null) {
+				io.github.andrix03.retroreplay.RetroReplay.LOGGER.info("Quick block " + QuickIndex.x(position) + "," + QuickIndex.y(position) + "," + QuickIndex.z(position)
+					+ " at " + target + " (from " + from + " to " + to + "): " + value);
 			}
 		}
 	}

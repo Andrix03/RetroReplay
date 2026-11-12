@@ -165,7 +165,7 @@ public final class Mc {
 
 	/** Dev self-test only: opens (or creates, seed 1234) a survival singleplayer world. */
 	public static void startSelftestWorld(String name) {
-		minecraft().startGame(name, name, new net.minecraft.world.WorldSettings(1234L, net.minecraft.world.WorldSettings.GameMode.SURVIVAL, true, false, net.minecraft.world.gen.WorldGeneratorType.DEFAULT));
+		minecraft().startGame(name, name, new net.minecraft.world.WorldSettings(1234L, net.minecraft.world.WorldSettings.GameMode.byId(Integer.parseInt(System.getenv().getOrDefault("RETROREPLAY_AUTORECORD_GAMEMODE", "0"))), true, false, net.minecraft.world.gen.WorldGeneratorType.DEFAULT));
 	}
 
 	/** Dev self-test only. */
@@ -173,9 +173,13 @@ public final class Mc {
 		return new ConnectScreen(parent, Minecraft.getInstance(), host, port);
 	}
 
-	/** Quick Mode is not on this version yet (QuickIndex.supports): nothing to read. */
+	/** Block id << 4 | metadata at a position, or -1 when its chunk is not loaded (Quick Mode). */
 	public static int blockState(int x, int y, int z) {
-		return -1;
+		net.minecraft.world.World world = minecraft().world;
+		if (world == null || !world.isChunkLoaded(x, y, z)) {
+			return -1;
+		}
+		return world.getBlock(x, y, z) << 4 | world.getBlockMetadata(x, y, z) & 15;
 	}
 
 	/** Block cracks in replays: from 1.3 the vanilla packet draws them, nothing to do here. */

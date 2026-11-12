@@ -177,7 +177,7 @@ public final class ReplayHandler {
 			return; // the release does an exact seek
 		}
 		if (overlay == null) {
-			overlay = new QuickOverlay(quick, index, this::feed, packets::readAt);
+			overlay = new QuickOverlay(quick, index, this::feed, packets::readAt, this::placeEntity);
 			MiningCracks.clear(); // not in Quick Mode's index: the next stage written brings it back
 		}
 		overlay.showAt(fed);
@@ -491,7 +491,7 @@ public final class ReplayHandler {
 			if (!DevAutoplay.NO_CHUNK_SKIP && chunks.skippable(index, target)) {
 				// chunk data unloaded again before this tick's last packet: the world there is the same without it
 				if (quick != null) {
-					quick.beforePacket(index, Mc::blockState);
+					readOldBlocks();
 				}
 				if (!skipPacket()) {
 					break;
@@ -505,7 +505,7 @@ public final class ReplayHandler {
 				break;
 			}
 			if (quick != null) {
-				quick.beforePacket(index, Mc::blockState);
+				readOldBlocks();
 			}
 			index++;
 			feed(packet);
@@ -533,6 +533,38 @@ public final class ReplayHandler {
 
 	public static double currentTime() {
 		return active == null ? -1 : active.timeMs;
+	}
+
+	/** Quick Mode: an entity put where a teleport ends, at once (x, y, z, yaw, pitch). */
+	private void placeEntity(int id, double[] where) {
+		Minecraft minecraft = Mc.minecraft();
+		client.flush(); // from 1.3 the teleport waits in a queue: handled first, or it would win
+		if (minecraft.world == null) {
+			return;
+		}
+		for (Object object : minecraft.world.entities) {
+			net.minecraft.entity.Entity entity = (net.minecraft.entity.Entity) object;
+			if (Mc.entityId(entity) == id) {
+				entity.setPosition(where[0], where[1], where[2]);
+				entity.prevX = entity.lastX = where[0];
+				entity.prevY = entity.lastY = where[1];
+				entity.prevZ = entity.lastZ = where[2];
+				entity.yaw = (float) where[3];
+				entity.pitch = (float) where[4];
+				return;
+			}
+		}
+	}
+
+	/**
+	 * Quick Mode: the blocks the next packet changes, read before it is handled. From 1.3 the
+	 * packets before it wait in a queue (their chunk may be in there): handled first.
+	 */
+	private void readOldBlocks() {
+		if (quick.changesBlocks(index)) {
+			client.flush();
+			quick.beforePacket(index, Mc::blockState);
+		}
 	}
 
 	/** Self-tests: a packet handled as if it came from the recording. */
@@ -656,7 +688,7 @@ public final class ReplayHandler {
 				throw new IOException("Not a RetroReplay " + Mc.VERSION + " recording");
 			}
 			ChunkIndex.Builder chunks = new ChunkIndex.Builder(Mc.CHUNK_FORMAT);
-			QuickIndex.Builder quick = QuickIndex.supports(Mc.VERSION) ? new QuickIndex.Builder(Mc.CHUNK_FORMAT) : null;
+			QuickIndex.Builder quick = QuickIndex.supports(Mc.VERSION) ? new QuickIndex.Builder(Mc.CHUNK_FORMAT, Mc.VERSION) : null;
 			PacketFile packets = PacketFile.unpack(zip.getInputStream(recording), (i, data, length) -> {
 				chunks.packet(i, data, length);
 				if (quick != null) {

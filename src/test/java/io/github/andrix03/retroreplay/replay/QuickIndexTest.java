@@ -307,4 +307,178 @@ class QuickIndexTest {
 		assertEquals(2, log.changes);
 		assertEquals(0, index.tracks[0].stateAt(QuickIndex.KIND_HEAD, 4));
 	}
+	@Test
+	void integratedRemovalsBlocksAndBulkChunks() throws IOException {
+		// two chunks in a 1.4 bulk packet with sky light: (3, 4) one section, (-2, 7) two sections and an upper one
+		byte[] first = new byte[2048 * 5 + 256];
+		byte[] second = new byte[2048 * 5 * 2 + 2048 + 256];
+		for (int i = 0; i < first.length; i++) {
+			first[i] = (byte) (i * 7);
+		}
+		for (int i = 0; i < second.length; i++) {
+			second[i] = (byte) (i * 13 + 1);
+		}
+		byte[] both = new byte[first.length + second.length];
+		System.arraycopy(first, 0, both, 0, first.length);
+		System.arraycopy(second, 0, both, first.length, second.length);
+		java.util.zip.Deflater deflater = new java.util.zip.Deflater();
+		deflater.setInput(both);
+		deflater.finish();
+		byte[] compressed = new byte[both.length + 1024];
+		int size = deflater.deflate(compressed);
+		deflater.end();
+		List<byte[]> packets = new ArrayList<>();
+		packets.add(packet(0x38, out -> { // 0 bulk
+			out.writeShort(2);
+			out.writeInt(size);
+			out.writeBoolean(true);
+			out.write(compressed, 0, size);
+			out.writeInt(3);
+			out.writeInt(4);
+			out.writeShort(0x1);
+			out.writeShort(0);
+			out.writeInt(-2);
+			out.writeInt(7);
+			out.writeShort(0x5);
+			out.writeShort(0x4);
+		}));
+		packets.add(packet(0x35, out -> { // 1 block 300:2 (a short id from 1.3)
+			out.writeInt(-30);
+			out.writeByte(70);
+			out.writeInt(120);
+			out.writeShort(300);
+			out.writeByte(2);
+		}));
+		packets.add(packet(0x18, out -> { // 2 mob 4
+			out.writeInt(4);
+			out.writeByte(90);
+			out.writeInt(0);
+			out.writeInt(0);
+			out.writeInt(0);
+			out.writeByte(0);
+			out.writeByte(0);
+			out.writeByte(0);
+			out.writeShort(0);
+			out.writeShort(0);
+			out.writeShort(0);
+			out.writeByte(127);
+		}));
+		packets.add(packet(0x1D, out -> { // 3 removed in a list of two
+			out.writeByte(2);
+			out.writeInt(99);
+			out.writeInt(4);
+		}));
+		packets.add(packet(0x33, out -> { // 4 (3, 4) unloaded: full without sections
+			out.writeInt(3);
+			out.writeInt(4);
+			out.writeBoolean(true);
+			out.writeShort(0);
+			out.writeShort(0);
+			out.writeInt(0);
+		}));
+		QuickIndex.Builder builder = new QuickIndex.Builder(ChunkIndex.INTEGRATED, "1.4.7");
+		long offset = 0;
+		long[] offsets = new long[packets.size()];
+		for (int i = 0; i < packets.size(); i++) {
+			offsets[i] = offset;
+			builder.packet(i, packets.get(i), packets.get(i).length);
+			offset += 8 + packets.get(i).length;
+		}
+		QuickIndex index = builder.build();
+		assertEquals(300 << 4 | 2, index.valueAt(QuickIndex.position(-30, 70, 120), 2));
+		assertTrue(index.tracks[0].aliveAt(3));
+		assertFalse(index.tracks[0].aliveAt(4));
+		assertArrayEquals(new byte[] { 0x1D, 1, 0, 0, 0, 4 }, index.removePacket(4));
+
+		QuickIndex.ChunkLog a = index.chunks.get(QuickIndex.chunkKey(3, 4));
+		assertEquals(0, a.loadedAt(1));
+		assertEquals(-1, a.loadedAt(5));
+		QuickIndex.ChunkLog b = index.chunks.get(QuickIndex.chunkKey(-2, 7));
+		assertEquals(1, b.part[0]);
+		assertEquals(offsets[0], b.offset[0]);
+		byte[] single = index.loadPacket(b, 0, at -> packets.get(java.util.Arrays.binarySearch(offsets, at)));
+		// 0x33: x, z, full, sections, upper, size, compressed data
+		java.io.DataInputStream in = new java.io.DataInputStream(new java.io.ByteArrayInputStream(single, 1, single.length - 1));
+		assertEquals(-2, in.readInt());
+		assertEquals(7, in.readInt());
+		assertTrue(in.readBoolean());
+		assertEquals(0x5, in.readShort());
+		assertEquals(0x4, in.readShort());
+		byte[] data = new byte[in.readInt()];
+		in.readFully(data);
+		java.util.zip.Inflater inflater = new java.util.zip.Inflater();
+		inflater.setInput(data);
+		byte[] out = new byte[second.length + 10];
+		int n;
+		try {
+			n = inflater.inflate(out);
+		} catch (java.util.zip.DataFormatException e) {
+			throw new IOException(e);
+		}
+		inflater.end();
+		assertEquals(second.length, n);
+		assertArrayEquals(second, java.util.Arrays.copyOf(out, n));
+	}
+	@Test
+	void nettyIdsVarIntsAndFloats() throws IOException {
+		List<byte[]> packets = new ArrayList<>();
+		packets.add(packet(12, out -> { // 0 1.7.10 named player: VarInt 300, uuid, name, one property, then the position
+			out.write(new byte[] { (byte) 0xAC, 0x02 });
+			byte[] uuid = "00000000-0000-0000-0000-000000000000".getBytes("UTF-8");
+			out.writeByte(uuid.length);
+			out.write(uuid);
+			out.writeByte(2);
+			out.write("Ab".getBytes("UTF-8"));
+			out.writeByte(1);
+			for (String text : new String[] { "textures", "v", "s" }) {
+				out.writeByte(text.length());
+				out.write(text.getBytes("UTF-8"));
+			}
+			out.writeInt(64);
+			out.writeInt(2048);
+			out.writeInt(-64);
+			out.writeByte(1);
+			out.writeByte(2);
+		}));
+		packets.add(packet(21, out -> { // 1 relative move (int id as before)
+			out.writeInt(300);
+			out.writeByte(4);
+			out.writeByte(0);
+			out.writeByte(-4);
+		}));
+		packets.add(packet(35, out -> { // 2 block 260:3, the id a VarInt
+			out.writeInt(5);
+			out.writeByte(64);
+			out.writeInt(6);
+			out.write(new byte[] { (byte) 0x84, 0x02 });
+			out.writeByte(3);
+		}));
+		packets.add(packet(39, out -> { // 3 explosion at floats 10.5, 64.2, -3.5 (ints 10, 64, -3): one block
+			out.writeFloat(10.5F);
+			out.writeFloat(64.2F);
+			out.writeFloat(-3.5F);
+			out.writeFloat(4);
+			out.writeInt(1);
+			out.write(new byte[] { 1, -1, 0 });
+		}));
+		packets.add(packet(43, out -> { // 4 rain starts: unsigned byte, float
+			out.writeByte(1);
+			out.writeFloat(0);
+		}));
+		QuickIndex.Builder builder = new QuickIndex.Builder(ChunkIndex.NETTY, "1.7.10");
+		for (int i = 0; i < packets.size(); i++) {
+			builder.packet(i, packets.get(i), packets.get(i).length);
+		}
+		QuickIndex index = builder.build();
+		QuickIndex.Track player = index.tracks[0];
+		assertEquals(300, player.id);
+		byte[] teleport = index.teleportPacket(player, player.entryAt(2));
+		assertEquals(24, teleport[0]); // 1.7.10's teleport id
+		assertArrayEquals(java.util.Arrays.copyOfRange(QuickIndex.teleport(300, 68, 2048, -68, 1 << 8 | 2), 1, 19), java.util.Arrays.copyOfRange(teleport, 1, 19));
+		assertEquals(260 << 4 | 3, index.valueAt(QuickIndex.position(5, 64, 6), 3));
+		assertArrayEquals(packets.get(2), index.blockPacket(QuickIndex.position(5, 64, 6), 260 << 4 | 3));
+		assertEquals(0, index.valueAt(QuickIndex.position(11, 63, -3), 4));
+		assertArrayEquals(packets.get(4), index.weatherAt(5));
+		assertEquals(19, index.removePacket(300)[0]);
+	}
 }

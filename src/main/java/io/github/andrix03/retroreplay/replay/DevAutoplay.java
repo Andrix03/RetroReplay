@@ -294,6 +294,20 @@ public final class DevAutoplay {
 		minecraft.player.velocityZ = 0;
 	}
 
+	/** Every other player entity: id at x (to see duplicates). */
+	private static String players(Minecraft minecraft) {
+		StringBuilder out = new StringBuilder();
+		if (minecraft.world != null && minecraft.player != null) {
+			Class<?> players = minecraft.player.getClass().getSuperclass().getSuperclass();
+			for (Object entity : minecraft.world.entities) {
+				if (entity != minecraft.player && players.isInstance(entity)) {
+					out.append(Mc.entityId(entity)).append('@').append((int) ((Entity) entity).x).append(' ');
+				}
+			}
+		}
+		return out.toString().trim();
+	}
+
 	private static void scrub(double timeMs) {
 		ReplayHandler replay = ReplayHandler.get();
 		if (scrubStep < 0) {
@@ -304,7 +318,7 @@ public final class DevAutoplay {
 		}
 		Entity recorded = findRecordedPlayer(Mc.minecraft());
 		RetroReplay.LOGGER.info("Autoplay scrub step " + scrubStep + " at " + (int) replay.getTime() + " ms: same world=" + (replay == scrubHandler)
-			+ ", lossy=" + replay.isLossy() + (SCRUB_BLOCK == null ? "" : ", block=" + (Mc.blockState(SCRUB_BLOCK[0], SCRUB_BLOCK[1], SCRUB_BLOCK[2]) >> 4)) + ", recorded player=" + (recorded == null ? "none" : String.format(java.util.Locale.ROOT, "%.2f,%.2f,%.2f", recorded.x, recorded.y, recorded.z)));
+			+ ", lossy=" + replay.isLossy() + ", players=" + players(Mc.minecraft()) + (SCRUB_BLOCK == null ? "" : ", block=" + (Mc.blockState(SCRUB_BLOCK[0], SCRUB_BLOCK[1], SCRUB_BLOCK[2]) >> 4)) + ", recorded player=" + (recorded == null ? "none" : String.format(java.util.Locale.ROOT, "%.2f,%.2f,%.2f", recorded.x, recorded.y, recorded.z)));
 		if (scrubStep == 0 && SCRUB_EXACT) {
 			scrubStep = 5;
 			replay.jumpTo(SEEK_TARGET); // rebuilds the world: the next calls come from the new handler
