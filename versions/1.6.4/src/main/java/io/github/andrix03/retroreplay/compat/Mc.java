@@ -195,4 +195,9 @@ public final class Mc {
 	public static Screen connectScreen(Screen parent, String host, int port) {
 		return new ConnectScreen(parent, Minecraft.getInstance(), host, port);
 	}
+
+	/** Quick Mode is not on this version yet (QuickIndex.supports): nothing to read. */
+	public static int blockState(int x, int y, int z) {
+		return -1;
+	}
 }

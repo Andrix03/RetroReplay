@@ -430,7 +430,7 @@ public final class PathingOverlay {
 				PathPlayer.placeCamera(position);
 			}
 		} else {
-			ReplayHandler.get().jumpTo(state.path.times().get(time));
+			ReplayHandler.get().quickJumpTo(state.path.times().get(time));
 		}
 	}
 

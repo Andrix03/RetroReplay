@@ -33,10 +33,15 @@ singleplayer runs on one (see below).
   clock stops while a singleplayer game is paused.
 - Replay Viewer from the main menu (logo button): load, open folder, rename, delete; each
   replay shows its thumbnail (N in a replay takes one, stored like Replay Mod's).
-- In a replay: free flying camera, play/pause, speed slider, timeline (click to jump),
+- In a replay: free flying camera, play/pause, speed slider, timeline (click or drag),
   "Exit Replay" in the pause menu. Keys: P pause, [ ] speed, Left/Right jump 10 s,
   T (chat key) frees the mouse for the replay bar, the mouse wheel sets the camera speed
   (1/8x to 8x), Z turns ambient lighting on and off (caves and nights fully lit).
+- Quick Mode (1.0.0 for now, on by default, Q turns it off and on): dragging the replay bar
+  moves players, mobs, items and blocks live, back and forth, with no world reload; the replay
+  goes on from where the bar is let go. Like Replay Mod's it is approximate in places (held
+  items, entity data, riding, explosions, weather, chunks unloaded later); turning it off
+  rebuilds the world exactly, and videos always start from an exact world.
 - Jumping back replays the recording from the start up to there, leaving out the chunk data
   and block changes of chunks unloaded again before that moment (the world is the same).
   Near the end of a 3 minute 1.0 exploration: 0.9 s instead of 1.8 s; 1.7.10 needs ~0.2 s

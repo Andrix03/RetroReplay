@@ -253,7 +253,7 @@ public final class VideoRenderer {
 	private static long goTo(int replayTime) {
 		Minecraft minecraft = Mc.minecraft();
 		ReplayHandler replay = ReplayHandler.get();
-		if (replayTime < replay.getTime() - 50) {
+		if (replayTime < replay.getTime() - 50 || replay.isLossy()) { // a video starts from an exact world
 			replay.jumpTo(replayTime);
 			// the seek runs at the end of a tick and rebuilds the world from the start
 			for (int i = 0; i < 400 && (ReplayHandler.get() == replay || minecraft.world == null || ReplayHandler.get().getTime() < replayTime - 1); i++) {

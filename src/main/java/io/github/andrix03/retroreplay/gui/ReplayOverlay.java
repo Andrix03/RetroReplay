@@ -24,6 +24,8 @@ public final class ReplayOverlay {
 	private static final int BORDER_BOTTOM = 3;
 	private static final int MARKER_SIZE = 5;
 	private static long lastMarkerClick;
+	/** The replay bar was clicked and the mouse is still down: the replay time follows it. */
+	private static boolean draggingBar;
 	/** A short message under the bars (camera speed, lighting), shown for NOTICE_MS. */
 	private static String notice;
 	private static long noticeSince;
@@ -72,6 +74,17 @@ public final class ReplayOverlay {
 		PathingOverlay.render(width, mouseX, mouseY, mouseFree);
 		if (notice != null && System.currentTimeMillis() - noticeSince < NOTICE_MS) {
 			ReplayGui.centered(notice, width / 2, 75, ReplayGui.WHITE);
+		}
+	}
+
+	/** The mouse was let go: a dragged replay bar goes on playing from there. */
+	public static void release() {
+		if (draggingBar) {
+			draggingBar = false;
+			ReplayHandler replay = ReplayHandler.get();
+			if (replay != null) {
+				replay.endScrub();
+			}
 		}
 	}
 
@@ -168,19 +181,24 @@ public final class ReplayOverlay {
 				}
 				lastMarkerClick = now;
 				state.selectedMarker = marker;
-				replay.jumpTo(marker);
+				replay.quickJumpTo(marker);
 				return true;
 			}
 			state.selectedMarker = -1;
-			replay.jumpTo(timeAt(mouseX, width, replay.getDuration()));
+			draggingBar = true; // the replay follows the mouse until it is let go
+			replay.scrubTo(timeAt(mouseX, width, replay.getDuration()));
 			return true;
 		}
 		return false;
 	}
 
-	/** Dragging moves the speed slider. */
+	/** Dragging moves the replay bar's time or the speed slider. */
 	public static void drag(int mouseX, int mouseY, int width) {
 		ReplayHandler replay = ReplayHandler.get();
+		if (replay != null && draggingBar) {
+			replay.scrubTo(timeAt(mouseX, width, replay.getDuration()));
+			return;
+		}
 		if (replay != null && mouseY >= TOP && mouseY < TOP + 20 && mouseX >= SLIDER_X - 4 && mouseX < SLIDER_X + SLIDER_W + 4) {
 			double value = (mouseX - SLIDER_X - 4) / (double) (SLIDER_W - 8);
 			replay.setSpeedStep((int) Math.round(Math.max(0, Math.min(1, value)) * (ReplayHandler.SPEED_STEPS - 1)));

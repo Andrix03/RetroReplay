@@ -41,6 +41,7 @@ public final class Platform {
 	public static final int KEY_N = GLFW.GLFW_KEY_N;
 	public static final int KEY_O = GLFW.GLFW_KEY_O;
 	public static final int KEY_P = GLFW.GLFW_KEY_P;
+	public static final int KEY_Q = GLFW.GLFW_KEY_Q;
 	public static final int KEY_V = GLFW.GLFW_KEY_V;
 	public static final int KEY_X = GLFW.GLFW_KEY_X;
 	public static final int KEY_Y = GLFW.GLFW_KEY_Y;

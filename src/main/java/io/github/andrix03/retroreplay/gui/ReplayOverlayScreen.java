@@ -17,6 +17,7 @@ public class ReplayOverlayScreen extends NoPauseScreen {
 			ReplayOverlay.drag(mouseX, mouseY, width);
 			PathingOverlay.drag(mouseX, mouseY, width);
 		} else {
+			ReplayOverlay.release();
 			PathingOverlay.release();
 		}
 		PathingOverlay.scroll(mouseX, mouseY, width, Platform.wheel());

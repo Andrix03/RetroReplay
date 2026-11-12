@@ -36,6 +36,19 @@ public final class DevAutoplay {
 	private static boolean framed;
 	private static int shots;
 	private static boolean seeked;
+	/**
+	 * RETROREPLAY_AUTOPLAY_SCRUB: the seek back goes through Quick Mode in five steps, one a tick,
+	 * like a dragged replay bar; logs whether the world was kept and where the recorded player is.
+	 */
+	/** RETROREPLAY_AUTOPLAY_STAY: only opens the newest replay and leaves it to the mouse and keys (driven from outside). */
+	private static final boolean STAY = System.getenv("RETROREPLAY_AUTOPLAY_STAY") != null;
+	private static final boolean SCRUB = System.getenv("RETROREPLAY_AUTOPLAY_SCRUB") != null;
+	private static int scrubStep = -1;
+	/** RETROREPLAY_AUTOPLAY_SCRUB_BLOCK=x,y,z: a block whose id each scrub step logs. */
+	private static final int[] SCRUB_BLOCK = System.getenv("RETROREPLAY_AUTOPLAY_SCRUB_BLOCK") == null ? null
+		: java.util.Arrays.stream(System.getenv("RETROREPLAY_AUTOPLAY_SCRUB_BLOCK").split(",")).mapToInt(Integer::parseInt).toArray();
+	private static double scrubFrom;
+	private static ReplayHandler scrubHandler;
 
 	private DevAutoplay() {
 	}
@@ -66,6 +79,10 @@ public final class DevAutoplay {
 				ReplayHandler.open(latest);
 			}
 			next();
+			if (STAY) {
+				armed = false; // the rest of the self-test stays off
+				stage = 0;
+			}
 		} else if (stage == 4 && waited > 1000) {
 			shot(minecraft, "pausemenu");
 			minecraft.stop();
@@ -121,12 +138,50 @@ public final class DevAutoplay {
 
 	/** After the second picture, jump back to 3 s once so the third one checks the rebuilt world. */
 	static double seekRequest(double timeMs) {
+		if (ENABLED && SCRUB && (scrubStep >= 0 || !seeked && shots == 2)) {
+			seeked = true;
+			scrub(timeMs);
+			return -1;
+		}
 		if (ENABLED && !seeked && shots == 2) {
 			seeked = true;
 			RetroReplay.LOGGER.info("Autoplay: seeking from " + (int) timeMs + " ms to " + SEEK_TARGET + " ms");
 			return SEEK_TARGET;
 		}
 		return -1;
+	}
+
+	private static void scrub(double timeMs) {
+		ReplayHandler replay = ReplayHandler.get();
+		if (scrubStep < 0) {
+			scrubStep = 0;
+			scrubFrom = timeMs;
+			scrubHandler = replay;
+			RetroReplay.LOGGER.info("Autoplay: Quick Mode back from " + (int) timeMs + " ms to " + SEEK_TARGET + " ms in 5 steps");
+		}
+		Entity recorded = findRecordedPlayer(Mc.minecraft());
+		RetroReplay.LOGGER.info("Autoplay scrub step " + scrubStep + " at " + (int) replay.getTime() + " ms: same world=" + (replay == scrubHandler)
+			+ ", lossy=" + replay.isLossy() + (SCRUB_BLOCK == null ? "" : ", block=" + (Mc.blockState(SCRUB_BLOCK[0], SCRUB_BLOCK[1], SCRUB_BLOCK[2]) >> 4)) + ", recorded player=" + (recorded == null ? "none" : String.format(java.util.Locale.ROOT, "%.2f,%.2f,%.2f", recorded.x, recorded.y, recorded.z)));
+		if (scrubStep < 5) {
+			scrubStep++;
+			replay.quickJumpTo(scrubFrom + (SEEK_TARGET - scrubFrom) * scrubStep / 5);
+		} else if (scrubStep == 5) {
+			// paused at the target, the camera above the recorded player: the picture of the moment shown
+			scrubStep++;
+			if (!replay.isPaused()) {
+				replay.togglePause();
+			}
+			Minecraft minecraft = Mc.minecraft();
+			if (recorded != null && minecraft.player != null) {
+				minecraft.player.setPositionAndAngles(recorded.x + 3, recorded.y + 3, recorded.z + 3, 135.0F, 40.0F);
+			}
+		} else if (scrubStep < 25) {
+			scrubStep++; // a second for the chunks around the camera to be built
+		} else {
+			shot(Mc.minecraft(), "scrub");
+			replay.togglePause();
+			scrubStep = -1;
+		}
 	}
 
 	static void afterTick(Minecraft minecraft, double timeMs, int fed, int total) {

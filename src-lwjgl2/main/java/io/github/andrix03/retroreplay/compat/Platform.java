@@ -40,6 +40,7 @@ public final class Platform {
 	public static final int KEY_N = Keyboard.KEY_N;
 	public static final int KEY_O = Keyboard.KEY_O;
 	public static final int KEY_P = Keyboard.KEY_P;
+	public static final int KEY_Q = Keyboard.KEY_Q;
 	public static final int KEY_V = Keyboard.KEY_V;
 	public static final int KEY_X = Keyboard.KEY_X;
 	public static final int KEY_Y = Keyboard.KEY_Y;

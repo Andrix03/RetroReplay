@@ -170,4 +170,13 @@ public final class Mc {
 	public static Screen connectScreen(Screen parent, String host, int port) {
 		return new ConnectScreen(minecraft(), host, port);
 	}
+
+	/** Block id << 4 | metadata at a position, or -1 when its chunk is not loaded (Quick Mode). */
+	public static int blockState(int x, int y, int z) {
+		net.minecraft.world.World world = minecraft().world;
+		if (world == null || !world.isChunkLoaded(x, y, z)) {
+			return -1;
+		}
+		return world.getBlock(x, y, z) << 4 | world.getBlockMetadata(x, y, z) & 15;
+	}
 }
