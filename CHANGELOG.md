@@ -8,7 +8,8 @@
   1.3 (no such packet) the recording writes its own. Recordings made before this have none.
 - Quick Mode on every version (Q, on by default): the replay bar can be dragged and the
   world follows live, going back too, with no reload. Markers, Left/Right and keyframe jumps
-  use it as well. Held items, entity states, riding, rain, blown up blocks and chunks
+  use it as well, and so do camera paths when they play; dragging the keyframe row's cursor
+  shows the moment its time keyframes give. Held items, entity states, riding, rain, blown up blocks and chunks
   unloaded since come back too. Videos still start from an exact world.
 - Minecraft 1.13.2: recording (singleplayer and multiplayer), replay, camera paths, spectator
   keyframes, video rendering and every 0.2.0 tool, like the other versions.

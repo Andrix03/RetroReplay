@@ -248,7 +248,7 @@ public final class ReplayHandler {
 
 	/** A jump asked from the controls: with Quick Mode going back needs no reload. */
 	public void quickJumpTo(double target) {
-		if (quick != null && quickMode && !scrubbing) {
+		if (quick != null && quickMode) {
 			scrubTo(target);
 			commitAfterScrub = true;
 		} else {
@@ -256,11 +256,20 @@ public final class ReplayHandler {
 		}
 	}
 
-	/** A playing camera path sets the replay time: forwards plays the packets, backwards seeks. */
+	/**
+	 * A playing camera path sets the replay time: forwards plays the packets, backwards goes
+	 * through Quick Mode when it is on (a video always seeks exactly).
+	 */
 	public void setTimeFromPath(double target) {
 		target = Math.max(0, Math.min(target, duration()));
-		if (target < timeMs - 1) {
-			jumpTo(target);
+		if (scrubbing && commitAfterScrub) {
+			scrubTarget = target; // a quick jump is on its way: it goes there instead
+		} else if (target < timeMs - 1) {
+			if (VideoRenderer.isRendering()) {
+				jumpTo(target);
+			} else {
+				quickJumpTo(target);
+			}
 		} else {
 			timeMs = target;
 		}
@@ -328,6 +337,7 @@ public final class ReplayHandler {
 			return;
 		}
 		forceRebuild = false;
+		RetroReplay.LOGGER.info("Exact seek to " + (int) target + " ms: the world is rebuilt");
 		closeReader();
 		ReplayHandler fresh = new ReplayHandler(file, times, packets, chunks, quick);
 		fresh.speedStep = speedStep;

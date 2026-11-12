@@ -48,6 +48,8 @@ public final class PathingOverlay {
 	private static long dragTime;
 	private static boolean dragChanged;
 	private static boolean draggingCursor;
+	/** The replay time follows the dragged cursor (Quick Mode, time keyframes). */
+	private static boolean cursorFollowed;
 	private static long lastClick;
 
 	private PathingOverlay() {
@@ -341,6 +343,7 @@ public final class PathingOverlay {
 			state.cursor = timeAt(state, mouseX, width);
 			state.clearSelection();
 			draggingCursor = true;
+			followCursor(state);
 		}
 		return true;
 	}
@@ -376,12 +379,36 @@ public final class PathingOverlay {
 			state.select(dragKind, time);
 		} else if (draggingCursor) {
 			state.cursor = time;
+			followCursor(state);
+		}
+	}
+
+	/**
+	 * With Quick Mode the replay follows the cursor while it is dragged: it shows the moment the
+	 * time keyframes give for it (the camera stays where it is).
+	 */
+	private static void followCursor(PathingState state) {
+		ReplayHandler replay = ReplayHandler.get();
+		if (replay == null || !replay.hasQuickMode() || !ReplayHandler.isQuickMode()) {
+			return;
+		}
+		int replayTime = state.path.replayTimeAt(state.cursor);
+		if (replayTime >= 0) {
+			replay.scrubTo(replayTime);
+			cursorFollowed = true;
 		}
 	}
 
 	public static void release() {
 		dragKind = null;
 		draggingCursor = false;
+		if (cursorFollowed) {
+			cursorFollowed = false;
+			ReplayHandler replay = ReplayHandler.get();
+			if (replay != null) {
+				replay.endScrub(); // the replay goes on from the cursor's moment
+			}
+		}
 	}
 
 	/** Mouse wheel over the timeline: scrolls it, with Ctrl zooms around the mouse. */
