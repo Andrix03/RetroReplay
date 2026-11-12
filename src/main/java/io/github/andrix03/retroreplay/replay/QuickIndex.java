@@ -28,6 +28,8 @@ import java.util.Map;
  * their data in a full chunk packet or a part of a bulk one) and 1.7.10's (the same with its own
  * packet ids, VarInt ids in spawn packets and block changes, float explosions), read from their
  * sources. Packet ids below are the pre-1.7 ones; 1.7.10's are translated to them and back.
+ * 1.13.2 has its own reader and packets (flattened block states, positions in 1/4096 block kept
+ * as longs, no bulk chunk packet, an unload packet, riding as a vehicle's passenger list).
  */
 public final class QuickIndex {
 
@@ -66,8 +68,14 @@ public final class QuickIndex {
 
 	/** Quick Mode exists for this version (its packet layouts are known). */
 	public static boolean supports(String version) {
-		return Arrays.asList("1.0.0", "1.1", "1.2.5", "1.3.2", "1.4.7", "1.5.2", "1.6.4", "1.7.10").contains(version);
+		return Arrays.asList("1.0.0", "1.1", "1.2.5", "1.3.2", "1.4.7", "1.5.2", "1.6.4", "1.7.10", "1.13.2").contains(version);
 	}
+
+	/** 1.13.2's play packet ids (registration order of its clientbound packets). */
+	private static final int F_ADD_ENTITY = 0, F_ADD_ORB = 1, F_ADD_MOB = 3, F_ADD_PAINTING = 4, F_ADD_PLAYER = 5,
+		F_BLOCK = 11, F_BLOCKS = 15, F_EXPLOSION = 30, F_UNLOAD = 31, F_GAME_EVENT = 32, F_CHUNK = 34, F_LOGIN = 37,
+		F_MOVE = 40, F_MOVE_LOOK = 41, F_LOOK = 42, F_REMOVE = 53, F_RESPAWN = 56, F_HEAD = 57, F_DATA = 63,
+		F_EQUIPMENT = 66, F_PASSENGERS = 70, F_TIME = 74, F_PICKUP = 79, F_TELEPORT = 80;
 
 	/** 1.7.10's play packet id -> the pre-1.7 id these packets had (0: not used here). */
 	private static final int[] FROM_NETTY = new int[64];
@@ -97,13 +105,44 @@ public final class QuickIndex {
 
 	/** The teleport that puts a track where its entry {@code e} has it. */
 	byte[] teleportPacket(Track track, int e) {
+		if (flattened()) {
+			return packet(F_TELEPORT, out -> {
+				writeVarInt(out, track.id);
+				out.writeDouble(track.x(e) / 4096.0);
+				out.writeDouble(track.y(e) / 4096.0);
+				out.writeDouble(track.z(e) / 4096.0);
+				out.writeByte(track.angles(e) >> 8);
+				out.writeByte(track.angles(e));
+				out.writeBoolean(false);
+			});
+		}
 		return wire(track.teleport(e));
 	}
 
 	/** What puts a track's kind of state back to "none", or null. */
 	byte[] noStatePacket(Track track, int kind) {
+		if (flattened()) {
+			if (kind == KIND_RIDE) { // no passengers
+				return packet(F_PASSENGERS, out -> {
+					writeVarInt(out, track.id);
+					writeVarInt(out, 0);
+				});
+			}
+			if (kind == KIND_DATA || kind == KIND_HEAD) {
+				return null;
+			}
+			return packet(F_EQUIPMENT, out -> { // the slot empty
+				writeVarInt(out, track.id);
+				writeVarInt(out, kind);
+				out.writeBoolean(false);
+			});
+		}
 		byte[] packet = track.noState(kind);
 		return packet == null ? null : wire(packet);
+	}
+
+	boolean flattened() {
+		return format == ChunkIndex.FLATTENED;
 	}
 
 	/** ChunkIndex's format: SPLIT_REGION (1.0, 1.1), SPLIT_COLUMN (1.2.5), INTEGRATED_NO_LIGHT (1.3.2), INTEGRATED (1.4-1.6). */
@@ -124,9 +163,14 @@ public final class QuickIndex {
 		int removeIndex = Integer.MAX_VALUE;
 		/** Paintings: block coordinates, never teleported. */
 		final boolean still;
-		/** Per entry: packet index, x, y, z (1/32 block), yaw << 8 | pitch (as bytes). */
-		int[] entries = new int[5 * 4];
+		/**
+		 * Per entry: packet index, x, y, z (1/32 block), yaw << 8 | pitch (as bytes). 1.13 ("wide"):
+		 * packet index, x, y, z each as two ints (a long in 1/4096 block), angles.
+		 */
+		int[] entries;
 		int count;
+		final boolean wide;
+		private final int stride;
 
 		/** Equipment (kind = slot), entity data and riding packets in order. */
 		int states;
@@ -188,25 +232,67 @@ public final class QuickIndex {
 		}
 
 		Track(int id, byte[] spawn, int spawnIndex, boolean still, boolean integrated, boolean leash) {
+			this(id, spawn, spawnIndex, still, integrated, leash, false);
+		}
+
+		Track(int id, byte[] spawn, int spawnIndex, boolean still, boolean integrated, boolean leash, boolean wide) {
 			this.id = id;
 			this.spawn = spawn;
 			this.spawnIndex = spawnIndex;
 			this.still = still;
 			this.integrated = integrated;
 			this.leash = leash;
+			this.wide = wide;
+			this.stride = wide ? 8 : 5;
+			this.entries = new int[stride * 4];
 		}
 
-		void add(int index, int x, int y, int z, int angles) {
-			if (count * 5 == entries.length) {
+		void add(int index, long x, long y, long z, int angles) {
+			if ((count + 1) * stride > entries.length) {
 				entries = Arrays.copyOf(entries, entries.length * 2);
 			}
-			int o = count * 5;
+			int o = count * stride;
 			entries[o] = index;
-			entries[o + 1] = x;
-			entries[o + 2] = y;
-			entries[o + 3] = z;
-			entries[o + 4] = angles;
+			if (wide) {
+				entries[o + 1] = (int) (x >> 32);
+				entries[o + 2] = (int) x;
+				entries[o + 3] = (int) (y >> 32);
+				entries[o + 4] = (int) y;
+				entries[o + 5] = (int) (z >> 32);
+				entries[o + 6] = (int) z;
+				entries[o + 7] = angles;
+			} else {
+				entries[o + 1] = (int) x;
+				entries[o + 2] = (int) y;
+				entries[o + 3] = (int) z;
+				entries[o + 4] = angles;
+			}
 			count++;
+		}
+
+		private long wide(int o) {
+			return (long) entries[o] << 32 | entries[o + 1] & 0xFFFFFFFFL;
+		}
+
+		long x(int e) {
+			return wide ? wide(e * stride + 1) : entries[e * stride + 1];
+		}
+
+		long y(int e) {
+			return wide ? wide(e * stride + 3) : entries[e * stride + 2];
+		}
+
+		long z(int e) {
+			return wide ? wide(e * stride + 5) : entries[e * stride + 3];
+		}
+
+		int angles(int e) {
+			return entries[e * stride + stride - 1];
+		}
+
+		/** The last entry's values: the base the next relative move adds to. */
+		int last() {
+			return count - 1;
 		}
 
 		/** Alive once the packets before {@code fed} are handled. */
@@ -220,7 +306,7 @@ public final class QuickIndex {
 			int high = count - 1;
 			while (low < high) {
 				int mid = (low + high + 1) >>> 1;
-				if (entries[mid * 5] < fed) {
+				if (entries[mid * stride] < fed) {
 					low = mid;
 				} else {
 					high = mid - 1;
@@ -231,15 +317,17 @@ public final class QuickIndex {
 
 		/** Entry {@code e}: x, y, z in blocks where a teleport ends (it lifts by 1/64), yaw, pitch in degrees. */
 		double[] place(int e) {
-			int o = e * 5;
-			return new double[] { entries[o + 1] / 32.0, entries[o + 2] / 32.0 + 0.015625, entries[o + 3] / 32.0,
-				(byte) (entries[o + 4] >> 8) * 360 / 256.0F, (byte) entries[o + 4] * 360 / 256.0F };
+			float yaw = (byte) (angles(e) >> 8) * 360 / 256.0F;
+			float pitch = (byte) angles(e) * 360 / 256.0F;
+			if (wide) { // 1.13's teleport ends where it says
+				return new double[] { x(e) / 4096.0, y(e) / 4096.0, z(e) / 4096.0, yaw, pitch };
+			}
+			return new double[] { x(e) / 32.0, y(e) / 32.0 + 0.015625, z(e) / 32.0, yaw, pitch };
 		}
 
-		/** The teleport packet that puts this entity where entry {@code e} has it. */
+		/** The teleport packet that puts this entity where entry {@code e} has it (before 1.13). */
 		byte[] teleport(int e) {
-			int o = e * 5;
-			return QuickIndex.teleport(id, entries[o + 1], entries[o + 2], entries[o + 3], entries[o + 4]);
+			return QuickIndex.teleport(id, (int) x(e), (int) y(e), (int) z(e), angles(e));
 		}
 	}
 
@@ -396,6 +484,12 @@ public final class QuickIndex {
 			return null;
 		}
 		boolean rain = weatherRain[found];
+		if (flattened()) {
+			return packet(F_GAME_EVENT, out -> {
+				out.writeByte(rain ? 1 : 2);
+				out.writeFloat(0);
+			});
+		}
 		return wire(packet(GAME_EVENT, out -> {
 			out.writeByte(rain ? 1 : 2);
 			if (format == ChunkIndex.NETTY) {
@@ -414,8 +508,14 @@ public final class QuickIndex {
 		});
 	}
 
-	/** Unloads a chunk: before 1.3 the load packet, from 1.3 a full chunk packet without sections. */
+	/** Unloads a chunk: before 1.3 the load packet, from 1.3 a full chunk packet without sections, 1.13 its own. */
 	byte[] chunkUnloadPacket(int chunkX, int chunkZ) {
+		if (flattened()) {
+			return packet(F_UNLOAD, out -> {
+				out.writeInt(chunkX);
+				out.writeInt(chunkZ);
+			});
+		}
 		if (!integrated()) {
 			return chunkLoad(chunkX, chunkZ, false);
 		}
@@ -659,6 +759,12 @@ public final class QuickIndex {
 
 	/** Removes an entity: from 1.3 a list of one. */
 	byte[] removePacket(int id) {
+		if (flattened()) {
+			return packet(F_REMOVE, out -> {
+				writeVarInt(out, 1);
+				writeVarInt(out, id);
+			});
+		}
 		if (!integrated()) {
 			return remove(id);
 		}
@@ -680,6 +786,12 @@ public final class QuickIndex {
 
 	/** Sets a block: from 1.3 its id is a short. */
 	byte[] blockPacket(long position, int value) {
+		if (flattened()) { // packed position, block state id
+			return packet(F_BLOCK, out -> {
+				out.writeLong(((long) x(position) & 0x3FFFFFF) << 38 | ((long) y(position) & 0xFFF) << 26 | (long) z(position) & 0x3FFFFFF);
+				writeVarInt(out, value);
+			});
+		}
 		if (!integrated()) {
 			return block(position, value);
 		}
@@ -799,6 +911,10 @@ public final class QuickIndex {
 
 		private void read(int index, byte[] d, int length) {
 			int id = d[0] & 0xFF;
+			if (format == ChunkIndex.FLATTENED) {
+				readFlattened(index, d, length, id);
+				return;
+			}
 			if (netty()) {
 				if (id >= FROM_NETTY.length || FROM_NETTY[id] == 0) {
 					return;
@@ -811,28 +927,10 @@ public final class QuickIndex {
 			switch (id) {
 				case LOGIN:
 				case RESPAWN:
-					// the world closes: every entity and chunk in it goes
-					for (Track track : live.values()) {
-						track.removeIndex = index;
-					}
-					live.clear();
-					for (ChunkLog log : chunks.values()) {
-						if (log.count > 0 && log.kind[log.count - 1] != ChunkLog.UNLOAD) {
-							log.add(index, ChunkLog.UNLOAD, -1);
-						}
-					}
-					if (worldStartCount == worldStarts.length) {
-						worldStarts = Arrays.copyOf(worldStarts, worldStartCount * 2);
-					}
-					worldStarts[worldStartCount++] = index;
+					worldStart(index);
 					break;
 				case TIME:
-					if (times == timeIndex.length) {
-						timeIndex = Arrays.copyOf(timeIndex, times * 2);
-						timeBytes = Arrays.copyOf(timeBytes, times * 2);
-					}
-					timeIndex[times] = index;
-					timeBytes[times++] = Arrays.copyOf(d, length);
+					time(index, d, length);
 					break;
 				case ADD_PLAYER: {
 					int o = 5 + 2 + 2 * readShort(d, 5); // name: short length, UTF-16 chars
@@ -876,11 +974,11 @@ public final class QuickIndex {
 					if (track == null || track.still) {
 						break;
 					}
-					int o = (track.count - 1) * 5;
-					int x = track.entries[o + 1];
-					int y = track.entries[o + 2];
-					int z = track.entries[o + 3];
-					int angles = track.entries[o + 4];
+					int last = track.last();
+					long x = track.x(last);
+					long y = track.y(last);
+					long z = track.z(last);
+					int angles = track.angles(last);
 					if (id != LOOK) {
 						x += d[5];
 						y += d[6];
@@ -919,12 +1017,7 @@ public final class QuickIndex {
 					break;
 				case GAME_EVENT:
 					if (d[1] == 1 || d[1] == 2) {
-						if (weathers == weatherIndex.length) {
-							weatherIndex = Arrays.copyOf(weatherIndex, weathers * 2);
-							weatherRain = Arrays.copyOf(weatherRain, weathers * 2);
-						}
-						weatherIndex[weathers] = index;
-						weatherRain[weathers++] = d[1] == 1;
+						weather(index, d[1] == 1);
 					}
 					break;
 				case EXPLOSION: {
@@ -1067,6 +1160,210 @@ public final class QuickIndex {
 				}
 				default:
 					return false; // the rest is laid out as in 1.6 (game event: its first byte too)
+			}
+		}
+
+		/** The world closes (login, respawn): every entity and chunk in it goes. */
+		private void worldStart(int index) {
+			for (Track track : live.values()) {
+				track.removeIndex = index;
+			}
+			live.clear();
+			for (ChunkLog log : chunks.values()) {
+				if (log.count > 0 && log.kind[log.count - 1] != ChunkLog.UNLOAD) {
+					log.add(index, ChunkLog.UNLOAD, -1);
+				}
+			}
+			if (worldStartCount == worldStarts.length) {
+				worldStarts = Arrays.copyOf(worldStarts, worldStartCount * 2);
+			}
+			worldStarts[worldStartCount++] = index;
+		}
+
+		private void time(int index, byte[] d, int length) {
+			if (times == timeIndex.length) {
+				timeIndex = Arrays.copyOf(timeIndex, times * 2);
+				timeBytes = Arrays.copyOf(timeBytes, times * 2);
+			}
+			timeIndex[times] = index;
+			timeBytes[times++] = Arrays.copyOf(d, length);
+		}
+
+		private void weather(int index, boolean rain) {
+			if (weathers == weatherIndex.length) {
+				weatherIndex = Arrays.copyOf(weatherIndex, weathers * 2);
+				weatherRain = Arrays.copyOf(weatherRain, weathers * 2);
+			}
+			weatherIndex[weathers] = index;
+			weatherRain[weathers++] = rain;
+		}
+
+		/** 1.13.2: VarInt ids everywhere, doubles in spawns and teleports, short moves in 1/4096 block. */
+		private void readFlattened(int index, byte[] d, int length, int id) {
+			int[] at = { 1 };
+			switch (id) {
+				case F_LOGIN:
+				case F_RESPAWN:
+					worldStart(index);
+					break;
+				case F_TIME:
+					time(index, d, length);
+					break;
+				case F_ADD_ENTITY: { // id, uuid, type, x, y, z, pitch, yaw
+					int entity = readVarInt(d, at);
+					int o = at[0] + 16 + 1;
+					spawnWide(index, d, length, entity, o, angles(d[o + 25], d[o + 24]), false);
+					break;
+				}
+				case F_ADD_ORB: {
+					int entity = readVarInt(d, at);
+					spawnWide(index, d, length, entity, at[0], 0, false);
+					break;
+				}
+				case F_ADD_MOB: { // id, uuid, VarInt type, x, y, z, yaw, pitch
+					int entity = readVarInt(d, at);
+					at[0] += 16;
+					readVarInt(d, at);
+					int o = at[0];
+					spawnWide(index, d, length, entity, o, angles(d[o + 24], d[o + 25]), false);
+					break;
+				}
+				case F_ADD_PLAYER: { // id, uuid, x, y, z, yaw, pitch
+					int entity = readVarInt(d, at);
+					int o = at[0] + 16;
+					spawnWide(index, d, length, entity, o, angles(d[o + 24], d[o + 25]), false);
+					break;
+				}
+				case F_ADD_PAINTING: {
+					int entity = readVarInt(d, at);
+					spawn(index, d, length, entity, 0, 0, 0, 0, true);
+					break;
+				}
+				case F_REMOVE: {
+					int count = readVarInt(d, at);
+					for (int i = 0; i < count; i++) {
+						removed(readVarInt(d, at), index);
+					}
+					break;
+				}
+				case F_PICKUP:
+					removed(readVarInt(d, at), index);
+					break;
+				case F_MOVE:
+				case F_MOVE_LOOK:
+				case F_LOOK: {
+					Track track = live.get(readVarInt(d, at));
+					if (track == null || track.still) {
+						break;
+					}
+					int o = at[0];
+					int last = track.last();
+					long x = track.x(last);
+					long y = track.y(last);
+					long z = track.z(last);
+					int angles = track.angles(last);
+					if (id != F_LOOK) {
+						x += (short) readShort(d, o);
+						y += (short) readShort(d, o + 2);
+						z += (short) readShort(d, o + 4);
+					}
+					if (id == F_MOVE_LOOK) {
+						angles = angles(d[o + 6], d[o + 7]);
+					} else if (id == F_LOOK) {
+						angles = angles(d[o], d[o + 1]);
+					}
+					track.add(index, x, y, z, angles);
+					break;
+				}
+				case F_TELEPORT: {
+					Track track = live.get(readVarInt(d, at));
+					if (track != null && !track.still) {
+						int o = at[0];
+						track.add(index, pack(d, o), pack(d, o + 8), pack(d, o + 16), angles(d[o + 24], d[o + 25]));
+					}
+					break;
+				}
+				case F_HEAD:
+					wideState(d, length, index, at, KIND_HEAD);
+					break;
+				case F_DATA:
+					wideState(d, length, index, at, KIND_DATA);
+					break;
+				case F_PASSENGERS:
+					wideState(d, length, index, at, KIND_RIDE); // kept on the vehicle
+					break;
+				case F_EQUIPMENT: {
+					Track track = live.get(readVarInt(d, at));
+					if (track != null) {
+						track.addState(index, readVarInt(d, at), Arrays.copyOf(d, length));
+					}
+					break;
+				}
+				case F_GAME_EVENT:
+					if (d[1] == 1 || d[1] == 2) {
+						weather(index, d[1] == 1);
+					}
+					break;
+				case F_BLOCK: {
+					long packed = readLong(d, 1);
+					at[0] = 9;
+					change(index, position((int) (packed >> 38), (int) (packed << 26 >> 52), (int) (packed << 38 >> 38)), readVarInt(d, at));
+					break;
+				}
+				case F_BLOCKS: { // chunk x, z, count, then (x << 4 | z, y, state) each
+					int chunkX = readInt(d, 1);
+					int chunkZ = readInt(d, 5);
+					at[0] = 9;
+					int count = readVarInt(d, at);
+					for (int i = 0; i < count; i++) {
+						int horizontal = d[at[0]] & 0xFF;
+						int y = d[at[0] + 1] & 0xFF;
+						at[0] += 2;
+						change(index, position(chunkX * 16 + (horizontal >> 4), y, chunkZ * 16 + (horizontal & 15)), readVarInt(d, at));
+					}
+					break;
+				}
+				case F_EXPLOSION: {
+					int x = (int) Float.intBitsToFloat(readInt(d, 1));
+					int y = (int) Float.intBitsToFloat(readInt(d, 5));
+					int z = (int) Float.intBitsToFloat(readInt(d, 9));
+					int count = readInt(d, 17);
+					for (int i = 0; i < count; i++) {
+						change(index, position(x + d[21 + i * 3], y + d[22 + i * 3], z + d[23 + i * 3]), 0);
+					}
+					break;
+				}
+				case F_CHUNK: // x, z, full: a full one loads (with its data), the others change it
+					chunk(readInt(d, 1), readInt(d, 5)).add(index, d[9] != 0 ? ChunkLog.LOAD : ChunkLog.DATA, offset);
+					break;
+				case F_UNLOAD:
+					chunk(readInt(d, 1), readInt(d, 5)).add(index, ChunkLog.UNLOAD, -1);
+					break;
+				default:
+					break;
+			}
+		}
+
+		/** A double position in 1/4096 block, as the client packs it (floor). */
+		private long pack(byte[] d, int o) {
+			return (long) Math.floor(Double.longBitsToDouble(readLong(d, o)) * 4096.0);
+		}
+
+		private void spawnWide(int index, byte[] d, int length, int id, int o, int angles, boolean still) {
+			Track old = live.get(id);
+			if (old != null) {
+				old.removeIndex = index;
+			}
+			Track track = new Track(id, Arrays.copyOf(d, length), index, still, true, true, true);
+			track.add(index, pack(d, o), pack(d, o + 8), pack(d, o + 16), angles);
+			tracks.add(track);
+			live.put(id, track);
+		}
+
+		private void wideState(byte[] d, int length, int index, int[] at, int kind) {
+			Track track = live.get(readVarInt(d, at));
+			if (track != null) {
+				track.addState(index, kind, Arrays.copyOf(d, length));
 			}
 		}
 

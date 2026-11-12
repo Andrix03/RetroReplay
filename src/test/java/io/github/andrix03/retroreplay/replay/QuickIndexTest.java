@@ -481,4 +481,96 @@ class QuickIndexTest {
 		assertArrayEquals(packets.get(4), index.weatherAt(5));
 		assertEquals(19, index.removePacket(300)[0]);
 	}
+	private static void varInt(DataOutputStream out, int value) throws IOException {
+		while ((value & ~0x7F) != 0) {
+			out.writeByte(value & 0x7F | 0x80);
+			value >>>= 7;
+		}
+		out.writeByte(value);
+	}
+
+	@Test
+	void flattenedPositionsBlocksChunksAndStates() throws IOException {
+		List<byte[]> packets = new ArrayList<>();
+		packets.add(packet(5, out -> { // 0 player 200 at 1000000.5, 64, -3.25
+			varInt(out, 200);
+			out.writeLong(1);
+			out.writeLong(2);
+			out.writeDouble(1000000.5);
+			out.writeDouble(64);
+			out.writeDouble(-3.25);
+			out.writeByte(16);
+			out.writeByte(32);
+			out.writeByte(0xFF); // no entity data
+		}));
+		packets.add(packet(40, out -> { // 1 moves +1 block x, -0.5 y
+			varInt(out, 200);
+			out.writeShort(4096);
+			out.writeShort(-2048);
+			out.writeShort(0);
+			out.writeBoolean(true);
+		}));
+		packets.add(packet(11, out -> { // 2 block state 1234 at -5, 70, 9
+			out.writeLong((-5L & 0x3FFFFFF) << 38 | 70L << 26 | 9);
+			varInt(out, 1234);
+		}));
+		packets.add(packet(15, out -> { // 3 chunk (-1, 0): one change at local 3, 4, y 5
+			out.writeInt(-1);
+			out.writeInt(0);
+			varInt(out, 1);
+			out.writeByte(3 << 4 | 4);
+			out.writeByte(5);
+			varInt(out, 9000);
+		}));
+		packets.add(packet(34, out -> { // 4 full chunk (-1, 0)
+			out.writeInt(-1);
+			out.writeInt(0);
+			out.writeBoolean(true);
+		}));
+		packets.add(packet(31, out -> { // 5 unloaded
+			out.writeInt(-1);
+			out.writeInt(0);
+		}));
+		packets.add(packet(66, out -> { // 6 equipment slot 5 (head)
+			varInt(out, 200);
+			varInt(out, 5);
+			out.writeBoolean(false);
+		}));
+		packets.add(packet(70, out -> { // 7 player 200 carries nobody
+			varInt(out, 200);
+			varInt(out, 0);
+		}));
+		packets.add(packet(53, out -> { // 8 removed
+			varInt(out, 1);
+			varInt(out, 200);
+		}));
+		QuickIndex.Builder builder = new QuickIndex.Builder(ChunkIndex.FLATTENED, "1.13.2");
+		for (int i = 0; i < packets.size(); i++) {
+			builder.packet(i, packets.get(i), packets.get(i).length);
+		}
+		QuickIndex index = builder.build();
+		QuickIndex.Track player = index.tracks[0];
+		assertTrue(player.wide);
+		assertEquals((long) (1000001.5 * 4096), player.x(1));
+		assertEquals(63 * 4096 + 2048, player.y(1));
+		assertEquals((long) Math.floor(-3.25 * 4096), player.z(1));
+		byte[] teleport = index.teleportPacket(player, 1);
+		java.io.DataInputStream in = new java.io.DataInputStream(new java.io.ByteArrayInputStream(teleport, 3, teleport.length - 3));
+		assertEquals(80, teleport[0]);
+		assertEquals(1000001.5, in.readDouble());
+		assertEquals(63.5, in.readDouble());
+		assertEquals(-3.25, in.readDouble());
+		assertEquals(1234, index.valueAt(QuickIndex.position(-5, 70, 9), 3));
+		assertArrayEquals(packets.get(2), index.blockPacket(QuickIndex.position(-5, 70, 9), 1234));
+		assertEquals(9000, index.valueAt(QuickIndex.position(-13, 5, 4), 4));
+		QuickIndex.ChunkLog log = index.chunks.get(QuickIndex.chunkKey(-1, 0));
+		assertEquals(4, log.loadedAt(5));
+		assertEquals(-1, log.loadedAt(6));
+		assertArrayEquals(packets.get(5), index.chunkUnloadPacket(-1, 0));
+		assertEquals(6, player.stateIndex[player.stateAt(5, 9)]);
+		assertArrayEquals(packets.get(6), index.noStatePacket(player, 5));
+		assertArrayEquals(packets.get(7), index.noStatePacket(player, QuickIndex.KIND_RIDE));
+		assertFalse(player.aliveAt(9));
+		assertArrayEquals(packets.get(8), index.removePacket(200));
+	}
 }

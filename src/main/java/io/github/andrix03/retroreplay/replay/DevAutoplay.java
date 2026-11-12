@@ -318,7 +318,7 @@ public final class DevAutoplay {
 		}
 		Entity recorded = findRecordedPlayer(Mc.minecraft());
 		RetroReplay.LOGGER.info("Autoplay scrub step " + scrubStep + " at " + (int) replay.getTime() + " ms: same world=" + (replay == scrubHandler)
-			+ ", lossy=" + replay.isLossy() + ", players=" + players(Mc.minecraft()) + (SCRUB_BLOCK == null ? "" : ", block=" + (Mc.blockState(SCRUB_BLOCK[0], SCRUB_BLOCK[1], SCRUB_BLOCK[2]) >> 4)) + ", recorded player=" + (recorded == null ? "none" : String.format(java.util.Locale.ROOT, "%.2f,%.2f,%.2f", recorded.x, recorded.y, recorded.z)));
+			+ ", lossy=" + replay.isLossy() + ", players=" + players(Mc.minecraft()) + (SCRUB_BLOCK == null ? "" : ", block=" + Mc.blockState(SCRUB_BLOCK[0], SCRUB_BLOCK[1], SCRUB_BLOCK[2])) + ", recorded player=" + (recorded == null ? "none" : String.format(java.util.Locale.ROOT, "%.2f,%.2f,%.2f", recorded.x, recorded.y, recorded.z)));
 		if (scrubStep == 0 && SCRUB_EXACT) {
 			scrubStep = 5;
 			replay.jumpTo(SEEK_TARGET); // rebuilds the world: the next calls come from the new handler

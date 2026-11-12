@@ -28,7 +28,9 @@ final class QuickOverlay {
 		void place(int id, double[] where);
 	}
 
-	private static final int[] KINDS = { 0, 1, 2, 3, 4, QuickIndex.KIND_DATA, QuickIndex.KIND_RIDE, QuickIndex.KIND_HEAD };
+	private static final boolean DEBUG = System.getenv("RETROREPLAY_QUICK_DEBUG") != null;
+
+	private static final int[] KINDS = { 0, 1, 2, 3, 4, 5, QuickIndex.KIND_DATA, QuickIndex.KIND_RIDE, QuickIndex.KIND_HEAD };
 
 	private final QuickIndex index;
 	private final Consumer<byte[]> feed;
@@ -97,6 +99,9 @@ final class QuickOverlay {
 			int load = log.loadedAt(target);
 			if (load < 0) {
 				if (log.loadedAt(shown) >= 0) {
+					if (System.getenv("RETROREPLAY_QUICK_DEBUG") != null) {
+						io.github.andrix03.retroreplay.RetroReplay.LOGGER.info("Quick unload chunk " + log.x + "," + log.z + " at " + target);
+					}
 					feed.accept(index.chunkUnloadPacket(log.x, log.z));
 				}
 				continue;
@@ -146,6 +151,9 @@ final class QuickOverlay {
 		for (Iterator<QuickIndex.Track> it = placed.keySet().iterator(); it.hasNext();) {
 			QuickIndex.Track track = it.next();
 			if (!track.aliveAt(target)) {
+				if (DEBUG) {
+					io.github.andrix03.retroreplay.RetroReplay.LOGGER.info("Quick remove " + track.id + " (spawned " + track.spawnIndex + ", removed " + track.removeIndex + ") at " + target);
+				}
 				feed.accept(index.removePacket(track.id));
 				it.remove();
 			}
@@ -157,6 +165,9 @@ final class QuickOverlay {
 			Integer at = placed.get(track);
 			boolean spawned = at == null;
 			if (spawned) {
+				if (DEBUG) {
+					io.github.andrix03.retroreplay.RetroReplay.LOGGER.info("Quick spawn " + track.id + " (spawned " + track.spawnIndex + ", removed " + track.removeIndex + ") at " + target);
+				}
 				feed.accept(track.spawn); // stands at its spawn point, entry 0
 				at = 0;
 			}
