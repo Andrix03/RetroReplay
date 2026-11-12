@@ -17,6 +17,9 @@ public final class Mc {
 	public static final String SERVER_JAR_URL = "https://vault.omniarchive.uk/archive/java/server-release/1.1/1.1.jar";
 	/** level.dat's "version" this game writes (McRegion): a world above it is from a newer version. */
 	public static final int LEVEL_VERSION = 19132;
+	/** The vanilla server's MinecraftServer worlds array and World difficulty fields (obfuscated, read with javap). */
+	public static final String SERVER_WORLDS_FIELD = "e";
+	public static final String SERVER_DIFFICULTY_FIELD = "v";
 	public static final String SERVER_JAR_SHA1 = "3dbadea4e8a0923ac5fde9f4b9e98a244ea2589a";
 
 	private Mc() {

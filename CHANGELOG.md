@@ -2,6 +2,8 @@
 
 ## 0.3.0
 
+- 1.0.0, 1.1, 1.2.5 singleplayer: changing the difficulty in the options while playing now
+  changes it in the world too (the hidden local server kept the one the world started with).
 - Intel Iris Xe graphics (and drivers like it) on 1.0.0 to 1.7.10: the item in hand, dropped
   items and the hotbar no longer turn black or invisible (this happened without the mod too).
 - Block cracks of the recording player on every version: breaking a block now shows the

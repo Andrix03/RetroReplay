@@ -43,6 +43,7 @@ public final class LocalPlayerRecorder {
 		// singleplayer runs on the local server: its world and the recording clock pause together
 		LocalServer.setPaused(LocalServer.isJoined() && minecraft.world != null && minecraft.paused);
 		LocalServer.keepAlive(minecraft.getNetworkHandler());
+		LocalServer.followDifficulty(minecraft.options.difficulty);
 		Recorder.setPaused(minecraft.paused);
 		if (!Recorder.isRecording()) {
 			spawned = null;

@@ -289,6 +289,26 @@ public final class LocalServer {
 		}
 	}
 
+	private static int difficulty = -1;
+
+	/**
+	 * Every client tick with the options' difficulty: a change while playing on the local server
+	 * is set on its worlds (vanilla servers of these versions read it only when they start).
+	 */
+	public static synchronized void followDifficulty(int options) {
+		if (process == null || state != State.RUNNING) {
+			difficulty = -1;
+			return;
+		}
+		if (difficulty < 0) {
+			difficulty = options; // what server.properties got
+		} else if (options != difficulty) {
+			difficulty = options;
+			command(PauseAgent.DIFFICULTY + options + " " + Mc.SERVER_WORLDS_FIELD + " " + Mc.SERVER_DIFFICULTY_FIELD);
+			RetroReplay.LOGGER.info("Local server difficulty set to " + options);
+		}
+	}
+
 	private static synchronized void command(String line) {
 		try {
 			Writer input = new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8);

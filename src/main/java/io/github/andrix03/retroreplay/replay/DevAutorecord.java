@@ -118,6 +118,16 @@ public final class DevAutorecord {
 		if (MINE && ticks == 200) {
 			RetroReplay.LOGGER.info("Autorecord: mined block now " + call(minecraft.world, "getBlock", mineAt[0], mineAt[1], mineAt[2]));
 		}
+		if (ticks == 40 && System.getenv("RETROREPLAY_AUTORECORD_DIFFICULTY") != null) {
+			// what the options screen's difficulty button does (by name: the field is not on every version)
+			try {
+				java.lang.reflect.Field field = minecraft.options.getClass().getField("difficulty");
+				field.setInt(minecraft.options, Integer.parseInt(System.getenv("RETROREPLAY_AUTORECORD_DIFFICULTY")));
+				RetroReplay.LOGGER.info("Autorecord: options difficulty set to " + field.getInt(minecraft.options));
+			} catch (ReflectiveOperationException e) {
+				RetroReplay.LOGGER.error("Autorecord: cannot set the difficulty", e);
+			}
+		}
 		if (ticks == 60) {
 			Mc.screenshot("autorecord_recording.png");
 			Recorder.addMarker(); // what the M key does
