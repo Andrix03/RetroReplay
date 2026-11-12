@@ -176,7 +176,20 @@ public final class Mc {
 		return -1;
 	}
 
-	/** Block cracks in replays: only 1.0.0 records them so far (MiningCracks). */
+	/** Draws the game's own block cracks on a block (stage 0-9): a replay's camera targets nothing. */
 	public static void renderMiningCrack(int x, int y, int z, int stage, float tickDelta) {
+		Minecraft minecraft = minecraft();
+		net.minecraft.client.render.world.WorldRenderer renderer = minecraft.worldRenderer;
+		float progress = renderer.miningProgress;
+		renderer.miningProgress = (stage + 0.5F) / 10.0F;
+		org.lwjgl.opengl.GL11.glDisable(org.lwjgl.opengl.GL11.GL_ALPHA_TEST); // as the game calls it
+		renderer.renderMiningProgress(minecraft.player, new net.minecraft.world.HitResult(x, y, z, 0, net.minecraft.util.math.Vec3d.of(x, y, z)), 0, null, tickDelta);
+		org.lwjgl.opengl.GL11.glEnable(org.lwjgl.opengl.GL11.GL_ALPHA_TEST);
+		renderer.miningProgress = progress;
+	}
+
+	/** The vanilla packet for a block's cracks (stage -1 = none), or null before 1.3 (MiningCracks writes its own). */
+	public static byte[] miningPacket(int entityId, int x, int y, int z, int stage) {
+		return null;
 	}
 }

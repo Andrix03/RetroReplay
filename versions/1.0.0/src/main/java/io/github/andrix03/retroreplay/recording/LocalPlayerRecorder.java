@@ -112,11 +112,11 @@ public final class LocalPlayerRecorder {
 			lastFlags = flags;
 		}
 
-		// block cracks: no packet for them in 1.0, the replay draws them from ours
+		// block cracks: no packet for them before 1.3, the replay draws them from ours
 		Object manager = Mc.minecraft().interactionManager;
 		if (manager instanceof MultiplayerInteractionManagerAccessor) {
 			MultiplayerInteractionManagerAccessor mining = (MultiplayerInteractionManagerAccessor) manager;
-			MiningCracks.recordTick(mining.retroreplay$isMining(), mining.retroreplay$getTargetX(), mining.retroreplay$getTargetY(),
+			MiningCracks.recordTick(Mc.entityId(player), mining.retroreplay$isMining(), mining.retroreplay$getTargetX(), mining.retroreplay$getTargetY(),
 				mining.retroreplay$getTargetZ(), mining.retroreplay$getProgress());
 		}
 

@@ -49,6 +49,21 @@ public final class DevAutoplay {
 	/** Blocks whose stage 6 was seen. */
 	private static int crackBlocks;
 	private static int[] crackSaved;
+	/**
+	 * RETROREPLAY_AUTOPLAY_CRACK_AT=x,y,z,before,during (ms): the same view of that block photographed
+	 * just before it starts cracking and while it cracks, for versions where the game draws the cracks.
+	 */
+	private static final int[] CRACK_AT = System.getenv("RETROREPLAY_AUTOPLAY_CRACK_AT") == null ? null
+		: java.util.Arrays.stream(System.getenv("RETROREPLAY_AUTOPLAY_CRACK_AT").split(",")).mapToInt(Integer::parseInt).toArray();
+	private static int crackAtStep;
+	/**
+	 * RETROREPLAY_AUTOPLAY_CRACK_FAKE=x,y,z,ms: at that time, paused, the camera above that block, a
+	 * crack packet for it is handled like a recorded one; photographed before and after.
+	 */
+	private static final int[] CRACK_FAKE = System.getenv("RETROREPLAY_AUTOPLAY_CRACK_FAKE") == null ? null
+		: java.util.Arrays.stream(System.getenv("RETROREPLAY_AUTOPLAY_CRACK_FAKE").split(",")).mapToInt(Integer::parseInt).toArray();
+	private static int fakeStep = -1;
+	private static int crackAtWait = -1;
 	private static final boolean SCRUB = System.getenv("RETROREPLAY_AUTOPLAY_SCRUB") != null;
 	private static int scrubStep = -1;
 	/** RETROREPLAY_AUTOPLAY_SCRUB_BLOCK=x,y,z: a block whose id each scrub step logs. */
@@ -195,6 +210,86 @@ public final class DevAutoplay {
 		}
 	}
 
+	private static void crackAt(Minecraft minecraft, double timeMs) {
+		if (crackAtWait < 0 && crackAtStep < 2 && timeMs >= CRACK_AT[3 + crackAtStep] && minecraft.player != null) {
+			// paused, the eyes 0.3 above the block looking down: inside the recorded player standing
+			// on it, whose faces point outwards and are not drawn from there
+			ReplayHandler replay = ReplayHandler.get();
+			if (!replay.isPaused()) {
+				replay.togglePause();
+			}
+			crackAtCamera(minecraft);
+			if (crackAtStep == 0) {
+				CameraControls.toggleAmbient();
+			}
+			crackAtWait = 20;
+		}
+		if (crackAtWait > 0) {
+			crackAtCamera(minecraft); // held there every tick
+		}
+		if (crackAtWait > 0 && --crackAtWait == 0) {
+			crackAtWait = -1;
+			shot(minecraft, crackAtStep == 0 ? "crackat_before" : "crackat_during");
+			try { // dev names: the game's map of blocks cracking (1.3+)
+				java.lang.reflect.Field field = minecraft.worldRenderer.getClass().getDeclaredField("miningProgress");
+				field.setAccessible(true);
+				Object map = field.get(minecraft.worldRenderer);
+				RetroReplay.LOGGER.info("Autoplay crack map: " + (map instanceof java.util.Map ? ((java.util.Map<?, ?>) map).size() + " entries " + ((java.util.Map<?, ?>) map).keySet() : String.valueOf(map)));
+			} catch (ReflectiveOperationException e) {
+				RetroReplay.LOGGER.info("Autoplay crack map: " + e);
+			}
+			crackAtStep++;
+			ReplayHandler.get().togglePause();
+		}
+	}
+
+	private static void crackFake(Minecraft minecraft, double timeMs) {
+		ReplayHandler replay = ReplayHandler.get();
+		if (fakeStep < 0 && timeMs >= CRACK_FAKE[3] && minecraft.player != null && replay != null) {
+			if (!replay.isPaused()) {
+				replay.togglePause();
+			}
+			fakeStep = 0;
+		}
+		if (fakeStep < 0 || fakeStep > 41) {
+			return;
+		}
+		minecraft.player.setPositionAndAngles(CRACK_FAKE[0] + 0.5, CRACK_FAKE[1] + 8, CRACK_FAKE[2] + 0.5, 0.0F, 90.0F);
+		minecraft.player.velocityX = 0;
+		minecraft.player.velocityY = 0;
+		minecraft.player.velocityZ = 0;
+		if (fakeStep == 20) {
+			shot(minecraft, "crackfake_before");
+			// the whole column up to y+5, one made-up breaker each: the game draws a crack even on air,
+			// so whatever stands over the block, the top ones are in view
+			for (int y = CRACK_FAKE[1]; y <= CRACK_FAKE[1] + 5; y++) {
+				byte[] packet = Mc.miningPacket(424200 + y, CRACK_FAKE[0], y, CRACK_FAKE[2], 7);
+				replay.feedForTest(packet != null ? packet : MiningCracks.packet(CRACK_FAKE[0], y, CRACK_FAKE[2], 7));
+			}
+		} else if (fakeStep == 40) {
+			shot(minecraft, "crackfake_after");
+			RetroReplay.LOGGER.info("Autoplay crack fake: camera " + String.format(java.util.Locale.ROOT, "%.2f,%.2f,%.2f pitch %.1f", minecraft.player.x, minecraft.player.y, minecraft.player.z, minecraft.player.pitch));
+			try { // dev names: the game's map of blocks cracking (1.3+)
+				java.lang.reflect.Field field = minecraft.worldRenderer.getClass().getDeclaredField("miningProgress");
+				field.setAccessible(true);
+				Object map = field.get(minecraft.worldRenderer);
+				RetroReplay.LOGGER.info("Autoplay crack fake map: " + (map instanceof java.util.Map ? ((java.util.Map<?, ?>) map).keySet() : String.valueOf(map)));
+			} catch (ReflectiveOperationException e) {
+				RetroReplay.LOGGER.info("Autoplay crack fake map: " + e);
+			}
+			replay.togglePause();
+		}
+		fakeStep++;
+	}
+
+	private static void crackAtCamera(Minecraft minecraft) {
+		double feet = CRACK_AT[1] + 1.3 - Mc.eyeHeight();
+		minecraft.player.setPositionAndAngles(CRACK_AT[0] + 0.5, feet + Mc.feetOffset(), CRACK_AT[2] + 0.5, 0.0F, 90.0F);
+		minecraft.player.velocityX = 0;
+		minecraft.player.velocityY = 0;
+		minecraft.player.velocityZ = 0;
+	}
+
 	private static void scrub(double timeMs) {
 		ReplayHandler replay = ReplayHandler.get();
 		if (scrubStep < 0) {
@@ -231,6 +326,12 @@ public final class DevAutoplay {
 	static void afterTick(Minecraft minecraft, double timeMs, int fed, int total) {
 		if (ENABLED && CRACK) {
 			crack(minecraft, timeMs);
+		}
+		if (ENABLED && CRACK_AT != null) {
+			crackAt(minecraft, timeMs);
+		}
+		if (ENABLED && CRACK_FAKE != null) {
+			crackFake(minecraft, timeMs);
 		}
 		if (!ENABLED || stage != 3) {
 			return;

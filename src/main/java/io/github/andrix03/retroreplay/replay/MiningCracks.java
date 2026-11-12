@@ -6,6 +6,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.ByteArrayInputStream;
 
+import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.recording.Recorder;
 
 /**
@@ -35,8 +36,11 @@ public final class MiningCracks {
 		lastStage = -1;
 	}
 
-	/** Each recorded tick: where the player is breaking and how far (0 to 1), written when the stage changes. */
-	public static void recordTick(boolean mining, int blockX, int blockY, int blockZ, float progress) {
+	/**
+	 * Each recorded tick: where the player is breaking and how far (0 to 1), written when the stage
+	 * changes. From 1.3 as the vanilla packet other clients get (the game draws it), before as ours.
+	 */
+	public static void recordTick(int entityId, boolean mining, int blockX, int blockY, int blockZ, float progress) {
 		int now = mining && progress > 0 ? Math.min(9, (int) (progress * 10)) : -1;
 		if (now == lastStage && (now < 0 || blockX == lastX && blockY == lastY && blockZ == lastZ)) {
 			return;
@@ -45,7 +49,8 @@ public final class MiningCracks {
 		lastX = blockX;
 		lastY = blockY;
 		lastZ = blockZ;
-		Recorder.recordRaw(packet(blockX, blockY, blockZ, now));
+		byte[] vanilla = Mc.miningPacket(entityId, blockX, blockY, blockZ, now);
+		Recorder.recordRaw(vanilla != null ? vanilla : packet(blockX, blockY, blockZ, now));
 	}
 
 	static byte[] packet(int blockX, int blockY, int blockZ, int crackStage) {

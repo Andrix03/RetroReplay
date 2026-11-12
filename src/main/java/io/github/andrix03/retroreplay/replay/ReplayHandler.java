@@ -535,6 +535,11 @@ public final class ReplayHandler {
 		return active == null ? -1 : active.timeMs;
 	}
 
+	/** Self-tests: a packet handled as if it came from the recording. */
+	void feedForTest(byte[] data) {
+		feed(data);
+	}
+
 	private void feed(byte[] data) {
 		int id = data[0] & 0xFF;
 		if (drop(id, data)) {

@@ -191,4 +191,9 @@ public final class Mc {
 		org.lwjgl.opengl.GL11.glEnable(org.lwjgl.opengl.GL11.GL_ALPHA_TEST);
 		renderer.miningProgress = progress;
 	}
+
+	/** The vanilla packet for a block's cracks (stage -1 = none), or null before 1.3 (MiningCracks writes its own). */
+	public static byte[] miningPacket(int entityId, int x, int y, int z, int stage) {
+		return null;
+	}
 }

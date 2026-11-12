@@ -210,7 +210,16 @@ public final class Mc {
 		return -1;
 	}
 
-	/** Block cracks in replays: only 1.0.0 records them so far (MiningCracks). */
+	/** Block cracks in replays: from 1.3 the vanilla packet draws them, nothing to do here. */
 	public static void renderMiningCrack(int x, int y, int z, int stage, float tickDelta) {
+	}
+
+	/** The vanilla packet for a block's cracks (stage -1 = none), or null before 1.3 (MiningCracks writes its own). */
+	public static byte[] miningPacket(int entityId, int x, int y, int z, int stage) {
+		try {
+			return serialize(new net.minecraft.network.packet.s2c.play.BlockMiningProgressS2CPacket(entityId, new net.minecraft.util.math.BlockPos(x, y, z), stage));
+		} catch (java.io.IOException e) {
+			throw new IllegalStateException(e); // in memory: cannot happen
+		}
 	}
 }
