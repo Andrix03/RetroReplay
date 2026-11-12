@@ -8,10 +8,6 @@
   (what happened before it still counts: the world is as it was there), Connect puts another
   replay of the same version after it. A new replay is written, the original stays; markers and
   time keyframes move along.
-- Replay Editor ("Edit" in the Replay Viewer), like Replay Mod's: Trim keeps a part of a replay
-  (what happened before it still counts: the world is as it was there), Connect puts another
-  replay of the same version after it. A new replay is written, the original stays; markers and
-  time keyframes move along.
 - Replay Mod's other render methods and options, on every version (Render Settings, Advanced):
   Stereoscopic (both eyes side by side), Cubic (the six faces of a cube in a cross), 360
   Equirectangular (for 360 video players; the cube turns with the camera or stays level and
