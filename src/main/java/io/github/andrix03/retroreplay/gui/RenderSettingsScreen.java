@@ -34,12 +34,13 @@ public class RenderSettingsScreen extends NoPauseScreen {
 	private static final int ADD_TO_QUEUE = 6;
 	private static final int RENDER_QUEUE = 7;
 	private static final int NAMETAGS = 8;
+	private static final int ADVANCED = 9;
 	/** width, height; 0 = the window's size. Replay Mod renders 1920x1080 by default. */
 	private static final int[][] RESOLUTIONS = { { 1920, 1080 }, { 1280, 720 }, { 2560, 1440 }, { 3840, 2160 }, { 0, 0 } };
 	private static int resolution;
 
 	/** Kept between renders like Replay Mod remembers its last settings. */
-	private static final RenderSettings LAST = new RenderSettings();
+	static final RenderSettings LAST = new RenderSettings();
 
 	/** A preset's path from the keyframe repository, or null for the current path. */
 	private final String pathJson;
@@ -88,6 +89,7 @@ public class RenderSettingsScreen extends NoPauseScreen {
 		buttons.add(new Button(FPS, x, y + 48, 200, 20, "Frame Rate: " + LAST.fps + " fps"));
 		buttons.add(new Button(RESOLUTION, x, y + 72, 200, 20, resolutionLabel()));
 		buttons.add(new Button(NAMETAGS, right, y, 200, 20, nametagsLabel()));
+		buttons.add(new Button(ADVANCED, right, y + 72, 200, 20, advancedLabel()));
 		nameField = TextField.create(this, right, y + 36, 200, 20);
 		nameField.setMaxLength(128);
 		String stamp = new SimpleDateFormat("yyyy_MM_dd_HH_mm_ss").format(new Date());
@@ -123,6 +125,12 @@ public class RenderSettingsScreen extends NoPauseScreen {
 	private String resolutionLabel() {
 		int[] r = RESOLUTIONS[resolution];
 		return "Resolution: " + (r[0] == 0 ? "Window (" + Platform.width() + "x" + Platform.height() + ")" : r[0] + "x" + r[1]);
+	}
+
+	/** The advanced settings in a word: the method, and whether anything else is on. */
+	private static String advancedLabel() {
+		boolean extras = LAST.chromaKey >= 0 || LAST.depthMap || LAST.highPerformance;
+		return "Advanced: " + LAST.mode.title + (extras ? " +" : "");
 	}
 
 	private static String nametagsLabel() {
@@ -172,6 +180,10 @@ public class RenderSettingsScreen extends NoPauseScreen {
 				LAST.nametags = !LAST.nametags;
 				button.message = nametagsLabel();
 				break;
+			case ADVANCED:
+				readArguments();
+				minecraft.openScreen(new RenderAdvancedScreen(this));
+				break;
 			case FPS:
 				LAST.fps = next(RenderSettings.FRAME_RATES, LAST.fps);
 				button.message = "Frame Rate: " + LAST.fps + " fps";
@@ -220,8 +232,13 @@ public class RenderSettingsScreen extends NoPauseScreen {
 		settings.bitrateKbps = LAST.bitrateKbps;
 		settings.width = RESOLUTIONS[resolution][0];
 		settings.height = RESOLUTIONS[resolution][1];
-		// a PNG sequence is a folder of frames
-		settings.output = LAST.preset == RenderSettings.Preset.PNG ? new File(folder, name) : new File(folder, name + "." + LAST.preset.extension);
+		settings.mode = LAST.mode;
+		settings.followYaw = LAST.followYaw;
+		settings.chromaKey = LAST.chromaKey;
+		settings.depthMap = LAST.depthMap;
+		settings.highPerformance = LAST.highPerformance;
+		// a PNG or OpenEXR sequence is a folder of frames
+		settings.output = LAST.preset.isSequence() ? new File(folder, name) : new File(folder, name + "." + LAST.preset.extension);
 		return settings;
 	}
 
@@ -271,7 +288,7 @@ public class RenderSettingsScreen extends NoPauseScreen {
 		ReplayGui.centered("Render Settings", width / 2, y - 16, ReplayGui.WHITE);
 		ReplayGui.text("File name", x + 204, y + 26, ReplayGui.LIGHT_GRAY);
 		nameField.render();
-		ReplayGui.text(LAST.preset.needsFfmpeg() ? "Command line arguments (%BITRATE% = the bitrate)" : "Command line arguments (not used for PNG)",
+		ReplayGui.text(LAST.preset.needsFfmpeg() ? "Command line arguments (%BITRATE% = the bitrate)" : "Command line arguments (not used for image sequences)",
 			x, y + 98, ReplayGui.LIGHT_GRAY);
 		argumentsField.render();
 		ReplayGui.text(ffmpegStatus, x, y + 134, ReplayGui.LIGHT_GRAY);

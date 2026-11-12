@@ -2,6 +2,11 @@
 
 ## 0.3.0
 
+- Replay Mod's other render methods and options, on every version (Render Settings, Advanced):
+  Stereoscopic (both eyes side by side), Cubic (the six faces of a cube in a cross), 360
+  Equirectangular (for 360 video players; the cube turns with the camera or stays level and
+  facing south), Chroma Key (green, blue or magenta instead of the sky), the OpenEXR Sequence
+  preset with an optional Depth Map channel, and High Performance mode.
 - 1.0.0, 1.1, 1.2.5 singleplayer: changing the difficulty in the options while playing now
   changes it in the world too (the hidden local server kept the one the world started with).
 - Intel Iris Xe graphics (and drivers like it) on 1.0.0 to 1.7.10: the item in hand, dropped

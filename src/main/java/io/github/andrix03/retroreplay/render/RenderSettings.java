@@ -15,7 +15,9 @@ public final class RenderSettings {
 		MP4_POTATO("MP4 - Potato Quality", "mp4", "-an -c:v libx264 -preset ultrafast -crf 51 -pix_fmt yuv420p"),
 		WEBM_CUSTOM("WebM - Custom Bitrate", "webm", "-an -c:v libvpx -b:v %BITRATE% -pix_fmt yuv420p"),
 		MKV_LOSSLESS("MKV - Lossless", "mkv", "-an -c:v libx264 -preset ultrafast -qp 0"),
-		PNG("PNG Sequence", "png", null);
+		PNG("PNG Sequence", "png", null),
+		/** Float frames (linear color, and a Z channel with the depth map on), no ffmpeg. */
+		EXR("OpenEXR Sequence", "exr", null);
 
 		public final String title;
 		public final String extension;
@@ -40,7 +42,36 @@ public final class RenderSettings {
 		public boolean needsEvenSize() {
 			return arguments != null && arguments.contains("yuv420p");
 		}
+
+		/** A folder of numbered frames instead of one video file. */
+		public boolean isSequence() {
+			return arguments == null;
+		}
 	}
+
+	/** Replay Mod's render methods. */
+	public enum Mode {
+		DEFAULT("Default"),
+		/** Both eyes side by side, each half the width. */
+		STEREOSCOPIC("Stereoscopic"),
+		/** The six faces of a cube around the camera, in a cross 4 faces wide and 3 high. */
+		CUBIC("Cubic"),
+		/** A 360 picture twice as wide as high, made from the cube's faces. */
+		EQUIRECTANGULAR("360 Equirectangular");
+
+		public final String title;
+
+		Mode(String title) {
+			this.title = title;
+		}
+
+		public boolean isPanoramic() {
+			return this == CUBIC || this == EQUIRECTANGULAR;
+		}
+	}
+
+	/** Chroma key colors offered, like Replay Mod's color picker presets (0xRRGGBB). */
+	public static final int[] CHROMA_COLORS = { 0x00FF00, 0x0000FF, 0xFF00FF };
 
 	public static final int[] FRAME_RATES = { 24, 25, 30, 50, 60, 120 };
 	/** kbps */
@@ -56,6 +87,18 @@ public final class RenderSettings {
 	public boolean nametags = true;
 	/** Replay Mod's editable command line arguments: replaces the preset's when set. */
 	public String customArguments;
+	public Mode mode = Mode.DEFAULT;
+	/**
+	 * 360 and cubic: the cube turns with the camera's yaw (off: always faces south, Replay Mod's
+	 * yaw stabilisation). Pitch and roll are always level there, so the horizon stays straight.
+	 */
+	public boolean followYaw = true;
+	/** Sky and clouds replaced by this color (0xRRGGBB), or -1 for none. */
+	public int chromaKey = -1;
+	/** OpenEXR: a Z channel with each pixel's distance from the camera in blocks. */
+	public boolean depthMap;
+	/** Replay Mod's high performance mode: no waiting for every chunk to be built, fewer previews. */
+	public boolean highPerformance;
 
 	/** The output arguments in use: the custom ones, else the preset's. */
 	public String arguments() {

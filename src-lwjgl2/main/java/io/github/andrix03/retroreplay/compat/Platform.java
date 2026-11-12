@@ -90,6 +90,21 @@ public final class Platform {
 	}
 
 	/** Shows the frame drawn so far (a render loop runs outside the game's own). */
+	private static final java.nio.FloatBuffer MATRIX = org.lwjgl.BufferUtils.createFloatBuffer(16);
+
+	/** The projection matrix in use (column-major, the buffer is reused). */
+	public static java.nio.FloatBuffer projectionMatrix() {
+		MATRIX.clear();
+		org.lwjgl.opengl.GL11.glGetFloat(org.lwjgl.opengl.GL11.GL_PROJECTION_MATRIX, MATRIX);
+		return MATRIX;
+	}
+
+	/** The depth buffer of the frame drawn (0-1, bottom row first). */
+	public static void readDepth(int width, int height, java.nio.FloatBuffer into) {
+		into.clear();
+		org.lwjgl.opengl.GL11.glReadPixels(0, 0, width, height, org.lwjgl.opengl.GL11.GL_DEPTH_COMPONENT, org.lwjgl.opengl.GL11.GL_FLOAT, into);
+	}
+
 	public static void updateDisplay() {
 		Display.update();
 	}

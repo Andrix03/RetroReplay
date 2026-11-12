@@ -21,6 +21,14 @@ import net.minecraft.client.render.GameRenderer;
 @Mixin(GameRenderer.class)
 public class GameRendererMixin {
 
+	/** A video's cube faces are drawn at 90 degrees, whatever the options say. */
+	@Inject(method = "getFov", at = @At("HEAD"), cancellable = true)
+	private void retroreplay$renderFov(float tickDelta, boolean usePlayerFov, org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<Double> cir) {
+		if (io.github.andrix03.retroreplay.render.RenderEffects.hasFov()) {
+			cir.setReturnValue((double) io.github.andrix03.retroreplay.render.RenderEffects.fov());
+		}
+	}
+
 	@Inject(method = "renderItemInHand", at = @At("HEAD"), cancellable = true)
 	private void retroreplay$noHand(float tickDelta, CallbackInfo ci) {
 		if (ReplayHandler.isActive()) {
@@ -47,6 +55,7 @@ public class GameRendererMixin {
 	/** The path preview is part of the world: after the weather, before clouds and the hand (1.13: the world pass). */
 	@Inject(method = "render(FJ)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/GameRenderer;renderSnowAndRain(F)V", shift = At.Shift.AFTER))
 	private void retroreplay$pathPreview(float tickDelta, long time, CallbackInfo ci) {
+		io.github.andrix03.retroreplay.render.RenderEffects.worldDrawn();
 		if (ReplayHandler.isActive()) {
 			PathPreview.render(tickDelta);
 			if (MiningCracks.active()) { // the recording player's, written by the recorder

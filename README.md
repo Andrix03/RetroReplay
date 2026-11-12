@@ -71,6 +71,9 @@ singleplayer runs on one (see below).
   frame with a progress bar (frames, elapsed and remaining time), like Replay Mod's render screen. "Add to Queue" collects videos (each with a copy of its path),
   "Render Queue" renders them one after another. Like Replay Mod, the command line arguments
   of the preset can be edited, and "Render Nametags" keeps or hides the names above players.
+  "Advanced" has Replay Mod's other methods: Stereoscopic, Cubic, 360 Equirectangular (turning
+  with the camera or level), Chroma Key, High Performance, and with the OpenEXR Sequence preset
+  a Depth Map channel.
 
 ### Singleplayer before 1.3
 

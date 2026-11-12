@@ -189,6 +189,7 @@ public final class DevAutopath {
 						settings.height = Integer.parseInt(size.split("x")[1]);
 					}
 					settings.output = renderOutput(minecraft);
+					renderExtras(settings);
 					RetroReplay.LOGGER.info("Autopath: rendering " + settings.preset.title);
 					renderStart = System.currentTimeMillis();
 					VideoRenderer.schedule(settings);
@@ -269,6 +270,8 @@ public final class DevAutopath {
 				return RenderSettings.Preset.WEBM_CUSTOM;
 			case "mkv":
 				return RenderSettings.Preset.MKV_LOSSLESS;
+			case "exr":
+				return RenderSettings.Preset.EXR;
 			default:
 				return RenderSettings.Preset.PNG;
 		}
@@ -278,7 +281,26 @@ public final class DevAutopath {
 		RenderSettings.Preset preset = renderPreset();
 		String name = "autorender_" + RENDER;
 		File folder = new File(minecraft.gameDir, "replay_videos");
-		return preset == RenderSettings.Preset.PNG ? new File(folder, name) : new File(folder, name + "." + preset.extension);
+		String mode = System.getenv("RETROREPLAY_AUTORENDER_MODE");
+		if (mode != null) {
+			name += "_" + mode;
+		}
+		return preset.isSequence() ? new File(folder, name) : new File(folder, name + "." + preset.extension);
+	}
+
+	/**
+	 * RETROREPLAY_AUTORENDER_MODE (stereo, cubic, equirect, equirect-still), _CHROMA (green),
+	 * _DEPTH (with exr) and _FAST (high performance) on top of the preset.
+	 */
+	private static void renderExtras(RenderSettings settings) {
+		String mode = System.getenv().getOrDefault("RETROREPLAY_AUTORENDER_MODE", "");
+		settings.mode = mode.equals("stereo") ? RenderSettings.Mode.STEREOSCOPIC
+			: mode.equals("cubic") ? RenderSettings.Mode.CUBIC
+			: mode.startsWith("equirect") ? RenderSettings.Mode.EQUIRECTANGULAR : RenderSettings.Mode.DEFAULT;
+		settings.followYaw = !mode.equals("equirect-still");
+		settings.chromaKey = System.getenv("RETROREPLAY_AUTORENDER_CHROMA") != null ? 0x00FF00 : -1;
+		settings.depthMap = System.getenv("RETROREPLAY_AUTORENDER_DEPTH") != null;
+		settings.highPerformance = System.getenv("RETROREPLAY_AUTORENDER_FAST") != null;
 	}
 
 	private static void next() {

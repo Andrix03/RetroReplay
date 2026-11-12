@@ -11,6 +11,7 @@ import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.pathing.CameraRoll;
 import io.github.andrix03.retroreplay.pathing.PathPlayer;
 import io.github.andrix03.retroreplay.pathing.PathPreview;
+import io.github.andrix03.retroreplay.render.RenderEffects;
 import io.github.andrix03.retroreplay.render.VideoRenderer;
 import io.github.andrix03.retroreplay.replay.Thumbnail;
 import io.github.andrix03.retroreplay.replay.MiningCracks;
@@ -21,6 +22,33 @@ import net.minecraft.client.render.GameRenderer;
 /** The replay camera has no hand and targets nothing (no block outline, which near a block shows as long lines). */
 @Mixin(GameRenderer.class)
 public class GameRendererMixin {
+
+	@org.spongepowered.asm.mixin.Shadow
+	private float fogRed;
+	@org.spongepowered.asm.mixin.Shadow
+	private float fogGreen;
+	@org.spongepowered.asm.mixin.Shadow
+	private float fogBlue;
+
+	/** A video's cube faces are drawn at 90 degrees, whatever the options say. */
+	@Inject(method = "getFov", at = @At("HEAD"), cancellable = true)
+	private void retroreplay$renderFov(float tickDelta, boolean fovChanged, org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<Float> cir) {
+		if (RenderEffects.hasFov()) {
+			cir.setReturnValue(RenderEffects.fov());
+		}
+	}
+
+	/** Chroma key: the background (and the fog that fades into it) in the key color. */
+	@Inject(method = "setupClearColor", at = @At("TAIL"))
+	private void retroreplay$chromaKey(float tickDelta, CallbackInfo ci) {
+		float[] color = RenderEffects.chroma();
+		if (color != null) {
+			fogRed = color[0];
+			fogGreen = color[1];
+			fogBlue = color[2];
+			GL11.glClearColor(color[0], color[1], color[2], 0);
+		}
+	}
 
 	@Inject(method = "renderItemInHand", at = @At("HEAD"), cancellable = true)
 	private void retroreplay$noHand(float tickDelta, int anaglyphRenderPass, CallbackInfo ci) {
@@ -48,6 +76,7 @@ public class GameRendererMixin {
 	/** The path preview is part of the world: after the weather, before clouds and the hand. */
 	@Inject(method = "renderWorld", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/GameRenderer;renderSnowAndRain(F)V", shift = At.Shift.AFTER))
 	private void retroreplay$pathPreview(float tickDelta, long time, CallbackInfo ci) {
+		RenderEffects.worldDrawn();
 		if (ReplayHandler.isActive()) {
 			PathPreview.render(tickDelta);
 			if (MiningCracks.active()) { // the recording player's, written by the recorder

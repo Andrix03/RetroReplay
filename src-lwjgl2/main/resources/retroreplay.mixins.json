@@ -14,7 +14,8 @@
 		"WorldRendererAccessor",
 		"MinecraftMixin",
 		"TitleScreenMixin",
-		"ToastGuiMixin"
+		"ToastGuiMixin",
+		"SkyMixin"
 	],
 	"server": [
 	],

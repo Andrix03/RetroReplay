@@ -17,7 +17,9 @@
 		"TitleScreenMixin",
 		"ToastGuiMixin",
 		"WindowAccessor",
-		"WorldRendererAccessor"
+		"WorldRendererAccessor",
+		"SkyMixin",
+		"FogColorMixin"
 	],
 	"server": [
 	],
