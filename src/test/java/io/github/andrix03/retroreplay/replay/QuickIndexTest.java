@@ -264,4 +264,47 @@ class QuickIndexTest {
 		assertNull(index.weatherAt(3));
 		assertArrayEquals(new byte[] { 0x46, 1, 0 }, index.weatherAt(4));
 	}
+	@Test
+	void columnFormatBlocksChunksAndHeads() throws IOException {
+		List<byte[]> packets = new ArrayList<>();
+		packets.add(packet(0x34, out -> { // 0 chunk (-1, 2): two records (1.2.5)
+			out.writeInt(-1);
+			out.writeInt(2);
+			out.writeShort(2);
+			out.writeInt(8);
+			out.writeInt(3 << 28 | 4 << 24 | 200 << 16 | 1 << 4 | 0);
+			out.writeInt(15 << 28 | 0 << 24 | 5 << 16 | 35 << 4 | 14);
+		}));
+		packets.add(packet(0x33, out -> { // 1 chunk column (-1, 2)
+			out.writeInt(-1);
+			out.writeInt(2);
+			out.writeBoolean(true);
+		}));
+		packets.add(packet(0x18, out -> { // 2 mob 9
+			out.writeInt(9);
+			out.writeByte(90);
+			out.writeInt(0);
+			out.writeInt(0);
+			out.writeInt(0);
+			out.writeByte(0);
+			out.writeByte(0);
+			out.writeByte(0);
+			out.writeByte(127);
+		}));
+		packets.add(packet(0x23, out -> { // 3 its head turns
+			out.writeInt(9);
+			out.writeByte(64);
+		}));
+		QuickIndex.Builder builder = new QuickIndex.Builder(ChunkIndex.SPLIT_COLUMN);
+		for (int i = 0; i < packets.size(); i++) {
+			builder.packet(i, packets.get(i), packets.get(i).length);
+		}
+		QuickIndex index = builder.build();
+		assertEquals(1 << 4, index.valueAt(QuickIndex.position(-16 + 3, 200, 32 + 4), 1));
+		assertEquals(35 << 4 | 14, index.valueAt(QuickIndex.position(-1, 5, 32), 1));
+		QuickIndex.ChunkLog log = index.chunks.get(QuickIndex.chunkKey(-1, 2));
+		assertEquals(QuickIndex.ChunkLog.DATA, log.kind[0]);
+		assertEquals(2, log.changes);
+		assertEquals(0, index.tracks[0].stateAt(QuickIndex.KIND_HEAD, 4));
+	}
 }

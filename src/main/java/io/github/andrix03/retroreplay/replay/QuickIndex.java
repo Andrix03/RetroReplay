@@ -20,7 +20,8 @@ import java.util.Map;
  * Also each entity's equipment, entity data and riding (the last packet of each kind is put back),
  * rain, blocks blown up, and chunks: one unloaded since is rebuilt from its own packets, read back
  * from the file. Still approximate: what a packet does beyond setting state (sounds, particles).
- * Packet layouts are 1.0's (read from its sources).
+ * Packet layouts are 1.0's, 1.1's (the same for these) and 1.2.5's (block changes, chunk data and
+ * head turns differ), read from their sources.
  */
 public final class QuickIndex {
 
@@ -52,10 +53,13 @@ public final class QuickIndex {
 	/** State packet kinds besides the equipment slots (0-4). */
 	static final int KIND_DATA = 10;
 	static final int KIND_RIDE = 11;
+	/** 1.2.5's head turn (0x23), apart from the body's yaw. */
+	static final int KIND_HEAD = 12;
+	private static final int HEAD = 0x23;
 
 	/** Quick Mode exists for this version (its packet layouts are known). */
 	public static boolean supports(String version) {
-		return "1.0.0".equals(version);
+		return "1.0.0".equals(version) || "1.1".equals(version) || "1.2.5".equals(version);
 	}
 
 	/** One entity's life: from its spawn packet to its removal (or the world closing). */
@@ -106,7 +110,7 @@ public final class QuickIndex {
 					out.writeInt(-1);
 				});
 			}
-			if (kind == KIND_DATA) {
+			if (kind == KIND_DATA || kind == KIND_HEAD) {
 				return null;
 			}
 			return packet(EQUIPMENT, out -> {
@@ -492,6 +496,17 @@ public final class QuickIndex {
 
 	public static final class Builder {
 
+		/** ChunkIndex.SPLIT_REGION (1.0, 1.1) or SPLIT_COLUMN (1.2.5). */
+		private final int format;
+
+		public Builder() {
+			this(ChunkIndex.SPLIT_REGION);
+		}
+
+		public Builder(int format) {
+			this.format = format;
+		}
+
 		private final List<Track> tracks = new ArrayList<>();
 		/** Entity id -> its live track while building. */
 		private final Map<Integer, Track> live = new HashMap<>();
@@ -668,7 +683,16 @@ public final class QuickIndex {
 				case CHUNK_LOAD:
 					chunk(readInt(d, 1), readInt(d, 5)).add(index, d[9] != 0 ? ChunkLog.LOAD : ChunkLog.UNLOAD, -1);
 					break;
+				case HEAD:
+					if (format == ChunkIndex.SPLIT_COLUMN) {
+						state(d, length, index, KIND_HEAD);
+					}
+					break;
 				case CHUNK_DATA: {
+					if (format == ChunkIndex.SPLIT_COLUMN) {
+						chunk(readInt(d, 1), readInt(d, 5)).add(index, ChunkLog.DATA, offset); // a chunk column
+						break;
+					}
 					// a block region (x, short y, z, sizes - 1): every chunk it covers
 					int x = readInt(d, 1);
 					int z = readInt(d, 7);
@@ -685,6 +709,14 @@ public final class QuickIndex {
 					int chunkX = readInt(d, 1);
 					int chunkZ = readInt(d, 5);
 					int count = readShort(d, 9);
+					if (format == ChunkIndex.SPLIT_COLUMN) {
+						// int data length, then a record each: x << 28 | z << 24 | y << 16 | block << 4 | metadata
+						for (int i = 0; i < count; i++) {
+							int record = readInt(d, 15 + i * 4);
+							change(index, position(chunkX * 16 + (record >>> 28), record >> 16 & 255, chunkZ * 16 + (record >> 24 & 15)), record & 0xFFFF);
+						}
+						break;
+					}
 					int ids = 11 + count * 2;
 					for (int i = 0; i < count; i++) {
 						int at = readShort(d, 11 + i * 2); // x << 12 | z << 8 | y

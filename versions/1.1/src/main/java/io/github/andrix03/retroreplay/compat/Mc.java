@@ -171,9 +171,13 @@ public final class Mc {
 		return new ConnectScreen(minecraft(), host, port);
 	}
 
-	/** Quick Mode is not on this version yet (QuickIndex.supports): nothing to read. */
+	/** Block id << 4 | metadata at a position, or -1 when its chunk is not loaded (Quick Mode). */
 	public static int blockState(int x, int y, int z) {
-		return -1;
+		net.minecraft.world.World world = minecraft().world;
+		if (world == null || !world.isChunkLoaded(x, y, z)) {
+			return -1;
+		}
+		return world.getBlock(x, y, z) << 4 | world.getBlockMetadata(x, y, z) & 15;
 	}
 
 	/** Draws the game's own block cracks on a block (stage 0-9): a replay's camera targets nothing. */

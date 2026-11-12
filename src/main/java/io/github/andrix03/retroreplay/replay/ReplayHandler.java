@@ -656,7 +656,7 @@ public final class ReplayHandler {
 				throw new IOException("Not a RetroReplay " + Mc.VERSION + " recording");
 			}
 			ChunkIndex.Builder chunks = new ChunkIndex.Builder(Mc.CHUNK_FORMAT);
-			QuickIndex.Builder quick = QuickIndex.supports(Mc.VERSION) ? new QuickIndex.Builder() : null;
+			QuickIndex.Builder quick = QuickIndex.supports(Mc.VERSION) ? new QuickIndex.Builder(Mc.CHUNK_FORMAT) : null;
 			PacketFile packets = PacketFile.unpack(zip.getInputStream(recording), (i, data, length) -> {
 				chunks.packet(i, data, length);
 				if (quick != null) {

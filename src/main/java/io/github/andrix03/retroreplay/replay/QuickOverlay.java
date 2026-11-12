@@ -23,7 +23,7 @@ final class QuickOverlay {
 		byte[] read(long offset) throws IOException;
 	}
 
-	private static final int[] KINDS = { 0, 1, 2, 3, 4, QuickIndex.KIND_DATA, QuickIndex.KIND_RIDE };
+	private static final int[] KINDS = { 0, 1, 2, 3, 4, QuickIndex.KIND_DATA, QuickIndex.KIND_RIDE, QuickIndex.KIND_HEAD };
 
 	private final QuickIndex index;
 	private final Consumer<byte[]> feed;
