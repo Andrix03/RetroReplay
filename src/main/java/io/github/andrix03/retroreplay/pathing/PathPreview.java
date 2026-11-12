@@ -22,6 +22,8 @@ public final class PathPreview {
 
 	private static final int SLOW_PATH_COLOR = 0xffcccc;
 	private static final int FAST_PATH_COLOR = 0x660000;
+	/** A spectated entity's way: blue, like the spectator keyframe icons. */
+	private static final int SPECTATOR_PATH_COLOR = 0x5599ff;
 	/** Blocks per millisecond at which the line reaches the "fast" color. */
 	private static final double FASTEST_PATH_SPEED = 0.01;
 	private static final int STEPS = 100;
@@ -72,7 +74,9 @@ public final class PathPreview {
 			CameraPath.Position from = previousKey == null ? null : path.positions().get(previousKey);
 			CameraPath.Position to = path.positions().get(key);
 			boolean spectatorSegment = from != null && from.isSpectator() && from.spectated == to.spectated;
-			if (previousKey != null && !spectatorSegment) { // a spectated entity's way is not known ahead
+			if (previousKey != null && spectatorSegment) {
+				spectatorLine(path, previousKey, key, to.spectated, viewX, viewY, viewZ, eye);
+			} else if (previousKey != null) {
 				long diff = key - previousKey;
 				CameraPath.Position prev = null;
 				for (int i = 0; i <= STEPS; i++) {
@@ -123,6 +127,29 @@ public final class PathPreview {
 		GL11.glPopMatrix();
 		GL11.glPopAttrib();
 		GL11.glColor4f(1, 1, 1, 1);
+	}
+
+	/**
+	 * Between two spectator keyframes of one entity the camera follows it: its way at the replay
+	 * times the time keyframes give, from Quick Mode's index (nothing without time keyframes).
+	 */
+	private static void spectatorLine(CameraPath path, long from, long to, int entity, double viewX, double viewY, double viewZ, double eye) {
+		ReplayHandler replay = ReplayHandler.get();
+		if (replay == null) {
+			return;
+		}
+		double feet = Mc.feetOffset(); // like Spectator.positionOf, so the line meets the keyframe icons
+		double[] prev = null;
+		color(SPECTATOR_PATH_COLOR, 255);
+		for (int i = 0; i <= STEPS; i++) {
+			int replayTime = path.replayTimeAt(from + (to - from) * i / STEPS);
+			double[] pos = replayTime < 0 ? null : replay.entityPositionAt(entity, replayTime);
+			if (pos != null && prev != null) {
+				GL11.glVertex3d(prev[0] - viewX, prev[1] - feet + eye - viewY, prev[2] - viewZ);
+				GL11.glVertex3d(pos[0] - viewX, pos[1] - feet + eye - viewY, pos[2] - viewZ);
+			}
+			prev = pos;
+		}
 	}
 
 	private static void drawPoint(double x, double y, double z, float cameraYaw, float cameraPitch, boolean selected, boolean spectator) {

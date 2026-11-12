@@ -73,6 +73,12 @@ public final class DevAutopath {
 						state.path.putPosition(1000, Spectator.positionOf(player, spectated));
 						state.path.putPosition(3000, Spectator.positionOf(player, spectated));
 						RetroReplay.LOGGER.info("Autopath: spectator keyframes on entity " + spectated);
+						StringBuilder way = new StringBuilder();
+						for (long t = 1000; t <= 3000; t += 500) {
+							double[] at = ReplayHandler.get().entityPositionAt(spectated, state.path.replayTimeAt(t));
+							way.append(at == null ? "none" : String.format(java.util.Locale.ROOT, "%.1f,%.1f,%.1f", at[0], at[1], at[2])).append(' ');
+						}
+						RetroReplay.LOGGER.info("Autopath: spectated way for the preview: " + way);
 					}
 					state.path.putTime(0, 3000);
 					state.path.putTime(4000, 7000);

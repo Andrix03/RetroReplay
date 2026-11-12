@@ -2,6 +2,8 @@
 
 ## 0.3.0
 
+- Path preview (H): between two spectator keyframes the camera follows an entity; its way
+  is now drawn too (in blue), at the replay moments the time keyframes give.
 - Camera paths: each segment can have its own interpolation (keyframe editor, "Next:"),
   like Replay Mod; the path's choice stays for the others.
 - Replay Editor ("Edit" in the Replay Viewer), like Replay Mod's: Trim keeps a part of a replay

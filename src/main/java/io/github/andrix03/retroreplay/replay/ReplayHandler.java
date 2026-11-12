@@ -126,6 +126,14 @@ public final class ReplayHandler {
 		return scrubbing ? scrubTarget : timeMs;
 	}
 
+	/**
+	 * Where an entity was at a replay time (x, y, z as the client keeps them, yaw, pitch), from
+	 * Quick Mode's index: the path preview draws a spectated entity's way with it. Null if unknown.
+	 */
+	public double[] entityPositionAt(int id, double replayTime) {
+		return quick == null ? null : quick.positionOf(id, packetsUpTo(replayTime));
+	}
+
 	/** Quick Mode can be used on this version. */
 	public boolean hasQuickMode() {
 		return quick != null;

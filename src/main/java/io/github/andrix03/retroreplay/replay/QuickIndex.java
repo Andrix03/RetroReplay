@@ -332,6 +332,8 @@ public final class QuickIndex {
 	}
 
 	final Track[] tracks;
+	/** Entity id -> its tracks (an id can come back after a removal), built when first asked. */
+	private Map<Integer, List<Track>> byId;
 	/** Block changes in packet order: packet index, position, block id << 4 | metadata. */
 	private final int[] blockIndex;
 	private final long[] blockPosition;
@@ -603,6 +605,29 @@ public final class QuickIndex {
 			out.writeInt(bytes.length);
 			out.write(bytes);
 		});
+	}
+
+	/**
+	 * Where entity {@code id} was once the packets before {@code fed} were handled: x, y, z (as the
+	 * client keeps them), yaw, pitch; null when it did not exist then.
+	 */
+	double[] positionOf(int id, int fed) {
+		if (byId == null) {
+			Map<Integer, List<Track>> map = new HashMap<>();
+			for (Track track : tracks) {
+				map.computeIfAbsent(track.id, k -> new ArrayList<>()).add(track);
+			}
+			byId = map;
+		}
+		List<Track> list = byId.get(id);
+		if (list != null) {
+			for (Track track : list) {
+				if (track.aliveAt(fed)) {
+					return track.place(track.entryAt(fed));
+				}
+			}
+		}
+		return null;
 	}
 
 	/** False when a login or respawn lies between the two points: the world itself changed there. */
