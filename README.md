@@ -37,6 +37,8 @@ singleplayer runs on one (see below).
   "Exit Replay" in the pause menu. Keys: P pause, [ ] speed, Left/Right jump 10 s,
   T (chat key) frees the mouse for the replay bar, the mouse wheel sets the camera speed
   (1/8x to 8x), Z turns ambient lighting on and off (caves and nights fully lit).
+- Block cracks: the cracks of the blocks you break are recorded and shown in the replay
+  (1.0.0 for now; older recordings have none).
 - Quick Mode (1.0.0 for now, on by default, Q turns it off and on): dragging the replay bar
   moves players, mobs, items and blocks live, back and forth, with no world reload; the replay
   goes on from where the bar is let go. Like Replay Mod's it is approximate in places (held

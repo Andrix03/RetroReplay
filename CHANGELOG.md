@@ -2,6 +2,9 @@
 
 ## 0.3.0
 
+- Block cracks of the recording player on Minecraft 1.0.0: breaking a block now shows the
+  cracks in the replay and in videos (the game sends nothing for them before 1.3, so the
+  recording writes them itself). Recordings made before this have none.
 - Quick Mode on Minecraft 1.0.0 (Q, on by default): the replay bar can be dragged and the
   world follows live, going back too, with no reload. Markers, Left/Right and keyframe jumps
   use it as well. Videos still start from an exact world.

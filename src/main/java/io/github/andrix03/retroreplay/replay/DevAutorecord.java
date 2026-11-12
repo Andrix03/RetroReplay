@@ -29,6 +29,9 @@ public final class DevAutorecord {
 	/** RETROREPLAY_AUTORECORD_BREAK: break the block under the player at the spawn (use with GAMEMODE=1). */
 	private static final boolean BREAK = System.getenv("RETROREPLAY_AUTORECORD_BREAK") != null;
 	private static int[] breakAt;
+	/** RETROREPLAY_AUTORECORD_MINE: in survival, stands still looking down for 9 s while the left button is held from outside (block cracks). */
+	private static final boolean MINE = System.getenv("RETROREPLAY_AUTORECORD_MINE") != null;
+	private static int[] mineAt;
 	private static final boolean VIA_MENU = System.getenv("RETROREPLAY_AUTORECORD_MENU") != null;
 	/** How long the walk lasts, in ticks (default 240 = 12 s). */
 	private static final int LENGTH_TICKS = Integer.parseInt(System.getenv().getOrDefault("RETROREPLAY_AUTORECORD_TICKS", "240"));
@@ -98,6 +101,20 @@ public final class DevAutorecord {
 		if (BREAK && ticks == 50) {
 			int after = (Integer) call(minecraft.world, "getBlock", breakAt[0], breakAt[1], breakAt[2]);
 			RetroReplay.LOGGER.info("Autorecord: block at the spawn " + (after == 0 ? "broken" : "still there (" + after + ")"));
+		}
+		if (MINE && ticks >= 20 && ticks < 200) {
+			// looking straight down, standing still: the left mouse button is held from outside (a real dig)
+			if (ticks == 20) {
+				mineAt = new int[] { (int) Math.floor(minecraft.player.x), (int) Math.floor(minecraft.player.y - Mc.feetOffset()) - 1, (int) Math.floor(minecraft.player.z) };
+				RetroReplay.LOGGER.info("Autorecord: hold the left mouse button now, block " + call(minecraft.world, "getBlock", mineAt[0], mineAt[1], mineAt[2]) + " at " + mineAt[0] + "," + mineAt[1] + "," + mineAt[2]);
+			}
+			minecraft.player.pitch = 90.0F;
+			minecraft.player.velocityX = 0;
+			minecraft.player.velocityZ = 0;
+			return;
+		}
+		if (MINE && ticks == 200) {
+			RetroReplay.LOGGER.info("Autorecord: mined block now " + call(minecraft.world, "getBlock", mineAt[0], mineAt[1], mineAt[2]));
 		}
 		if (ticks == 60) {
 			Mc.screenshot("autorecord_recording.png");

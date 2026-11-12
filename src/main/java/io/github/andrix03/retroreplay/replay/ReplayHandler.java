@@ -178,6 +178,7 @@ public final class ReplayHandler {
 		}
 		if (overlay == null) {
 			overlay = new QuickOverlay(quick, index, this::feed);
+			MiningCracks.clear(); // not in Quick Mode's index: the next stage written brings it back
 		}
 		overlay.showAt(fed);
 	}
@@ -300,6 +301,7 @@ public final class ReplayHandler {
 		Minecraft minecraft = Mc.minecraft();
 		active = handler;
 		starting = true;
+		MiningCracks.clear(); // the new world has none yet
 		try {
 			handler.client = ReplayConnection.open(minecraft);
 		} catch (Exception e) {
@@ -552,10 +554,12 @@ public final class ReplayHandler {
 
 	private boolean drop(int id, byte[] data) {
 		switch (id) {
+			case Mc.PACKET_CUSTOM_PAYLOAD: // custom payload: ours shows the recording player's block cracks;
+				MiningCracks.read(data); // mod handshakes and trade/book screens have nothing to show
+				return true;
 			case Mc.PACKET_HANDSHAKE: // handshake (before 1.3): would log in to minecraft.net for online servers
 			case Mc.PACKET_HEALTH: // health: no death screen for the camera
 			case Mc.PACKET_ABILITIES: // abilities: keep the camera flying
-			case Mc.PACKET_CUSTOM_PAYLOAD: // custom payload: mod handshakes and trade/book screens, nothing to show
 				return true;
 			case Mc.PACKET_POSITION: // position: only the first one places the camera
 				if (positioned) {

@@ -179,4 +179,16 @@ public final class Mc {
 		}
 		return world.getBlock(x, y, z) << 4 | world.getBlockMetadata(x, y, z) & 15;
 	}
+
+	/** Draws the game's own block cracks on a block (stage 0-9): a replay's camera targets nothing. */
+	public static void renderMiningCrack(int x, int y, int z, int stage, float tickDelta) {
+		Minecraft minecraft = minecraft();
+		net.minecraft.client.render.world.WorldRenderer renderer = minecraft.worldRenderer;
+		float progress = renderer.miningProgress;
+		renderer.miningProgress = (stage + 0.5F) / 10.0F;
+		org.lwjgl.opengl.GL11.glDisable(org.lwjgl.opengl.GL11.GL_ALPHA_TEST); // as the game calls it
+		renderer.renderMiningProgress(minecraft.player, new net.minecraft.world.HitResult(x, y, z, 0, net.minecraft.util.math.Vec3d.of(x, y, z)), 0, null, tickDelta);
+		org.lwjgl.opengl.GL11.glEnable(org.lwjgl.opengl.GL11.GL_ALPHA_TEST);
+		renderer.miningProgress = progress;
+	}
 }

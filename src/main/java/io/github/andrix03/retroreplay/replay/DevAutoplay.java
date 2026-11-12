@@ -42,6 +42,13 @@ public final class DevAutoplay {
 	 */
 	/** RETROREPLAY_AUTOPLAY_STAY: only opens the newest replay and leaves it to the mouse and keys (driven from outside). */
 	private static final boolean STAY = System.getenv("RETROREPLAY_AUTOPLAY_STAY") != null;
+	/** RETROREPLAY_AUTOPLAY_CRACK: logs each crack stage shown, photographs stage 5 from above the block. */
+	private static final boolean CRACK = System.getenv("RETROREPLAY_AUTOPLAY_CRACK") != null;
+	private static int lastCrack = -2;
+	private static int crackShot = -1;
+	/** Blocks whose stage 6 was seen. */
+	private static int crackBlocks;
+	private static int[] crackSaved;
 	private static final boolean SCRUB = System.getenv("RETROREPLAY_AUTOPLAY_SCRUB") != null;
 	private static int scrubStep = -1;
 	/** RETROREPLAY_AUTOPLAY_SCRUB_BLOCK=x,y,z: a block whose id each scrub step logs. */
@@ -151,6 +158,43 @@ public final class DevAutoplay {
 		return -1;
 	}
 
+	private static void crack(Minecraft minecraft, double timeMs) {
+		int stage = MiningCracks.stage();
+		if (stage != lastCrack) {
+			lastCrack = stage;
+			RetroReplay.LOGGER.info("Autoplay crack at " + (int) timeMs + " ms: stage " + stage + " at " + MiningCracks.x() + "," + MiningCracks.y() + "," + MiningCracks.z());
+			if (stage >= 6 && crackBlocks++ == 1 && crackShot < 0 && minecraft.player != null) {
+				// the second block dug: paused, the recorded player lifted off it (it stands on the block), camera above
+				ReplayHandler replay = ReplayHandler.get();
+				if (!replay.isPaused()) {
+					replay.togglePause();
+				}
+				Entity recorded = findRecordedPlayer(minecraft);
+				if (recorded != null) {
+					recorded.y += 40;
+					recorded.prevY += 40;
+					recorded.lastY += 40;
+				}
+				minecraft.player.setPositionAndAngles(MiningCracks.x() + 0.5, MiningCracks.y() + 3.0, MiningCracks.z() - 0.8, 0.0F, 75.0F);
+				CameraControls.toggleAmbient();
+				crackShot = 20; // after the move is rendered
+			}
+		}
+		if (crackShot > 0) {
+			crackShot--;
+			if (crackShot == 10) {
+				shot(minecraft, "crack");
+				crackSaved = new int[] { MiningCracks.x(), MiningCracks.y(), MiningCracks.z(), MiningCracks.stage() };
+				MiningCracks.clear(); // the same frame without it: the difference is the crack
+			} else if (crackShot == 0) {
+				shot(minecraft, "nocrack");
+				MiningCracks.set(crackSaved[0], crackSaved[1], crackSaved[2], crackSaved[3]);
+				CameraControls.toggleAmbient();
+				ReplayHandler.get().togglePause();
+			}
+		}
+	}
+
 	private static void scrub(double timeMs) {
 		ReplayHandler replay = ReplayHandler.get();
 		if (scrubStep < 0) {
@@ -185,6 +229,9 @@ public final class DevAutoplay {
 	}
 
 	static void afterTick(Minecraft minecraft, double timeMs, int fed, int total) {
+		if (ENABLED && CRACK) {
+			crack(minecraft, timeMs);
+		}
 		if (!ENABLED || stage != 3) {
 			return;
 		}

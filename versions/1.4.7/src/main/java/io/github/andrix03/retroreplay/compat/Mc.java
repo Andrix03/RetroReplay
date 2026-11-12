@@ -177,4 +177,8 @@ public final class Mc {
 	public static int blockState(int x, int y, int z) {
 		return -1;
 	}
+
+	/** Block cracks in replays: only 1.0.0 records them so far (MiningCracks). */
+	public static void renderMiningCrack(int x, int y, int z, int stage, float tickDelta) {
+	}
 }

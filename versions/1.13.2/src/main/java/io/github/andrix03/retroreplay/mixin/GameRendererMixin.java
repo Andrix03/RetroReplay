@@ -11,6 +11,7 @@ import io.github.andrix03.retroreplay.pathing.CameraRoll;
 import io.github.andrix03.retroreplay.pathing.PathPlayer;
 import io.github.andrix03.retroreplay.pathing.PathPreview;
 import io.github.andrix03.retroreplay.render.VideoRenderer;
+import io.github.andrix03.retroreplay.replay.MiningCracks;
 import io.github.andrix03.retroreplay.replay.ReplayHandler;
 import io.github.andrix03.retroreplay.replay.Thumbnail;
 
@@ -48,6 +49,9 @@ public class GameRendererMixin {
 	private void retroreplay$pathPreview(float tickDelta, long time, CallbackInfo ci) {
 		if (ReplayHandler.isActive()) {
 			PathPreview.render(tickDelta);
+			if (MiningCracks.active()) { // the recording player's, written by the recorder
+				Mc.renderMiningCrack(MiningCracks.x(), MiningCracks.y(), MiningCracks.z(), MiningCracks.stage(), tickDelta);
+			}
 		}
 	}
 
