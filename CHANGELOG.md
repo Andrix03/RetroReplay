@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- 1.13.2: a video at the window's size showed the "Joining world..." screen instead of the
+  world when it started from a rebuilt world. Fixed.
+
 ## 0.3.0
 
 - Path preview (H): between two spectator keyframes the camera follows an entity; its way
