@@ -17,8 +17,10 @@ import java.util.Map;
  * the world time. Going back is then done with ordinary packets made up from it (teleport,
  * remove, block update, time) fed to the game's own handler.
  *
- * Lossy like Replay Mod's: equipment, entity data, riding, explosions, weather and chunks
- * unloaded later keep their present state. Packet layouts are 1.0's (read from its sources).
+ * Also each entity's equipment, entity data and riding (the last packet of each kind is put back),
+ * rain, blocks blown up, and chunks: one unloaded since is rebuilt from its own packets, read back
+ * from the file. Still approximate: what a packet does beyond setting state (sounds, particles).
+ * Packet layouts are 1.0's (read from its sources).
  */
 public final class QuickIndex {
 
@@ -39,6 +41,17 @@ public final class QuickIndex {
 	private static final int TELEPORT = 0x22;
 	private static final int BLOCKS = 0x34;
 	private static final int BLOCK = 0x35;
+	private static final int EQUIPMENT = 0x05;
+	private static final int RIDE = 0x27;
+	private static final int ENTITY_DATA = 0x28;
+	private static final int CHUNK_LOAD = 0x32;
+	private static final int CHUNK_DATA = 0x33;
+	private static final int EXPLOSION = 0x3C;
+	private static final int GAME_EVENT = 0x46;
+
+	/** State packet kinds besides the equipment slots (0-4). */
+	static final int KIND_DATA = 10;
+	static final int KIND_RIDE = 11;
 
 	/** Quick Mode exists for this version (its packet layouts are known). */
 	public static boolean supports(String version) {
@@ -56,6 +69,53 @@ public final class QuickIndex {
 		/** Per entry: packet index, x, y, z (1/32 block), yaw << 8 | pitch (as bytes). */
 		int[] entries = new int[5 * 4];
 		int count;
+
+		/** Equipment (kind = slot), entity data and riding packets in order. */
+		int states;
+		int[] stateIndex = new int[4];
+		int[] stateKind = new int[4];
+		byte[][] stateBytes = new byte[4][];
+
+		void addState(int index, int kind, byte[] bytes) {
+			if (states == stateIndex.length) {
+				stateIndex = Arrays.copyOf(stateIndex, states * 2);
+				stateKind = Arrays.copyOf(stateKind, states * 2);
+				stateBytes = Arrays.copyOf(stateBytes, states * 2);
+			}
+			stateIndex[states] = index;
+			stateKind[states] = kind;
+			stateBytes[states++] = bytes;
+		}
+
+		/** The last state packet of that kind among the packets before {@code fed}, as its number, or -1. */
+		int stateAt(int kind, int fed) {
+			int found = -1;
+			for (int i = 0; i < states && stateIndex[i] < fed; i++) {
+				if (stateKind[i] == kind) {
+					found = i;
+				}
+			}
+			return found;
+		}
+
+		/** What puts that kind back to "none": empty slot, on foot; null for entity data (nothing to undo). */
+		byte[] noState(int kind) {
+			if (kind == KIND_RIDE) {
+				return packet(RIDE, out -> {
+					out.writeInt(id);
+					out.writeInt(-1);
+				});
+			}
+			if (kind == KIND_DATA) {
+				return null;
+			}
+			return packet(EQUIPMENT, out -> {
+				out.writeInt(id);
+				out.writeShort(kind);
+				out.writeShort(-1);
+				out.writeShort(0);
+			});
+		}
 
 		Track(int id, byte[] spawn, int spawnIndex, boolean still) {
 			this.id = id;
@@ -115,6 +175,81 @@ public final class QuickIndex {
 	private final int[] worldStarts;
 	private final int[] timeIndex;
 	private final long[] timeValue;
+	private final int[] weatherIndex;
+	private final boolean[] weatherRain;
+	/** Chunk key -> its loads, unloads and data packets. */
+	final Map<Long, ChunkLog> chunks;
+
+	/** One chunk's history: per event the packet index, its kind and (data) where it is in the file. */
+	static final class ChunkLog {
+		static final byte LOAD = 1;
+		static final byte UNLOAD = 0;
+		static final byte DATA = 2;
+		final int x;
+		final int z;
+		int count;
+		int[] index = new int[4];
+		byte[] kind = new byte[4];
+		long[] offset = new long[4];
+		/** Block changes in this chunk (numbers into the block change arrays), in order. */
+		int changes;
+		int[] change = new int[4];
+
+		ChunkLog(int x, int z) {
+			this.x = x;
+			this.z = z;
+		}
+
+		void add(int packet, byte what, long at) {
+			if (count == index.length) {
+				index = Arrays.copyOf(index, count * 2);
+				kind = Arrays.copyOf(kind, count * 2);
+				offset = Arrays.copyOf(offset, count * 2);
+			}
+			index[count] = packet;
+			kind[count] = what;
+			offset[count++] = at;
+		}
+
+		void addChange(int number) {
+			if (changes == change.length) {
+				change = Arrays.copyOf(change, changes * 2);
+			}
+			change[changes++] = number;
+		}
+
+		/** The packet index of the load in force once the packets before {@code fed} are handled, or -1 if unloaded then. */
+		int loadedAt(int fed) {
+			int found = -1;
+			for (int i = 0; i < count && index[i] < fed; i++) {
+				if (kind[i] == LOAD) {
+					found = index[i];
+				} else if (kind[i] == UNLOAD) {
+					found = -1;
+				}
+			}
+			return found;
+		}
+
+		/** True when a load or a data packet lies between the two points (its contents changed wholesale). */
+		boolean reloadedBetween(int from, int to) {
+			for (int i = 0; i < count; i++) {
+				if (index[i] >= from && index[i] < to && kind[i] != UNLOAD) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+		boolean anyBetween(int from, int to) {
+			for (int i = 0; i < count; i++) {
+				if (index[i] >= from && index[i] < to) {
+					return true;
+				}
+			}
+			return false;
+		}
+	}
 
 	private QuickIndex(Builder b) {
 		tracks = b.tracks.toArray(new Track[0]);
@@ -137,6 +272,52 @@ public final class QuickIndex {
 		worldStarts = Arrays.copyOf(b.worldStarts, b.worldStartCount);
 		timeIndex = Arrays.copyOf(b.timeIndex, b.times);
 		timeValue = Arrays.copyOf(b.timeValue, b.times);
+		weatherIndex = Arrays.copyOf(b.weatherIndex, b.weathers);
+		weatherRain = Arrays.copyOf(b.weatherRain, b.weathers);
+		chunks = b.chunks;
+		for (int i = 0; i < blockIndex.length; i++) {
+			long position = blockPosition[i];
+			ChunkLog log = chunks.get(chunkKey(x(position) >> 4, z(position) >> 4));
+			if (log != null) {
+				log.addChange(i);
+			}
+		}
+	}
+
+	static long chunkKey(int chunkX, int chunkZ) {
+		return (long) chunkX << 32 | chunkZ & 0xFFFFFFFFL;
+	}
+
+	int blockChangeIndexOf(int change) {
+		return blockIndex[change];
+	}
+
+	byte[] blockChangePacket(int change) {
+		return block(blockPosition[change], blockValue[change]);
+	}
+
+	/** The rain packet in force once the packets before {@code fed} are handled, or null. */
+	byte[] weatherAt(int fed) {
+		int found = -1;
+		for (int i = 0; i < weatherIndex.length && weatherIndex[i] < fed; i++) {
+			found = i;
+		}
+		if (found < 0) {
+			return null;
+		}
+		boolean rain = weatherRain[found];
+		return packet(GAME_EVENT, out -> {
+			out.writeByte(rain ? 1 : 2);
+			out.writeByte(0);
+		});
+	}
+
+	static byte[] chunkLoad(int chunkX, int chunkZ, boolean load) {
+		return packet(CHUNK_LOAD, out -> {
+			out.writeInt(chunkX);
+			out.writeInt(chunkZ);
+			out.writeByte(load ? 1 : 0);
+		});
 	}
 
 	/** False when a login or respawn lies between the two points: the world itself changed there. */
@@ -323,15 +504,41 @@ public final class QuickIndex {
 		private int times;
 		private int[] timeIndex = new int[256];
 		private long[] timeValue = new long[256];
+		private int weathers;
+		private int[] weatherIndex = new int[16];
+		private boolean[] weatherRain = new boolean[16];
+		private final Map<Long, ChunkLog> chunks = new HashMap<>();
+		/** Where the next packet starts in the unpacked file (time, length, then its bytes). */
+		private long offset;
 
 		public void packet(int index, byte[] data, int length) {
 			if (length < 1) {
+				offset += 8; // still takes its time and length in the file
 				return;
 			}
 			try {
 				read(index, data, length);
 			} catch (ArrayIndexOutOfBoundsException e) {
 				// shorter than its format: left out of Quick Mode, normal playback still has it
+			} finally {
+				offset += 8 + length;
+			}
+		}
+
+		private ChunkLog chunk(int chunkX, int chunkZ) {
+			long key = chunkKey(chunkX, chunkZ);
+			ChunkLog log = chunks.get(key);
+			if (log == null) {
+				log = new ChunkLog(chunkX, chunkZ);
+				chunks.put(key, log);
+			}
+			return log;
+		}
+
+		private void state(byte[] d, int length, int index, int kind) {
+			Track track = live.get(readInt(d, 1));
+			if (track != null) {
+				track.addState(index, kind, Arrays.copyOf(d, length));
 			}
 		}
 
@@ -340,11 +547,16 @@ public final class QuickIndex {
 			switch (id) {
 				case LOGIN:
 				case RESPAWN:
-					// the world closes: every entity in it goes
+					// the world closes: every entity and chunk in it goes
 					for (Track track : live.values()) {
 						track.removeIndex = index;
 					}
 					live.clear();
+					for (ChunkLog log : chunks.values()) {
+						if (log.count > 0 && log.kind[log.count - 1] != ChunkLog.UNLOAD) {
+							log.add(index, ChunkLog.UNLOAD, -1);
+						}
+					}
 					if (worldStartCount == worldStarts.length) {
 						worldStarts = Arrays.copyOf(worldStarts, worldStartCount * 2);
 					}
@@ -423,6 +635,52 @@ public final class QuickIndex {
 				case BLOCK:
 					change(index, position(readInt(d, 1), d[5] & 0xFF, readInt(d, 6)), (d[10] & 0xFF) << 4 | (d[11] & 15));
 					break;
+				case EQUIPMENT:
+					state(d, length, index, readShort(d, 5));
+					break;
+				case ENTITY_DATA:
+					state(d, length, index, KIND_DATA);
+					break;
+				case RIDE:
+					state(d, length, index, KIND_RIDE);
+					break;
+				case GAME_EVENT:
+					if (d[1] == 1 || d[1] == 2) {
+						if (weathers == weatherIndex.length) {
+							weatherIndex = Arrays.copyOf(weatherIndex, weathers * 2);
+							weatherRain = Arrays.copyOf(weatherRain, weathers * 2);
+						}
+						weatherIndex[weathers] = index;
+						weatherRain[weathers++] = d[1] == 1;
+					}
+					break;
+				case EXPLOSION: {
+					// the client clears these blocks itself: block changes to air like any other
+					int x = (int) Double.longBitsToDouble(readLong(d, 1));
+					int y = (int) Double.longBitsToDouble(readLong(d, 9));
+					int z = (int) Double.longBitsToDouble(readLong(d, 17));
+					int count = readInt(d, 29);
+					for (int i = 0; i < count; i++) {
+						change(index, position(x + d[33 + i * 3], y + d[34 + i * 3], z + d[35 + i * 3]), 0);
+					}
+					break;
+				}
+				case CHUNK_LOAD:
+					chunk(readInt(d, 1), readInt(d, 5)).add(index, d[9] != 0 ? ChunkLog.LOAD : ChunkLog.UNLOAD, -1);
+					break;
+				case CHUNK_DATA: {
+					// a block region (x, short y, z, sizes - 1): every chunk it covers
+					int x = readInt(d, 1);
+					int z = readInt(d, 7);
+					int sizeX = (d[11] & 0xFF) + 1;
+					int sizeZ = (d[13] & 0xFF) + 1;
+					for (int cx = x >> 4; cx <= (x + sizeX - 1) >> 4; cx++) {
+						for (int cz = z >> 4; cz <= (z + sizeZ - 1) >> 4; cz++) {
+							chunk(cx, cz).add(index, ChunkLog.DATA, offset);
+						}
+					}
+					break;
+				}
 				case BLOCKS: {
 					int chunkX = readInt(d, 1);
 					int chunkZ = readInt(d, 5);

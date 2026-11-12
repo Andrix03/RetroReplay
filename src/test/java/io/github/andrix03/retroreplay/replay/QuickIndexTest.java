@@ -159,4 +159,109 @@ class QuickIndexTest {
 		assertNull(index.timeAt(2));
 		assertArrayEquals(packet(0x04, out -> out.writeLong(6000)), index.timeAt(3));
 	}
+	@Test
+	void chunkPacketsAreReadBackFromTheirOffsets() throws IOException {
+		List<byte[]> packets = new ArrayList<>();
+		packets.add(packet(0x32, out -> { // 0 load chunk (2, -1)
+			out.writeInt(2);
+			out.writeInt(-1);
+			out.writeByte(1);
+		}));
+		packets.add(new byte[0]); // 1 empty: still takes 8 bytes in the file
+		packets.add(packet(0x33, out -> { // 2 data for the whole chunk (2, -1)
+			out.writeInt(32);
+			out.writeShort(0);
+			out.writeInt(-16);
+			out.writeByte(15);
+			out.writeByte(127);
+			out.writeByte(15);
+			out.writeInt(3);
+			out.write(new byte[] { 9, 8, 7 });
+		}));
+		packets.add(packet(0x35, out -> { // 3 a block in it
+			out.writeInt(33);
+			out.writeByte(64);
+			out.writeInt(-10);
+			out.writeByte(4);
+			out.writeByte(0);
+		}));
+		packets.add(packet(0x32, out -> { // 4 unloaded
+			out.writeInt(2);
+			out.writeInt(-1);
+			out.writeByte(0);
+		}));
+		ByteArrayOutputStream stream = new ByteArrayOutputStream();
+		DataOutputStream out = new DataOutputStream(stream);
+		for (int i = 0; i < packets.size(); i++) {
+			out.writeInt(i * 50);
+			out.writeInt(packets.get(i).length);
+			out.write(packets.get(i));
+		}
+		QuickIndex.Builder builder = new QuickIndex.Builder();
+		PacketFile file = PacketFile.unpack(new java.io.ByteArrayInputStream(stream.toByteArray()), builder::packet);
+		try {
+			QuickIndex index = builder.build();
+			QuickIndex.ChunkLog log = index.chunks.get(QuickIndex.chunkKey(2, -1));
+			assertEquals(3, log.count);
+			assertEquals(-1, log.loadedAt(0));
+			assertEquals(0, log.loadedAt(1));
+			assertEquals(0, log.loadedAt(4));
+			assertEquals(-1, log.loadedAt(5));
+			assertTrue(log.reloadedBetween(1, 3)); // the data packet
+			assertFalse(log.reloadedBetween(3, 5)); // only the unload
+			assertEquals(QuickIndex.ChunkLog.DATA, log.kind[1]);
+			assertArrayEquals(packets.get(2), file.readAt(log.offset[1]));
+			assertEquals(1, log.changes); // the block at 33, 64, -10 belongs to it
+		} finally {
+			file.delete();
+		}
+	}
+
+	@Test
+	void explosionsEquipmentAndRain() throws IOException {
+		List<byte[]> packets = new ArrayList<>();
+		packets.add(packet(0x18, out -> { // 0 mob 5
+			out.writeInt(5);
+			out.writeByte(54);
+			out.writeInt(0);
+			out.writeInt(0);
+			out.writeInt(0);
+			out.writeByte(0);
+			out.writeByte(0);
+			out.writeByte(127);
+		}));
+		packets.add(packet(0x05, out -> { // 1 holds a sword
+			out.writeInt(5);
+			out.writeShort(0);
+			out.writeShort(267);
+			out.writeShort(0);
+		}));
+		packets.add(packet(0x3C, out -> { // 2 explosion at -0.5 (int: 0), 70.9 (70), 3.2 (3): two blocks
+			out.writeDouble(-0.5);
+			out.writeDouble(70.9);
+			out.writeDouble(3.2);
+			out.writeFloat(4);
+			out.writeInt(2);
+			out.write(new byte[] { -1, 0, 0, 1, -2, 3 });
+		}));
+		packets.add(packet(0x46, out -> { // 3 rain starts
+			out.writeByte(1);
+			out.writeByte(0);
+		}));
+		QuickIndex index = index(packets);
+		assertEquals(0, index.valueAt(QuickIndex.position(-1, 70, 3), 3));
+		assertEquals(0, index.valueAt(QuickIndex.position(1, 68, 6), 3));
+		QuickIndex.Track mob = index.tracks[0];
+		assertEquals(-1, mob.stateAt(0, 1));
+		assertEquals(0, mob.stateAt(0, 2));
+		assertArrayEquals(packets.get(1), mob.stateBytes[0]);
+		assertArrayEquals(packet(0x05, out -> {
+			out.writeInt(5);
+			out.writeShort(0);
+			out.writeShort(-1);
+			out.writeShort(0);
+		}), mob.noState(0));
+		assertNull(index.weatherAt(3));
+		assertArrayEquals(new byte[] { 0x46, 1, 0 }, index.weatherAt(4));
+	}
 }

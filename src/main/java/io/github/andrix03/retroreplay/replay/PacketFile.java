@@ -85,7 +85,31 @@ final class PacketFile {
 		return new Reader(new DataInputStream(new BufferedInputStream(new FileInputStream(file), 1 << 16)));
 	}
 
+	private java.io.RandomAccessFile random;
+
+	/**
+	 * The packet stored at {@code offset} (its time's first byte in the file: each packet takes
+	 * 8 + length bytes), for Quick Mode rebuilding a chunk. Kept open until delete().
+	 */
+	synchronized byte[] readAt(long offset) throws IOException {
+		if (random == null) {
+			random = new java.io.RandomAccessFile(file, "r");
+		}
+		random.seek(offset + 4);
+		byte[] data = new byte[random.readInt()];
+		random.readFully(data);
+		return data;
+	}
+
 	void delete() {
+		if (random != null) {
+			try {
+				random.close();
+			} catch (IOException e) {
+				// deleted on exit then
+			}
+			random = null;
+		}
 		if (!file.delete()) {
 			file.deleteOnExit();
 		}

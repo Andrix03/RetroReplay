@@ -41,9 +41,10 @@ singleplayer runs on one (see below).
   in videos, on every version (older recordings have none).
 - Quick Mode (1.0.0 for now, on by default, Q turns it off and on): dragging the replay bar
   moves players, mobs, items and blocks live, back and forth, with no world reload; the replay
-  goes on from where the bar is let go. Like Replay Mod's it is approximate in places (held
-  items, entity data, riding, explosions, weather, chunks unloaded later); turning it off
-  rebuilds the world exactly, and videos always start from an exact world.
+  goes on from where the bar is let go. Held items, entity states, riding, rain, blown up
+  blocks and chunks unloaded since are put back too; what is left approximate is what a
+  packet does beyond setting state (sounds, particles). Turning it off rebuilds the world
+  exactly, and videos always start from an exact world.
 - Jumping back replays the recording from the start up to there, leaving out the chunk data
   and block changes of chunks unloaded again before that moment (the world is the same).
   Near the end of a 3 minute 1.0 exploration: 0.9 s instead of 1.8 s; 1.7.10 needs ~0.2 s

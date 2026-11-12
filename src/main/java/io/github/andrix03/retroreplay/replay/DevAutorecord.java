@@ -32,6 +32,8 @@ public final class DevAutorecord {
 	/** RETROREPLAY_AUTORECORD_MINE: in survival, stands still looking down for 9 s while the left button is held from outside (block cracks). */
 	private static final boolean MINE = System.getenv("RETROREPLAY_AUTORECORD_MINE") != null;
 	private static int[] mineAt;
+	/** RETROREPLAY_AUTORECORD_FAR (with GAMEMODE=1): flies straight east, so the chunks left behind unload. */
+	private static final boolean FAR = System.getenv("RETROREPLAY_AUTORECORD_FAR") != null;
 	private static final boolean VIA_MENU = System.getenv("RETROREPLAY_AUTORECORD_MENU") != null;
 	/** How long the walk lasts, in ticks (default 240 = 12 s). */
 	private static final int LENGTH_TICKS = Integer.parseInt(System.getenv().getOrDefault("RETROREPLAY_AUTORECORD_TICKS", "240"));
@@ -137,6 +139,20 @@ public final class DevAutorecord {
 			RetroReplay.LOGGER.info("Autorecord: opening the pause menu");
 			pauseStart = System.nanoTime();
 			minecraft.openScreen(new GameMenuScreen());
+			return;
+		}
+		if (FAR && ticks > 40) {
+			minecraft.player.abilities.flying = true;
+			minecraft.player.velocityX = 1.5;
+			minecraft.player.velocityY = minecraft.player.y < 100 ? 0.3 : 0;
+			minecraft.player.velocityZ = 0;
+			if (ticks >= LENGTH_TICKS) {
+				finished = true;
+				RetroReplay.LOGGER.info("Autorecord: done at " + (int) minecraft.player.x + "," + (int) minecraft.player.y + "," + (int) minecraft.player.z);
+				minecraft.world.disconnect();
+				minecraft.setWorld(null);
+				minecraft.openScreen(new TitleScreen());
+			}
 			return;
 		}
 		minecraft.player.yaw += LENGTH_TICKS > 240 ? 0.05F : 3.0F; // a long session explores: new chunks all the time

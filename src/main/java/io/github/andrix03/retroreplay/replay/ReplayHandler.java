@@ -177,7 +177,7 @@ public final class ReplayHandler {
 			return; // the release does an exact seek
 		}
 		if (overlay == null) {
-			overlay = new QuickOverlay(quick, index, this::feed);
+			overlay = new QuickOverlay(quick, index, this::feed, packets::readAt);
 			MiningCracks.clear(); // not in Quick Mode's index: the next stage written brings it back
 		}
 		overlay.showAt(fed);
