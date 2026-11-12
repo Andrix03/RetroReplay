@@ -2,6 +2,8 @@
 
 ## 0.3.0
 
+- Intel Iris Xe graphics (and drivers like it) on 1.0.0 to 1.7.10: the item in hand, dropped
+  items and the hotbar no longer turn black or invisible (this happened without the mod too).
 - Block cracks of the recording player on every version: breaking a block now shows the
   cracks in the replay and in videos. The server never sends them to the player breaking, so
   they were missing; from 1.3.2 they are recorded as the packet other players get, before

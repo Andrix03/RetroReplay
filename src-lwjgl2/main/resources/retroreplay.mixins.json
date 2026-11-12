@@ -9,6 +9,7 @@
 		"GameGuiMixin",
 		"GameMenuScreenMixin",
 		"GameRendererMixin",
+		"TesselatorMixin",
 		"MinecraftAccessor",
 		"WorldRendererAccessor",
 		"MinecraftMixin",
