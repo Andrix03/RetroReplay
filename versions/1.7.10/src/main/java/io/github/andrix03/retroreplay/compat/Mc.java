@@ -34,6 +34,8 @@ public final class Mc {
 	public static final int PACKET_ABILITIES = 0x39;
 	public static final int PACKET_CUSTOM_PAYLOAD = 0x3F;
 	public static final int PACKET_POSITION = 0x08;
+	/** Login: a second one in a replay is the next part of a connected replay (Replay Editor). */
+	public static final int PACKET_LOGIN = 0x01;
 	public static final int PACKET_GAME_STATE = 0x2B;
 	public static final int PACKET_RESPAWN = 0x07;
 

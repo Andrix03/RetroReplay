@@ -26,21 +26,21 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 
 /**
  * Replay Mod's GuiReplayViewer: the list of recordings (thumbnail, name, server, date, duration)
- * and, centered at the bottom, "Load" + "Open Replay Folder..." above "Rename", "Delete", "Cancel".
+ * and, centered at the bottom, "Load" + "Open Replay Folder..." above "Rename", "Delete", "Edit", "Cancel".
  */
 public class ReplayViewerScreen extends RetroScreen {
 
 	/** Why the last Load failed, shown under the title. */
 	private String error;
 
-	private static final int LOAD = 0, FOLDER = 1, RENAME = 2, DELETE = 3, CANCEL = 4;
+	private static final int LOAD = 0, FOLDER = 1, RENAME = 2, DELETE = 3, CANCEL = 4, EDIT = 5;
 	private static final int ENTRY_W = 300, ENTRY_H = 30, ENTRY_GAP = 4, THUMB_W = 30 * 16 / 9;
 
 	private final Screen parent;
 	private final List<Entry> entries = new ArrayList<>();
 	private int selected = -1;
 	private int scroll;
-	private ButtonWidget loadButton, renameButton, deleteButton;
+	private ButtonWidget loadButton, renameButton, deleteButton, editButton;
 
 	public ReplayViewerScreen(Screen parent) {
 		this.parent = parent;
@@ -53,10 +53,11 @@ public class ReplayViewerScreen extends RetroScreen {
 		int upperX = width / 2 - (150 + 5 + 150) / 2;
 		buttons.add(loadButton = new Button(LOAD, upperX, panelTop, 150, 20, "Load"));
 		buttons.add(new Button(FOLDER, upperX + 155, panelTop, 150, 20, "Open Replay Folder..."));
-		int lowerX = width / 2 - (73 * 3 + 5 * 2) / 2;
+		int lowerX = width / 2 - (73 * 4 + 5 * 3) / 2;
 		buttons.add(renameButton = new Button(RENAME, lowerX, panelTop + 25, 73, 20, "Rename"));
 		buttons.add(deleteButton = new Button(DELETE, lowerX + 78, panelTop + 25, 73, 20, "Delete"));
-		buttons.add(new Button(CANCEL, lowerX + 156, panelTop + 25, 73, 20, "Cancel"));
+		buttons.add(editButton = new Button(EDIT, lowerX + 156, panelTop + 25, 73, 20, "Edit"));
+		buttons.add(new Button(CANCEL, lowerX + 234, panelTop + 25, 73, 20, "Cancel"));
 		reload();
 	}
 
@@ -94,6 +95,7 @@ public class ReplayViewerScreen extends RetroScreen {
 		loadButton.active = one;
 		renameButton.active = one;
 		deleteButton.active = one;
+		editButton.active = one;
 	}
 
 	private File folder() {
@@ -124,6 +126,9 @@ public class ReplayViewerScreen extends RetroScreen {
 				break;
 			case RENAME:
 				minecraft.openScreen(new RenameReplayScreen(this, entries.get(selected).file));
+				break;
+			case EDIT:
+				minecraft.openScreen(new ReplayEditorScreen(this, entries.get(selected).file));
 				break;
 			case DELETE:
 				minecraft.openScreen(Mc.confirmScreen(this, "Are you sure you want to delete this replay?",

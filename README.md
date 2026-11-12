@@ -31,8 +31,11 @@ singleplayer runs on one (see below).
   packets are stored as VarInt id + payload, like Replay Mod),
   including your own player, with a Replay Mod style "RECORDING" indicator. The recording
   clock stops while a singleplayer game is paused.
-- Replay Viewer from the main menu (logo button): load, open folder, rename, delete; each
+- Replay Viewer from the main menu (logo button): load, open folder, rename, delete, edit; each
   replay shows its thumbnail (N in a replay takes one, stored like Replay Mod's).
+- Replay Editor (Edit): Trim keeps a part (start and end as m:ss; earlier packets are kept at
+  its start so the world is as it was), Connect appends another replay of the same version.
+  Both write a new replay next to the original.
 - In a replay: free flying camera, play/pause, speed slider, timeline (click or drag),
   "Exit Replay" in the pause menu. Keys: P pause, [ ] speed, Left/Right jump 10 s,
   T (chat key) frees the mouse for the replay bar, the mouse wheel sets the camera speed

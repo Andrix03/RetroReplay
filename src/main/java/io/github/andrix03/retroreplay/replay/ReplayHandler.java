@@ -77,6 +77,13 @@ public final class ReplayHandler {
 	private int speedStep = DEFAULT_SPEED_STEP;
 	private boolean paused;
 	private boolean positioned;
+	/** The client's "downloading terrain" screen class: open again, a new world started (a connected replay's next part). */
+	private Class<?> terrainScreen;
+	/** A later login is waiting for its position; once it came the terrain screen is closed here (the client only does it once). */
+	private boolean relogin;
+	/** Ticks left to close the terrain screen of a later login (from 1.3 it opens a tick or two later). */
+	private int closeTerrain;
+	private boolean loggedIn;
 	/** Camera x, feet y, z, yaw, pitch to restore after a seek rebuilt the world. */
 	private double[] camera;
 	private double pendingSeek = -1;
@@ -322,7 +329,9 @@ public final class ReplayHandler {
 		}
 		handler.lastNanos = System.nanoTime();
 		// without a world the client expects a screen until the login packet builds one
-		minecraft.openScreen(handler.client.terrainScreen());
+		net.minecraft.client.gui.screen.Screen terrain = handler.client.terrainScreen();
+		handler.terrainScreen = terrain.getClass();
+		minecraft.openScreen(terrain);
 	}
 
 	/**
@@ -525,6 +534,13 @@ public final class ReplayHandler {
 			RetroReplay.LOGGER.info("Fast-forwarded " + (index - before) + " packets (" + skipped + " chunk packets left out) in "
 				+ (System.nanoTime() - feedStart) / 1_000_000 + " ms");
 		}
+		if (closeTerrain > 0) {
+			closeTerrain--;
+			if (terrainScreen != null && terrainScreen.isInstance(minecraft.screen)) {
+				minecraft.openScreen(null); // the client closes it only for its first login
+				closeTerrain = 0;
+			}
+		}
 		Spectator.follow();
 
 		if (minecraft.player != null) {
@@ -613,6 +629,17 @@ public final class ReplayHandler {
 					return true;
 				}
 				positioned = true;
+				if (relogin) {
+					relogin = false;
+					closeTerrain = 100;
+				}
+				return false;
+			case Mc.PACKET_LOGIN: // a later one: the next part of a connected replay, placed like the first
+				if (loggedIn) {
+					positioned = false;
+					relogin = true;
+				}
+				loggedIn = true;
 				return false;
 			case Mc.PACKET_GAME_STATE: // game state: keep rain, drop game mode and credits
 				return data.length > 1 && (data[1] == 3 || data[1] == 4);

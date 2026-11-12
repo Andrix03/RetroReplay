@@ -36,6 +36,9 @@ public final class DevAutoplay {
 	private static boolean framed;
 	private static int shots;
 	private static boolean seeked;
+	/** RETROREPLAY_AUTOPLAY_START=ms: the replay first jumps forward there (the pictures come after it). */
+	private static final int START = Integer.parseInt(System.getenv().getOrDefault("RETROREPLAY_AUTOPLAY_START", "0"));
+	private static boolean startJumped;
 	/**
 	 * RETROREPLAY_AUTOPLAY_SCRUB: the seek back goes through Quick Mode in five steps, one a tick,
 	 * like a dragged replay bar; logs whether the world was kept and where the recorded player is.
@@ -99,7 +102,7 @@ public final class DevAutoplay {
 			next();
 		} else if (stage == 2 && waited > 1500) {
 			shot(minecraft, "viewer");
-			java.io.File latest = ReplayHandler.latestRecording();
+			java.io.File latest = edit(ReplayHandler.latestRecording());
 			RetroReplay.LOGGER.info("Autoplay: " + latest);
 			if (latest != null) {
 				ReplayHandler.open(latest);
@@ -113,6 +116,35 @@ public final class DevAutoplay {
 			shot(minecraft, "pausemenu");
 			minecraft.stop();
 			next();
+		}
+	}
+
+	/**
+	 * RETROREPLAY_AUTOPLAY_EDIT: "trim:start:end" (ms) trims the newest recording, "connect" puts the
+	 * newest after the one before it; the new replay is opened instead.
+	 */
+	private static java.io.File edit(java.io.File latest) {
+		String edit = System.getenv("RETROREPLAY_AUTOPLAY_EDIT");
+		if (edit == null || latest == null) {
+			return latest;
+		}
+		try {
+			java.io.File folder = latest.getParentFile();
+			java.io.File out = new java.io.File(folder, "autoplay_edit_" + System.currentTimeMillis() + ".mcpr");
+			if (edit.startsWith("trim:")) {
+				String[] parts = edit.split(":");
+				ReplayEditor.trim(latest, out, Integer.parseInt(parts[1]), Integer.parseInt(parts[2]));
+			} else {
+				java.io.File[] files = folder.listFiles((dir, name) -> name.endsWith(".mcpr") && !name.startsWith("autoplay_edit_"));
+				java.util.Arrays.sort(files, (x, y) -> Long.compare(y.lastModified(), x.lastModified()));
+				ReplayEditor.connect(files[1], files[0], out);
+				RetroReplay.LOGGER.info("Autoplay: connected " + files[1].getName() + " (" + ReplayEditor.duration(files[1]) + " ms) and " + files[0].getName());
+			}
+			RetroReplay.LOGGER.info("Autoplay: edited into " + out.getName() + " (" + ReplayEditor.duration(out) + " ms)");
+			return out;
+		} catch (java.io.IOException e) {
+			RetroReplay.LOGGER.error("Autoplay: edit failed", e);
+			return latest;
 		}
 	}
 
@@ -359,6 +391,12 @@ public final class DevAutoplay {
 		if (!ENABLED || stage != 3) {
 			return;
 		}
+		if (START > 0 && !startJumped) {
+			startJumped = true;
+			RetroReplay.LOGGER.info("Autoplay: jumping forward to " + START + " ms");
+			ReplayHandler.get().jumpTo(START);
+			return;
+		}
 		if (CAMERA_TEST && cameraTicks < 50) {
 			cameraTest(minecraft);
 			return;
@@ -368,7 +406,7 @@ public final class DevAutoplay {
 			framed = false;
 			shots++;
 			shot(minecraft, "replay_" + shots);
-		} else if (shots < SHOT_TIMES.length && timeMs > (shots == 2 ? Math.max(SHOT_TIMES[2], SEEK_TARGET + 3000) : SHOT_TIMES[shots])) {
+		} else if (shots < SHOT_TIMES.length && timeMs > START + (shots == 2 ? Math.max(SHOT_TIMES[2], SEEK_TARGET + 3000) : SHOT_TIMES[shots])) {
 			// the third picture 3 s after the seek target: a long seek lands well past 11 s
 			Entity recorded = findRecordedPlayer(minecraft);
 			RetroReplay.LOGGER.info("Autoplay at " + (int) timeMs + " ms: " + fed + "/" + total + " packets, world=" + (minecraft.world != null)
