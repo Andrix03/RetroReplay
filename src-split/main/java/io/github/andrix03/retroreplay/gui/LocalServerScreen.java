@@ -25,7 +25,10 @@ public class LocalServerScreen extends Screen {
 	public void init() {
 		buttons.clear();
 		if (LocalServer.state() == LocalServer.State.FAILED) {
-			buttons.add(new ButtonWidget(0, width / 2 - 100, height / 2 + 30, 200, 20, "Play without recording"));
+			// another version's world: the vanilla way would write this version's files over it
+			if (!LocalServer.isWorldRefused()) {
+				buttons.add(new ButtonWidget(0, width / 2 - 100, height / 2 + 30, 200, 20, "Play without recording"));
+			}
 			buttons.add(new ButtonWidget(1, width / 2 - 100, height / 2 + 54, 200, 20, "Back to title screen"));
 		}
 	}
@@ -61,8 +64,19 @@ public class LocalServerScreen extends Screen {
 		LocalServer.State state = LocalServer.state();
 		String dotsText = "...".substring(0, dots / 10 % 4);
 		if (state == LocalServer.State.FAILED) {
-			ReplayGui.centered("Cannot start the world for recording", width / 2, height / 2 - 30, ReplayGui.WHITE);
-			ReplayGui.centered(String.valueOf(LocalServer.error()), width / 2, height / 2 - 10, ReplayGui.LIGHT_GRAY);
+			ReplayGui.centered("Cannot start the world for recording", width / 2, height / 2 - 40, ReplayGui.WHITE);
+			// the reason, wrapped to the screen: it can be a whole sentence
+			int y = height / 2 - 24;
+			StringBuilder row = new StringBuilder();
+			for (String word : String.valueOf(LocalServer.error()).split(" ")) {
+				if (row.length() > 0 && ReplayGui.width(row + " " + word) > width - 40) {
+					ReplayGui.centered(row.toString(), width / 2, y, ReplayGui.LIGHT_GRAY);
+					y += 10;
+					row.setLength(0);
+				}
+				row.append(row.length() > 0 ? " " : "").append(word);
+			}
+			ReplayGui.centered(row.toString(), width / 2, y, ReplayGui.LIGHT_GRAY);
 		} else if (state == LocalServer.State.DOWNLOADING) {
 			ReplayGui.centered("Downloading the Minecraft server" + dotsText, width / 2, height / 2 - 20, ReplayGui.WHITE);
 			ReplayGui.centered("Only the first time, it lets singleplayer be recorded", width / 2, height / 2, ReplayGui.LIGHT_GRAY);

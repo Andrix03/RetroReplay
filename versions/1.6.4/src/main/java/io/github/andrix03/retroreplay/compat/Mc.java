@@ -109,6 +109,8 @@ public final class Mc {
 	public static final int PACKET_ABILITIES = 0xCA;
 	public static final int PACKET_CUSTOM_PAYLOAD = 0xFA;
 	public static final int PACKET_POSITION = 0x0D;
+	/** Login: a second one in a replay is the next part of a connected replay (Replay Editor). */
+	public static final int PACKET_LOGIN = 0x01;
 	public static final int PACKET_GAME_STATE = 0x46;
 	public static final int PACKET_RESPAWN = 0x09;
 
@@ -167,13 +169,54 @@ public final class Mc {
 	public static void bindGameTarget() {
 	}
 
+	/** The light-level-to-brightness table of the world shown now (null without a world). */
+	public static float[] brightnessTable() {
+		return minecraft().world == null ? null : minecraft().world.dimension.brightnessTable;
+	}
+
+	/** How far the local player's y is above its feet (its eyes before 1.8). */
+	public static double feetOffset() {
+		return minecraft().player.eyeHeight;
+	}
+
+	public static void swingArm() {
+		minecraft().player.swingArm();
+	}
+
+	/** How high the camera's eyes are above its feet. */
+	public static double eyeHeight() {
+		return minecraft().player.eyeHeight;
+	}
+
 	/** Dev self-test only: opens (or creates, seed 1234) a survival singleplayer world. */
 	public static void startSelftestWorld(String name) {
-		minecraft().startGame(name, name, new net.minecraft.world.WorldSettings(1234L, net.minecraft.world.WorldSettings.GameMode.SURVIVAL, true, false, net.minecraft.world.gen.WorldGeneratorType.DEFAULT));
+		minecraft().startGame(name, name, new net.minecraft.world.WorldSettings(1234L, net.minecraft.world.WorldSettings.GameMode.byId(Integer.parseInt(System.getenv().getOrDefault("RETROREPLAY_AUTORECORD_GAMEMODE", "0"))), true, false, net.minecraft.world.gen.WorldGeneratorType.DEFAULT));
 	}
 
 	/** Dev self-test only. */
 	public static Screen connectScreen(Screen parent, String host, int port) {
 		return new ConnectScreen(parent, Minecraft.getInstance(), host, port);
+	}
+
+	/** Block id << 4 | metadata at a position, or -1 when its chunk is not loaded (Quick Mode). */
+	public static int blockState(int x, int y, int z) {
+		net.minecraft.world.World world = minecraft().world;
+		if (world == null || !world.isChunkLoaded(x, y, z)) {
+			return -1;
+		}
+		return world.getBlock(x, y, z) << 4 | world.getBlockMetadata(x, y, z) & 15;
+	}
+
+	/** Block cracks in replays: from 1.3 the vanilla packet draws them, nothing to do here. */
+	public static void renderMiningCrack(int x, int y, int z, int stage, float tickDelta) {
+	}
+
+	/** The vanilla packet for a block's cracks (stage -1 = none), or null before 1.3 (MiningCracks writes its own). */
+	public static byte[] miningPacket(int entityId, int x, int y, int z, int stage) {
+		try {
+			return serialize(new net.minecraft.network.packet.BlockMiningProgressPacket(entityId, x, y, z, stage));
+		} catch (java.io.IOException e) {
+			throw new IllegalStateException(e); // in memory: cannot happen
+		}
 	}
 }

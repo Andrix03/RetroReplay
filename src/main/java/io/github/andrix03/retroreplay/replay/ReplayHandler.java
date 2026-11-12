@@ -7,12 +7,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
-import org.lwjgl.input.Keyboard;
-
 import io.github.andrix03.retroreplay.RetroReplay;
 import io.github.andrix03.retroreplay.compat.Mc;
+import io.github.andrix03.retroreplay.compat.Platform;
 import io.github.andrix03.retroreplay.gui.PathingOverlay;
 import io.github.andrix03.retroreplay.gui.PlayerOverviewScreen;
+import io.github.andrix03.retroreplay.gui.ReplayOverlay;
 import io.github.andrix03.retroreplay.gui.ReplayOverlayScreen;
 import io.github.andrix03.retroreplay.pathing.CameraRoll;
 import io.github.andrix03.retroreplay.pathing.PathPlayer;
@@ -48,6 +48,8 @@ public final class ReplayHandler {
 
 	private static ReplayHandler active;
 	private static boolean starting;
+	/** Between closing the old world and starting the new one: 1.13 draws a loading frame in there. */
+	private static boolean seeking;
 
 	private final File file;
 	private final int[] times;
@@ -55,6 +57,18 @@ public final class ReplayHandler {
 	private final PacketFile packets;
 	/** Chunk packets a fast-forward can leave out; shared like the packets. */
 	private final ChunkIndex chunks;
+	/** Quick Mode's index (null on versions without it); shared like the packets. */
+	private final QuickIndex quick;
+	/** Replay Mod's Quick Mode (Q): going back shows the earlier moment over the world, no reload. */
+	private static boolean quickMode = true;
+	/** An earlier moment shown while the replay bar is dragged back. */
+	private QuickOverlay overlay;
+	private boolean scrubbing;
+	/** A single quick jump: the scrub ends as soon as it was shown. */
+	private boolean commitAfterScrub;
+	private double scrubTarget;
+	/** The world was put back by Quick Mode since the last exact build: approximate in places. */
+	private boolean lossy;
 	private PacketFile.Reader reader;
 	private ReplayConnection client;
 	private int index;
@@ -63,16 +77,25 @@ public final class ReplayHandler {
 	private int speedStep = DEFAULT_SPEED_STEP;
 	private boolean paused;
 	private boolean positioned;
+	/** The client's "downloading terrain" screen class: open again, a new world started (a connected replay's next part). */
+	private Class<?> terrainScreen;
+	/** A later login is waiting for its position; once it came the terrain screen is closed here (the client only does it once). */
+	private boolean relogin;
+	/** Ticks left to close the terrain screen of a later login (from 1.3 it opens a tick or two later). */
+	private int closeTerrain;
+	private boolean loggedIn;
 	/** Camera x, feet y, z, yaw, pitch to restore after a seek rebuilt the world. */
 	private double[] camera;
 	private double pendingSeek = -1;
-	private final boolean[] keyWasDown = new boolean[256];
+	private boolean forceRebuild;
+	private final boolean[] keyWasDown = new boolean[Platform.KEY_COUNT];
 
-	private ReplayHandler(File file, int[] times, PacketFile packets, ChunkIndex chunks) {
+	private ReplayHandler(File file, int[] times, PacketFile packets, ChunkIndex chunks, QuickIndex quick) {
 		this.file = file;
 		this.times = times;
 		this.packets = packets;
 		this.chunks = chunks;
+		this.quick = quick;
 	}
 
 	public static ReplayHandler get() {
@@ -100,23 +123,168 @@ public final class ReplayHandler {
 	}
 
 	public double getTime() {
-		return timeMs;
+		return scrubbing ? scrubTarget : timeMs;
+	}
+
+	/**
+	 * Where an entity was at a replay time (x, y, z as the client keeps them, yaw, pitch), from
+	 * Quick Mode's index: the path preview draws a spectated entity's way with it. Null if unknown.
+	 */
+	public double[] entityPositionAt(int id, double replayTime) {
+		return quick == null ? null : quick.positionOf(id, packetsUpTo(replayTime));
+	}
+
+	/** Quick Mode can be used on this version. */
+	public boolean hasQuickMode() {
+		return quick != null;
+	}
+
+	public static boolean isQuickMode() {
+		return quickMode;
+	}
+
+	public void toggleQuickMode() {
+		quickMode = !quickMode;
+		ReplayOverlay.notice("Quick Mode " + (quickMode ? "on" : "off"));
+		if (!quickMode && lossy) {
+			forceExact(); // leaving Quick Mode: the world is rebuilt exactly where it is
+		}
+	}
+
+	/**
+	 * The replay bar is being dragged to {@code target}: forward the packets are played at once
+	 * (no reload), back Quick Mode shows that moment live. Without Quick Mode going back waits
+	 * for the release.
+	 */
+	public void scrubTo(double target) {
+		scrubbing = true;
+		scrubTarget = Math.max(0, Math.min(target, duration()));
+	}
+
+	/** The replay bar was let go: the replay goes on from there. */
+	public void endScrub() {
+		if (!scrubbing) {
+			return;
+		}
+		scrubbing = false;
+		if (overlay != null) {
+			commitOverlay();
+		} else if (scrubTarget < timeMs - 1) {
+			jumpTo(scrubTarget); // exact, rebuilding the world
+		} else {
+			timeMs = Math.max(timeMs, scrubTarget);
+		}
+	}
+
+	/** Called each tick while dragging: shows the moment under the mouse. */
+	private void applyScrub() {
+		double target = scrubTarget;
+		int fed = packetsUpTo(target);
+		if (fed >= index) {
+			if (overlay != null) {
+				overlay.showAt(overlay.real()); // back to the real world, then forward as usual
+				overlay = null;
+			}
+			timeMs = Math.max(timeMs, target);
+			return;
+		}
+		if (quick == null || !quickMode || !quick.sameWorld(fed, index)) {
+			return; // the release does an exact seek
+		}
+		if (overlay == null) {
+			overlay = new QuickOverlay(quick, index, this::feed, packets::readAt, this::placeEntity);
+			MiningCracks.clear(); // not in Quick Mode's index: the next stage written brings it back
+		}
+		overlay.showAt(fed);
+	}
+
+	/**
+	 * The moment shown becomes the replay's: playback goes on from its packets. Those up to the
+	 * real world are handled a second time, which is exact for positions and blocks.
+	 */
+	private void commitOverlay() {
+		int fed = overlay.shown();
+		overlay = null;
+		lossy = true;
+		closeReader();
+		try {
+			reader = packets.reader();
+			for (int i = 0; i < fed; i++) {
+				reader.skip();
+			}
+		} catch (IOException e) {
+			RetroReplay.LOGGER.error("Cannot read " + file.getName() + " for Quick Mode, rebuilding the world", e);
+			index = 0;
+			forceExact();
+			return;
+		}
+		index = fed;
+		timeMs = scrubTarget;
+	}
+
+	/** Rebuilds the world exactly at the present time (after Quick Mode, before a video). */
+	public void forceExact() {
+		lossy = false;
+		forceRebuild = true; // a seek to the present time rebuilds only with this
+		pendingSeek = timeMs;
+	}
+
+	/** True when Quick Mode changed the world since it was last built exactly. */
+	public boolean isLossy() {
+		return lossy;
+	}
+
+	/** How many packets lie at or before {@code time}. */
+	private int packetsUpTo(double time) {
+		int low = 0;
+		int high = times.length;
+		while (low < high) {
+			int mid = (low + high) >>> 1;
+			if (times[mid] <= time) {
+				low = mid + 1;
+			} else {
+				high = mid;
+			}
+		}
+		return low;
 	}
 
 	public int getDuration() {
 		return duration();
 	}
 
-	/** Jumps there at the end of this tick (going back rebuilds the world). */
+	/** Jumps there at the end of this tick, exactly (going back, or from a Quick Mode world, rebuilds it). */
 	public void jumpTo(double target) {
 		pendingSeek = Math.max(0, Math.min(target, duration()));
+		if (lossy) {
+			forceRebuild = true;
+		}
 	}
 
-	/** A playing camera path sets the replay time: forwards plays the packets, backwards seeks. */
+	/** A jump asked from the controls: with Quick Mode going back needs no reload. */
+	public void quickJumpTo(double target) {
+		if (quick != null && quickMode) {
+			scrubTo(target);
+			commitAfterScrub = true;
+		} else {
+			jumpTo(target);
+		}
+	}
+
+	/**
+	 * A playing camera path sets the replay time: forwards plays the packets, backwards goes
+	 * through Quick Mode when it is on (a video always seeks exactly).
+	 */
 	public void setTimeFromPath(double target) {
 		target = Math.max(0, Math.min(target, duration()));
-		if (target < timeMs - 1) {
-			jumpTo(target);
+		if (scrubbing && commitAfterScrub) {
+			scrubTarget = target; // a quick jump is on its way: it goes there instead
+		} else if (target < timeMs - 1) {
+			if (VideoRenderer.isRendering()) {
+				jumpTo(target);
+			} else {
+				quickJumpTo(target);
+			}
 		} else {
 			timeMs = target;
 		}
@@ -157,6 +325,7 @@ public final class ReplayHandler {
 		Minecraft minecraft = Mc.minecraft();
 		active = handler;
 		starting = true;
+		MiningCracks.clear(); // the new world has none yet
 		try {
 			handler.client = ReplayConnection.open(minecraft);
 		} catch (Exception e) {
@@ -168,7 +337,9 @@ public final class ReplayHandler {
 		}
 		handler.lastNanos = System.nanoTime();
 		// without a world the client expects a screen until the login packet builds one
-		minecraft.openScreen(handler.client.terrainScreen());
+		net.minecraft.client.gui.screen.Screen terrain = handler.client.terrainScreen();
+		handler.terrainScreen = terrain.getClass();
+		minecraft.openScreen(terrain);
 	}
 
 	/**
@@ -178,22 +349,34 @@ public final class ReplayHandler {
 	private void seek(double target) {
 		Minecraft minecraft = Mc.minecraft();
 		target = Math.max(0, Math.min(target, duration()));
-		if (target >= timeMs) {
+		if (target >= timeMs && !forceRebuild) {
 			timeMs = target;
 			return;
 		}
+		forceRebuild = false;
+		RetroReplay.LOGGER.info("Exact seek to " + (int) target + " ms: the world is rebuilt");
 		closeReader();
-		ReplayHandler fresh = new ReplayHandler(file, times, packets, chunks);
+		ReplayHandler fresh = new ReplayHandler(file, times, packets, chunks, quick);
 		fresh.speedStep = speedStep;
 		fresh.paused = paused;
 		fresh.timeMs = target;
 		if (minecraft.player != null) {
-			fresh.camera = new double[] { minecraft.player.x, minecraft.player.y - minecraft.player.eyeHeight, minecraft.player.z,
+			fresh.camera = new double[] { minecraft.player.x, minecraft.player.y - Mc.feetOffset(), minecraft.player.z,
 				minecraft.player.yaw, minecraft.player.pitch };
 		}
 		active = null;
-		minecraft.setWorld(null);
-		start(fresh);
+		seeking = true;
+		try {
+			minecraft.setWorld(null);
+			start(fresh);
+		} finally {
+			seeking = false;
+		}
+	}
+
+	/** A seek is rebuilding the world: get() is null for a moment, the replay goes on. */
+	public static boolean isSeeking() {
+		return seeking;
 	}
 
 	private int duration() {
@@ -234,7 +417,13 @@ public final class ReplayHandler {
 	private void update() {
 		Minecraft minecraft = Mc.minecraft();
 		long now = System.nanoTime();
-		if (!paused && !PathPlayer.isActive() && !VideoRenderer.isRendering()) { // a camera path sets the time itself
+		if (scrubbing) {
+			applyScrub();
+			if (commitAfterScrub || !(minecraft.screen instanceof ReplayOverlayScreen)) {
+				commitAfterScrub = false;
+				endScrub(); // a quick jump, or the bar's screen closed while dragging
+			}
+		} else if (!paused && !PathPlayer.isActive() && !VideoRenderer.isRendering()) { // a camera path sets the time itself
 			timeMs = Math.min(timeMs + (now - lastNanos) / 1_000_000.0 * speed(speedStep), duration());
 		}
 		lastNanos = now;
@@ -244,70 +433,73 @@ public final class ReplayHandler {
 			minecraft.openScreen(new ReplayOverlayScreen());
 		}
 		if (minecraft.screen == null) {
-			if (pressed(Keyboard.KEY_P)) {
+			if (pressed(Platform.KEY_P)) {
 				togglePause();
 			}
-			if (pressed(Keyboard.KEY_RBRACKET)) {
+			if (pressed(Platform.KEY_RBRACKET)) {
 				setSpeedStep(speedStep + 1);
 			}
-			if (pressed(Keyboard.KEY_LBRACKET)) {
+			if (pressed(Platform.KEY_LBRACKET)) {
 				setSpeedStep(speedStep - 1);
 			}
-			if (pressed(Keyboard.KEY_LEFT)) {
-				jumpTo(timeMs - SEEK_STEP_MS);
+			if (pressed(Platform.KEY_LEFT)) {
+				quickJumpTo(timeMs - SEEK_STEP_MS);
 			}
-			if (pressed(Keyboard.KEY_RIGHT)) {
-				jumpTo(timeMs + SEEK_STEP_MS);
+			if (pressed(Platform.KEY_RIGHT)) {
+				quickJumpTo(timeMs + SEEK_STEP_MS);
 			}
 			// Replay Mod's pathing keys
-			if (pressed(Keyboard.KEY_I)) {
+			if (pressed(Platform.KEY_I)) {
 				PathingOverlay.togglePositionKeyframe();
 			}
-			if (pressed(Keyboard.KEY_O)) {
+			if (pressed(Platform.KEY_O)) {
 				PathingOverlay.toggleTimeKeyframe();
 			}
-			if (pressed(Keyboard.KEY_DELETE)) {
+			if (pressed(Platform.KEY_DELETE)) {
 				PathingOverlay.removeSelected();
 			}
-			if (pressed(Keyboard.KEY_C)) {
+			if (pressed(Platform.KEY_C)) {
 				PathingOverlay.clearKeyframes();
 			}
-			if (pressed(Keyboard.KEY_H)) {
+			if (pressed(Platform.KEY_H)) {
 				PathPreview.toggle();
 			}
 			if (!PathPlayer.isActive() && !Spectator.isSpectating()) {
 				// Replay Mod's roll keys: J / L while held, K back to level
-				CameraRoll.turn((Keyboard.isKeyDown(Keyboard.KEY_L) ? 1 : 0) - (Keyboard.isKeyDown(Keyboard.KEY_J) ? 1 : 0));
-				if (pressed(Keyboard.KEY_K)) {
+				CameraRoll.turn((Platform.isKeyDown(Platform.KEY_L) ? 1 : 0) - (Platform.isKeyDown(Platform.KEY_J) ? 1 : 0));
+				if (pressed(Platform.KEY_K)) {
 					CameraRoll.reset();
 				}
 			}
-			if (pressed(Keyboard.KEY_X)) {
+			if (pressed(Platform.KEY_X)) {
 				PathingOverlay.openRepository();
 			}
-			if (pressed(Keyboard.KEY_V)) {
+			if (pressed(Platform.KEY_V)) {
 				PathingOverlay.syncTimeline();
 			}
-			if (pressed(Keyboard.KEY_M)) {
+			if (pressed(Platform.KEY_M)) {
 				PathingOverlay.addMarker();
 			}
-			if (pressed(Keyboard.KEY_N)) {
+			if (pressed(Platform.KEY_Q) && quick != null) {
+				toggleQuickMode();
+			}
+			if (pressed(Platform.KEY_N)) {
 				Thumbnail.request(); // Replay Mod's thumbnail key
 			}
-			if (pressed(Keyboard.KEY_B)) {
+			if (pressed(Platform.KEY_B)) {
 				minecraft.openScreen(new PlayerOverviewScreen());
 			}
-			if (pressed(Keyboard.KEY_LSHIFT) && Spectator.isSpectating() && !PathPlayer.isActive()) {
+			if (pressed(Platform.KEY_LSHIFT) && Spectator.isSpectating() && !PathPlayer.isActive()) {
 				Spectator.stop(); // like Replay Mod: sneak to leave spectating
 			}
-			boolean ctrl = Keyboard.isKeyDown(Keyboard.KEY_LCONTROL) || Keyboard.isKeyDown(Keyboard.KEY_RCONTROL);
-			boolean z = pressed(Keyboard.KEY_Z);
+			boolean ctrl = Platform.isKeyDown(Platform.KEY_LCONTROL) || Platform.isKeyDown(Platform.KEY_RCONTROL);
+			boolean z = pressed(Platform.KEY_Z);
 			if (z && ctrl) {
 				PathingOverlay.undo(false);
 			} else if (z) {
 				CameraControls.toggleAmbient(); // Replay Mod's ambient lighting key
 			}
-			if (pressed(Keyboard.KEY_Y) && ctrl) {
+			if (pressed(Platform.KEY_Y) && ctrl) {
 				PathingOverlay.undo(true);
 			}
 		}
@@ -325,6 +517,9 @@ public final class ReplayHandler {
 		while (index < target) {
 			if (!DevAutoplay.NO_CHUNK_SKIP && chunks.skippable(index, target)) {
 				// chunk data unloaded again before this tick's last packet: the world there is the same without it
+				if (quick != null) {
+					readOldBlocks();
+				}
 				if (!skipPacket()) {
 					break;
 				}
@@ -336,6 +531,9 @@ public final class ReplayHandler {
 			if (packet == null) {
 				break;
 			}
+			if (quick != null) {
+				readOldBlocks();
+			}
 			index++;
 			feed(packet);
 		}
@@ -343,6 +541,13 @@ public final class ReplayHandler {
 			// a seek's fast-forward (measured: ~15 us a packet handled, chunk data the most)
 			RetroReplay.LOGGER.info("Fast-forwarded " + (index - before) + " packets (" + skipped + " chunk packets left out) in "
 				+ (System.nanoTime() - feedStart) / 1_000_000 + " ms");
+		}
+		if (closeTerrain > 0) {
+			closeTerrain--;
+			if (terrainScreen != null && terrainScreen.isInstance(minecraft.screen)) {
+				minecraft.openScreen(null); // the client closes it only for its first login
+				closeTerrain = 0;
+			}
 		}
 		Spectator.follow();
 
@@ -364,6 +569,43 @@ public final class ReplayHandler {
 		return active == null ? -1 : active.timeMs;
 	}
 
+	/** Quick Mode: an entity put where a teleport ends, at once (x, y, z, yaw, pitch). */
+	private void placeEntity(int id, double[] where) {
+		Minecraft minecraft = Mc.minecraft();
+		client.flush(); // from 1.3 the teleport waits in a queue: handled first, or it would win
+		if (minecraft.world == null) {
+			return;
+		}
+		for (Object object : minecraft.world.entities) {
+			net.minecraft.entity.Entity entity = (net.minecraft.entity.Entity) object;
+			if (Mc.entityId(entity) == id) {
+				entity.setPosition(where[0], where[1], where[2]);
+				entity.prevX = entity.lastX = where[0];
+				entity.prevY = entity.lastY = where[1];
+				entity.prevZ = entity.lastZ = where[2];
+				entity.yaw = (float) where[3];
+				entity.pitch = (float) where[4];
+				return;
+			}
+		}
+	}
+
+	/**
+	 * Quick Mode: the blocks the next packet changes, read before it is handled. From 1.3 the
+	 * packets before it wait in a queue (their chunk may be in there): handled first.
+	 */
+	private void readOldBlocks() {
+		if (quick.changesBlocks(index)) {
+			client.flush();
+			quick.beforePacket(index, Mc::blockState);
+		}
+	}
+
+	/** Self-tests: a packet handled as if it came from the recording. */
+	void feedForTest(byte[] data) {
+		feed(data);
+	}
+
 	private void feed(byte[] data) {
 		int id = data[0] & 0xFF;
 		if (drop(id, data)) {
@@ -383,16 +625,29 @@ public final class ReplayHandler {
 
 	private boolean drop(int id, byte[] data) {
 		switch (id) {
+			case Mc.PACKET_CUSTOM_PAYLOAD: // custom payload: ours shows the recording player's block cracks;
+				MiningCracks.read(data); // mod handshakes and trade/book screens have nothing to show
+				return true;
 			case Mc.PACKET_HANDSHAKE: // handshake (before 1.3): would log in to minecraft.net for online servers
 			case Mc.PACKET_HEALTH: // health: no death screen for the camera
 			case Mc.PACKET_ABILITIES: // abilities: keep the camera flying
-			case Mc.PACKET_CUSTOM_PAYLOAD: // custom payload: mod handshakes and trade/book screens, nothing to show
 				return true;
 			case Mc.PACKET_POSITION: // position: only the first one places the camera
 				if (positioned) {
 					return true;
 				}
 				positioned = true;
+				if (relogin) {
+					relogin = false;
+					closeTerrain = 100;
+				}
+				return false;
+			case Mc.PACKET_LOGIN: // a later one: the next part of a connected replay, placed like the first
+				if (loggedIn) {
+					positioned = false;
+					relogin = true;
+				}
+				loggedIn = true;
 				return false;
 			case Mc.PACKET_GAME_STATE: // game state: keep rain, drop game mode and credits
 				return data.length > 1 && (data[1] == 3 || data[1] == 4);
@@ -405,7 +660,7 @@ public final class ReplayHandler {
 	}
 
 	private boolean pressed(int key) {
-		boolean down = Keyboard.isKeyDown(key);
+		boolean down = Platform.isKeyDown(key);
 		boolean was = keyWasDown[key];
 		keyWasDown[key] = down;
 		return down && !was;
@@ -478,13 +733,19 @@ public final class ReplayHandler {
 				throw new IOException("Not a RetroReplay " + Mc.VERSION + " recording");
 			}
 			ChunkIndex.Builder chunks = new ChunkIndex.Builder(Mc.CHUNK_FORMAT);
-			PacketFile packets = PacketFile.unpack(zip.getInputStream(recording), chunks::packet);
+			QuickIndex.Builder quick = QuickIndex.supports(Mc.VERSION) ? new QuickIndex.Builder(Mc.CHUNK_FORMAT, Mc.VERSION) : null;
+			PacketFile packets = PacketFile.unpack(zip.getInputStream(recording), (i, data, length) -> {
+				chunks.packet(i, data, length);
+				if (quick != null) {
+					quick.packet(i, data, length);
+				}
+			});
 			if (packets.times().length == 0) {
 				// without even the login packet the world never loads: the terrain screen would stay forever
 				packets.delete();
 				throw new IOException("This replay is empty");
 			}
-			return new ReplayHandler(file, packets.times(), packets, chunks.build());
+			return new ReplayHandler(file, packets.times(), packets, chunks.build(), quick == null ? null : quick.build());
 		}
 	}
 

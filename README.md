@@ -6,7 +6,7 @@ Ornithe (Fabric Loader + Mixin for old versions).
 
 ## Versions
 
-1.0.0, 1.1, 1.2.5, 1.3.2, 1.4.7, 1.5.2, 1.6.4, 1.7.10 (one jar per version).
+1.0.0, 1.1, 1.2.5, 1.3.2, 1.4.7, 1.5.2, 1.6.4, 1.7.10, 1.13.2 (one jar per version).
 
 ## Install
 
@@ -31,12 +31,25 @@ singleplayer runs on one (see below).
   packets are stored as VarInt id + payload, like Replay Mod),
   including your own player, with a Replay Mod style "RECORDING" indicator. The recording
   clock stops while a singleplayer game is paused.
-- Replay Viewer from the main menu (logo button): load, open folder, rename, delete; each
+- Replay Viewer from the main menu (logo button): load, open folder, rename, delete, edit; each
   replay shows its thumbnail (N in a replay takes one, stored like Replay Mod's).
-- In a replay: free flying camera, play/pause, speed slider, timeline (click to jump),
+- Replay Editor (Edit): Trim keeps a part (start and end as m:ss; earlier packets are kept at
+  its start so the world is as it was), Cut Out removes a part the same way, Split makes two
+  replays at the start time, Connect appends another replay of the same version.
+  Both write a new replay next to the original.
+- In a replay: free flying camera, play/pause, speed slider, timeline (click or drag),
   "Exit Replay" in the pause menu. Keys: P pause, [ ] speed, Left/Right jump 10 s,
   T (chat key) frees the mouse for the replay bar, the mouse wheel sets the camera speed
   (1/8x to 8x), Z turns ambient lighting on and off (caves and nights fully lit).
+- Block cracks: the cracks of the blocks you break are recorded and shown in the replay and
+  in videos, on every version (older recordings have none).
+- Quick Mode (every version, on by default, Q turns it off and on): dragging the replay bar
+  moves players, mobs, items and blocks live, back and forth, with no world reload; the replay
+  goes on from where the bar is let go. Camera paths start and play back through it too, and
+  dragging the keyframe row's cursor shows the replay moment its time keyframes give. Held items, entity states, riding, rain, blown up
+  blocks and chunks unloaded since are put back too; what is left approximate is what a
+  packet does beyond setting state (sounds, particles). Turning it off rebuilds the world
+  exactly, and videos always start from an exact world.
 - Jumping back replays the recording from the start up to there, leaving out the chunk data
   and block changes of chunks unloaded again before that moment (the world is the same).
   Near the end of a 3 minute 1.0 exploration: 0.9 s instead of 1.8 s; 1.7.10 needs ~0.2 s
@@ -58,10 +71,13 @@ singleplayer runs on one (see below).
 - Rendering: the render button renders the path frame by frame, at 1920x1080 by default
   (720p, 1440p, 4K or the window's size), with Replay Mod's presets (MP4, WebM, lossless
   MKV) through ffmpeg, or as PNG images without it. ffmpeg is found on the PATH or in
-  `.minecraft/ffmpeg/bin`; videos go to `.minecraft/replay_videos`. Esc cancels; progress is
-  shown in the window title. "Add to Queue" collects videos (each with a copy of its path),
+  `.minecraft/ffmpeg/bin`; videos go to `.minecraft/replay_videos`. Esc cancels; the window shows each
+  frame with a progress bar (frames, elapsed and remaining time), like Replay Mod's render screen. "Add to Queue" collects videos (each with a copy of its path),
   "Render Queue" renders them one after another. Like Replay Mod, the command line arguments
   of the preset can be edited, and "Render Nametags" keeps or hides the names above players.
+  "Advanced" has Replay Mod's other methods: Stereoscopic, Cubic, 360 Equirectangular (turning
+  with the camera or level), Chroma Key, High Performance, and with the OpenEXR Sequence preset
+  a Depth Map channel.
 
 ### Singleplayer before 1.3
 
@@ -88,7 +104,8 @@ Self-tests: `RETROREPLAY_AUTORECORD=1` records a short session in the world `rr_
 
 Code shared by every version is in `src/`, by 1.3 - 1.6.4 in `src-integrated/`, by the versions
 before 1.3 in `src-split/`; `versions/<version>/src/` holds only what differs (1.7.10, on
-Netty, has its own network layer there). Releases: pushing a `v<version>` tag builds every
+Netty, has its own network layer there). Keyboard, mouse, window, the screens' base class and the
+version-sensitive mixins are in `src-lwjgl2/` for 1.0 - 1.7.10; 1.13.2 (LWJGL 3) has its own in its folder. Releases: pushing a `v<version>` tag builds every
 jar and publishes them on GitHub (`.github/workflows/release.yml`, notes from `CHANGELOG.md`).
 
 ## License and credits

@@ -31,6 +31,8 @@ public final class PauseAgent {
 
 	public static final String PAUSE = "retroreplay pause";
 	public static final String RESUME = "retroreplay resume";
+	/** "retroreplay difficulty N worldsField difficultyField": the obfuscated names come from the client. */
+	public static final String DIFFICULTY = "retroreplay difficulty ";
 
 	private static final String TARGET = "net/minecraft/server/MinecraftServer";
 	private static final String CLOCK = "io/github/andrix03/retroreplay/agent/PauseClock";
@@ -70,6 +72,8 @@ public final class PauseAgent {
 						PauseClock.setPaused(true);
 					} else if (line.equals(RESUME)) {
 						PauseClock.setPaused(false);
+					} else if (line.startsWith(DIFFICULTY)) {
+						setDifficulty(line.substring(DIFFICULTY.length()).split(" "));
 					} else {
 						PauseClock.setPaused(false);
 						write(toServer, line + "\n");
@@ -88,6 +92,69 @@ public final class PauseAgent {
 		}, "RetroReplay console filter");
 		reader.setDaemon(true);
 		reader.start();
+	}
+
+	/**
+	 * These servers read the difficulty from server.properties only when they start (no command
+	 * for it): the client's change is set on every world directly. The server is found through
+	 * the thread running it, its fields by the names the client knows for this version.
+	 */
+	private static void setDifficulty(String[] args) {
+		java.util.logging.Logger log = java.util.logging.Logger.getLogger("Minecraft");
+		try {
+			int difficulty = Integer.parseInt(args[0]);
+			Object server = findServer();
+			if (server == null) {
+				log.warning("[RetroReplay] No server found to set the difficulty on");
+				return;
+			}
+			Object[] worlds = (Object[]) field(server.getClass(), args[1]).get(server);
+			for (Object world : worlds) {
+				if (world != null) {
+					java.lang.reflect.Field field = field(world.getClass(), args[2]);
+					int old = field.getInt(world);
+					field.setInt(world, difficulty);
+					log.info("[RetroReplay] Difficulty " + old + " -> " + difficulty);
+				}
+			}
+		} catch (ReflectiveOperationException | RuntimeException e) {
+			log.warning("[RetroReplay] Cannot set the difficulty: " + e);
+		}
+	}
+
+	private static Object findServer() throws IllegalAccessException {
+		for (Thread thread : Thread.getAllStackTraces().keySet()) {
+			for (Class<?> type = thread.getClass(); type != null; type = type.getSuperclass()) {
+				for (java.lang.reflect.Field field : type.getDeclaredFields()) {
+					if (field.getType().isPrimitive() || java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
+						continue;
+					}
+					try {
+						field.setAccessible(true);
+					} catch (RuntimeException e) {
+						continue; // a module that does not open it (not on the Java 8 these servers run on)
+					}
+					Object value = field.get(thread);
+					if (value != null && value.getClass().getName().equals(TARGET.replace('/', '.'))) {
+						return value;
+					}
+				}
+			}
+		}
+		return null;
+	}
+
+	private static java.lang.reflect.Field field(Class<?> type, String name) throws NoSuchFieldException {
+		for (Class<?> at = type; at != null; at = at.getSuperclass()) {
+			try {
+				java.lang.reflect.Field field = at.getDeclaredField(name);
+				field.setAccessible(true);
+				return field;
+			} catch (NoSuchFieldException e) {
+				// up the hierarchy
+			}
+		}
+		throw new NoSuchFieldException(name + " in " + type.getName());
 	}
 
 	private static void write(OutputStream out, String text) throws IOException {

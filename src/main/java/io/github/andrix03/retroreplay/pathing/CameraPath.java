@@ -46,8 +46,11 @@ public final class CameraPath {
 
 	private final TreeMap<Long, Position> positions = new TreeMap<>();
 	private final TreeMap<Long, Integer> times = new TreeMap<>();
-	private Spline[] splines;
+	/** Per interpolation type (its ordinal): the six position splines, built when first needed. */
+	private Spline[][] splines;
 	private Interpolation interpolation = Interpolation.CATMULL_ROM;
+	/** Replay Mod's per-segment interpolators: from a position keyframe to the next, else the path's. */
+	private final TreeMap<Long, Interpolation> segments = new TreeMap<>();
 
 	/** Replay Mod's interpolator types for the position path (time keyframes are always linear). */
 	public enum Interpolation {
@@ -69,6 +72,31 @@ public final class CameraPath {
 		splines = null;
 	}
 
+	/** The segment from this position keyframe to the next: its own interpolation, or null for the path's. */
+	public Interpolation segmentInterpolation(long keyframe) {
+		return segments.get(keyframe);
+	}
+
+	public void setSegmentInterpolation(long keyframe, Interpolation type) {
+		if (type == null) {
+			segments.remove(keyframe);
+		} else {
+			segments.put(keyframe, type);
+		}
+	}
+
+	public NavigableMap<Long, Interpolation> segments() {
+		return java.util.Collections.unmodifiableNavigableMap(segments);
+	}
+
+	/** Moves a position keyframe (dragging, the editor) with its segment's interpolation. */
+	public void movePosition(long from, long to, Position position) {
+		Interpolation segment = segments.get(from);
+		removePosition(from);
+		putPosition(to, position);
+		setSegmentInterpolation(to, segment);
+	}
+
 	public NavigableMap<Long, Position> positions() {
 		return java.util.Collections.unmodifiableNavigableMap(positions);
 	}
@@ -84,6 +112,7 @@ public final class CameraPath {
 
 	public void removePosition(long time) {
 		positions.remove(time);
+		segments.remove(time);
 		splines = null;
 	}
 
@@ -152,7 +181,15 @@ public final class CameraPath {
 		if (positions.size() == 1) {
 			return positions.firstEntry().getValue();
 		}
+		Long segment = positions.floorKey(time);
+		Interpolation type = segment == null ? null : segments.get(segment);
+		if (type == null) {
+			type = interpolation;
+		}
 		if (splines == null) {
+			splines = new Spline[Interpolation.values().length][];
+		}
+		if (splines[type.ordinal()] == null) {
 			long[] keys = new long[positions.size()];
 			double[][] parts = new double[6][positions.size()];
 			int i = 0;
@@ -167,16 +204,19 @@ public final class CameraPath {
 				parts[5][i] = p.roll;
 				i++;
 			}
-			splines = new Spline[6];
+			Spline[] set = new Spline[6];
 			for (int part = 0; part < 6; part++) {
 				double bound = part < 3 ? Double.NaN : 360;
-				splines[part] = interpolation == Interpolation.CUBIC ? Spline.cubic(keys, parts[part], bound)
-					: interpolation == Interpolation.LINEAR ? Spline.linear(keys, parts[part], bound)
+				set[part] = type == Interpolation.CUBIC ? Spline.cubic(keys, parts[part], bound)
+					: type == Interpolation.LINEAR ? Spline.linear(keys, parts[part], bound)
 					: Spline.catmullRom(keys, parts[part], ALPHA, bound);
 			}
+			splines[type.ordinal()] = set;
 		}
-		return new Position(splines[0].valueAt(time), splines[1].valueAt(time), splines[2].valueAt(time),
-			(float) splines[3].valueAt(time), (float) splines[4].valueAt(time), (float) splines[5].valueAt(time));
+		// every type passes through every keyframe: changing type at one keeps the path whole
+		Spline[] set = splines[type.ordinal()];
+		return new Position(set[0].valueAt(time), set[1].valueAt(time), set[2].valueAt(time),
+			(float) set[3].valueAt(time), (float) set[4].valueAt(time), (float) set[5].valueAt(time));
 	}
 
 	/**

@@ -6,14 +6,13 @@ import java.nio.ByteBuffer;
 import java.util.List;
 
 import org.lwjgl.BufferUtils;
-import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 
 import io.github.andrix03.retroreplay.RetroReplay;
 import io.github.andrix03.retroreplay.compat.Mc;
+import io.github.andrix03.retroreplay.compat.Platform;
 import io.github.andrix03.retroreplay.gui.RenderingScreen;
-import io.github.andrix03.retroreplay.mixin.WorldRendererAccessor;
 import io.github.andrix03.retroreplay.pathing.CameraPath;
 import io.github.andrix03.retroreplay.pathing.PathPlayer;
 import io.github.andrix03.retroreplay.pathing.PathingState;
@@ -120,20 +119,43 @@ public final class VideoRenderer {
 			}
 		}
 		// a chosen size renders off screen; 0 (or no framebuffer support) means the window's size
-		int width = settings.width > 0 ? settings.width : minecraft.width;
-		int height = settings.height > 0 ? settings.height : minecraft.height;
+		int width = settings.width > 0 ? settings.width : Platform.width();
+		int height = settings.height > 0 ? settings.height : Platform.height();
+		// the render mode draws the world in pieces (eyes, cube faces) of this size, then puts them together
+		RenderSettings.Mode mode = settings.mode;
+		int drawWidth = width;
+		int drawHeight = height;
+		if (mode == RenderSettings.Mode.STEREOSCOPIC) {
+			width &= ~1;
+			drawWidth = width / 2;
+		} else if (mode == RenderSettings.Mode.CUBIC) {
+			int size = Math.min(width / 4, height / 3) & ~1;
+			width = size * 4;
+			height = size * 3;
+			drawWidth = drawHeight = size;
+		} else if (mode == RenderSettings.Mode.EQUIRECTANGULAR) {
+			int size = width / 4 & ~1;
+			width = size * 4;
+			height = size * 2;
+			drawWidth = drawHeight = size;
+		}
 		OffscreenTarget target = null;
-		if (width != minecraft.width || height != minecraft.height) {
-			target = OffscreenTarget.create(width, height);
+		if (drawWidth != Platform.width() || drawHeight != Platform.height()) {
+			target = OffscreenTarget.create(drawWidth, drawHeight);
 			if (target == null) {
+				if (mode != RenderSettings.Mode.DEFAULT) {
+					return "This render mode needs off-screen rendering, which this graphics card cannot do at " + drawWidth + "x" + drawHeight;
+				}
 				RetroReplay.LOGGER.warn("No off-screen rendering at " + width + "x" + height + ", using the window size");
-				width = minecraft.width;
-				height = minecraft.height;
+				width = drawWidth = Platform.width();
+				height = drawHeight = Platform.height();
 			}
 		}
-		if (settings.needsEvenSize()) {
+		if (settings.needsEvenSize() && mode == RenderSettings.Mode.DEFAULT) {
 			width &= ~1;
 			height &= ~1;
+			drawWidth = width;
+			drawHeight = height;
 		}
 		settings.width = width;
 		settings.height = height;
@@ -144,30 +166,34 @@ public final class VideoRenderer {
 
 		PathPlayer.stop();
 		boolean hideGui = minecraft.options.hideGui;
-		String title = Display.getTitle();
+		String title = Platform.getTitle();
 		rendering = true;
 		cancelled = false;
 		minecraft.options.hideGui = true;
 		minecraft.openScreen(new RenderingScreen());
 		FrameWriter writer = FrameWriter.create(settings, ffmpeg);
+		RenderProgress progress = new RenderProgress(settings.output.getName());
 		boolean ok = false;
 		int frame = 0;
 		long start = path.start();
 		long end = path.end();
 		int frames = (int) ((end - start) * settings.fps / 1000) + 1;
+		RenderEffects.setChroma(settings.chromaKey);
+		boolean depth = settings.depthMap && settings.preset == RenderSettings.Preset.EXR && mode == RenderSettings.Mode.DEFAULT;
+		RenderEffects.setKeepProjection(depth);
+		Frame shot = new Frame(settings, target, drawWidth, drawHeight, width, height, depth);
 		try {
-			ByteBuffer pixels = BufferUtils.createByteBuffer(width * height * 4);
+			ByteBuffer pixels;
 			// two ticks before the first frame: sky and fog colors are only updated by ticks
 			long tick = goTo(Math.max(0, path.replayTimeAt(start) - 100));
 			// a few frames drawn and thrown away: the first ones after the world rebuilt are not clean
 			for (int i = 0; i < 5; i++) {
 				PathPlayer.applyCamera(path, start);
-				begin(target);
-				renderComplete(0);
-				end(target);
-				Display.update();
+				shot.take(0);
+				progress.showPreparing();
+				Platform.updateDisplay();
 			}
-			for (; frame < frames && !cancelled && !Display.isCloseRequested(); frame++) {
+			for (; frame < frames && !cancelled && !Platform.isCloseRequested(); frame++) {
 				long videoTime = start + frame * 1000L / settings.fps;
 				int replayTime = path.replayTimeAt(videoTime);
 				if (replayTime < ReplayHandler.get().getTime() - 50) {
@@ -182,23 +208,27 @@ public final class VideoRenderer {
 				ReplayHandler.get().setTimeFromPath(replayTime);
 				float partial = (replayTime - targetTick * 50) / 50f;
 				PathPlayer.applyCamera(path, videoTime);
-				begin(target);
-				renderComplete(partial);
-				pixels.clear();
-				GL11.glReadPixels(0, 0, width, height, GL12.GL_BGRA, GL11.GL_UNSIGNED_BYTE, pixels);
-				end(target);
+				pixels = shot.take(partial);
+				if (depth) {
+					writer.setDepth(shot.distances());
+				}
 				writer.write(pixels, width, height);
-				Display.setTitle("Rendering " + (frame + 1) + " / " + frames + " (Esc cancels)");
-				Display.update();
+				if (!settings.highPerformance || frame % 10 == 0 || frame == frames - 1) {
+					progress.show(pixels, width, height, frame + 1, frames);
+				}
+				Platform.setTitle("Rendering " + (frame + 1) + " / " + frames + " (Esc cancels)");
+				Platform.updateDisplay();
 			}
 			ok = !cancelled && frame == frames;
 		} finally {
+			RenderEffects.reset();
+			progress.delete();
 			if (target != null) {
 				target.delete();
 			}
 			boolean closed = writer.close();
 			ok &= closed;
-			Display.setTitle(title);
+			Platform.setTitle(title);
 			minecraft.options.hideGui = hideGui;
 			Spectator.clear();
 			rendering = false;
@@ -228,13 +258,147 @@ public final class VideoRenderer {
 		}
 	}
 
+	/**
+	 * One video frame in the settings' render mode: the world drawn once, or once per eye or cube
+	 * face with the camera moved or turned for each (and put back), then the pieces put together.
+	 */
+	private static final class Frame {
+		private final RenderSettings settings;
+		private final OffscreenTarget target;
+		private final int drawWidth;
+		private final int drawHeight;
+		private final ByteBuffer piece;
+		private final ByteBuffer frame;
+		private final ByteBuffer[] faces;
+		private final int[] table;
+		private final java.nio.FloatBuffer depth;
+		private float[] distances;
+
+		Frame(RenderSettings settings, OffscreenTarget target, int drawWidth, int drawHeight, int width, int height, boolean depth) {
+			this.settings = settings;
+			this.target = target;
+			this.drawWidth = drawWidth;
+			this.drawHeight = drawHeight;
+			this.piece = BufferUtils.createByteBuffer(drawWidth * drawHeight * 4);
+			boolean pieces = settings.mode != RenderSettings.Mode.DEFAULT;
+			this.frame = pieces ? BufferUtils.createByteBuffer(width * height * 4) : piece;
+			if (settings.mode.isPanoramic()) {
+				faces = new ByteBuffer[FrameComposer.FACES];
+				for (int f = 0; f < faces.length; f++) {
+					faces[f] = BufferUtils.createByteBuffer(drawWidth * drawHeight * 4);
+				}
+			} else {
+				faces = null;
+			}
+			table = settings.mode == RenderSettings.Mode.EQUIRECTANGULAR ? FrameComposer.equirectangularTable(width, height, drawWidth) : null;
+			this.depth = depth ? BufferUtils.createFloatBuffer(drawWidth * drawHeight) : null;
+		}
+
+		/** The frame with the camera where the path put it (BGRA, bottom row first). */
+		ByteBuffer take(float partial) {
+			switch (settings.mode) {
+				case STEREOSCOPIC:
+					stereo(partial);
+					return frame;
+				case CUBIC:
+				case EQUIRECTANGULAR:
+					panorama(partial);
+					return frame;
+				default:
+					draw(partial, piece);
+					return piece;
+			}
+		}
+
+		/** The depth map of the last frame drawn, in blocks from the camera. */
+		float[] distances() {
+			return distances;
+		}
+
+		private void draw(float partial, ByteBuffer into) {
+			begin(target);
+			renderComplete(partial, settings.highPerformance ? 1 : 10);
+			into.clear();
+			GL11.glReadPixels(0, 0, drawWidth, drawHeight, GL12.GL_BGRA, GL11.GL_UNSIGNED_BYTE, into);
+			if (depth != null) {
+				java.nio.FloatBuffer world = RenderEffects.depth(); // read before the game cleared it for the hand
+				float[] out = new float[drawWidth * drawHeight];
+				for (int i = 0; i < out.length; i++) {
+					out[i] = world == null || i >= world.capacity() ? 0 : RenderEffects.distance(world.get(i));
+				}
+				distances = out;
+			}
+			end(target);
+		}
+
+		/** Each eye half an eye distance to its side of the camera, looking the same way. */
+		private void stereo(float partial) {
+			net.minecraft.entity.Entity camera = Mc.minecraft().player;
+			double x = camera.x;
+			double z = camera.z;
+			double yaw = Math.toRadians(camera.yaw);
+			double rightX = -Math.cos(yaw);
+			double rightZ = -Math.sin(yaw);
+			for (int eye = 0; eye < 2; eye++) {
+				double side = (eye == 0 ? -1 : 1) * EYE_DISTANCE / 2;
+				moveCamera(camera, x + rightX * side, z + rightZ * side);
+				draw(partial, piece);
+				FrameComposer.stereo(piece, eye, drawWidth, drawHeight, frame);
+			}
+			moveCamera(camera, x, z);
+		}
+
+		/** The six cube faces at 90 degrees, level, turned with the camera's yaw unless it is stabilised. */
+		private void panorama(float partial) {
+			net.minecraft.entity.Entity camera = Mc.minecraft().player;
+			float yaw = camera.yaw;
+			float pitch = camera.pitch;
+			float roll = io.github.andrix03.retroreplay.pathing.CameraRoll.get();
+			float base = settings.followYaw ? yaw : 0;
+			RenderEffects.setFov(90);
+			io.github.andrix03.retroreplay.pathing.CameraRoll.set(0);
+			try {
+				for (int f = 0; f < FrameComposer.FACES; f++) {
+					turnCamera(camera, base + FrameComposer.FACE_YAW[f], FrameComposer.FACE_PITCH[f]);
+					draw(partial, faces[f]);
+					if (settings.mode == RenderSettings.Mode.CUBIC) {
+						FrameComposer.cross(faces[f], f, drawWidth, frame);
+					}
+				}
+				if (table != null) {
+					FrameComposer.equirectangular(faces, table, frame);
+				}
+			} finally {
+				RenderEffects.setFov(0);
+				io.github.andrix03.retroreplay.pathing.CameraRoll.set(roll);
+				turnCamera(camera, yaw, pitch);
+			}
+		}
+	}
+
+	/** Between the eyes of the stereoscopic mode, in blocks (a player is 1.8 high). */
+	private static final double EYE_DISTANCE = 0.064;
+
+	private static void moveCamera(net.minecraft.entity.Entity camera, double x, double z) {
+		camera.x = camera.prevX = camera.lastX = x;
+		camera.z = camera.prevZ = camera.lastZ = z;
+	}
+
+	private static void turnCamera(net.minecraft.entity.Entity camera, float yaw, float pitch) {
+		camera.yaw = camera.lastYaw = yaw;
+		camera.pitch = camera.lastPitch = pitch;
+	}
+
 	private static void renderComplete(float partial) {
+		renderComplete(partial, 10);
+	}
+
+	private static void renderComplete(float partial, int passes) {
 		Minecraft minecraft = Mc.minecraft();
-		List<?> dirty = ((WorldRendererAccessor) minecraft.worldRenderer).retroreplay$getDirtyChunks();
-		for (int pass = 0; pass < 10; pass++) {
+		for (int pass = 0; pass < passes; pass++) {
 			buildAll();
-			minecraft.gameRenderer.render(partial);
-			if (minecraft.world == null || dirty.isEmpty()) {
+			Platform.renderFrame(partial);
+			if (minecraft.world == null || !Platform.hasChunksToBuild()) {
 				return;
 			}
 		}
@@ -242,7 +406,7 @@ public final class VideoRenderer {
 
 	private static void buildAll() {
 		Minecraft minecraft = Mc.minecraft();
-		for (int i = 0; i < 1000 && minecraft.world != null && !minecraft.worldRenderer.compileChunks(minecraft.player, false); i++) {
+		for (int i = 0; i < 1000 && minecraft.world != null && !Platform.compileChunks(); i++) {
 			// compiles a batch per call, true once the queue is empty
 		}
 	}
@@ -251,7 +415,7 @@ public final class VideoRenderer {
 	private static long goTo(int replayTime) {
 		Minecraft minecraft = Mc.minecraft();
 		ReplayHandler replay = ReplayHandler.get();
-		if (replayTime < replay.getTime() - 50) {
+		if (replayTime < replay.getTime() - 50 || replay.isLossy()) { // a video starts from an exact world
 			replay.jumpTo(replayTime);
 			// the seek runs at the end of a tick and rebuilds the world from the start
 			for (int i = 0; i < 400 && (ReplayHandler.get() == replay || minecraft.world == null || ReplayHandler.get().getTime() < replayTime - 1); i++) {

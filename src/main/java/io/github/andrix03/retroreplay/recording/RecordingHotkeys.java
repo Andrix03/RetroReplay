@@ -1,8 +1,7 @@
 package io.github.andrix03.retroreplay.recording;
 
-import org.lwjgl.input.Keyboard;
-
 import io.github.andrix03.retroreplay.compat.Mc;
+import io.github.andrix03.retroreplay.compat.Platform;
 import io.github.andrix03.retroreplay.gui.RecordingIndicator;
 import io.github.andrix03.retroreplay.replay.ReplayHandler;
 
@@ -15,7 +14,7 @@ public final class RecordingHotkeys {
 	}
 
 	public static void tick() {
-		boolean down = Keyboard.isKeyDown(Keyboard.KEY_M);
+		boolean down = Platform.isKeyDown(Platform.KEY_M);
 		if (down && !markerKeyWasDown && Mc.minecraft().screen == null && !ReplayHandler.isActive() && Recorder.addMarker()) {
 			RecordingIndicator.markerAdded();
 		}

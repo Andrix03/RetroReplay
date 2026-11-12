@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.3.0
+
+- Path preview (H): between two spectator keyframes the camera follows an entity; its way
+  is now drawn too (in blue), at the replay moments the time keyframes give.
+- Camera paths: each segment can have its own interpolation (keyframe editor, "Next:"),
+  like Replay Mod; the path's choice stays for the others.
+- Replay Editor ("Edit" in the Replay Viewer), like Replay Mod's: Trim keeps a part of a replay
+  (what happened before it still counts: the world is as it was there), Cut Out takes a part
+  out the same way, Split makes two replays, and Connect puts another replay of the same
+  version after it. A new replay is written, the original stays; markers and
+  time keyframes move along.
+- Replay Mod's other render methods and options, on every version (Render Settings, Advanced):
+  Stereoscopic (both eyes side by side), Cubic (the six faces of a cube in a cross), 360
+  Equirectangular (for 360 video players; the cube turns with the camera or stays level and
+  facing south), Chroma Key (green, blue or magenta instead of the sky), the OpenEXR Sequence
+  preset with an optional Depth Map channel, and High Performance mode.
+- 1.0.0, 1.1, 1.2.5 singleplayer: changing the difficulty in the options while playing now
+  changes it in the world too (the hidden local server kept the one the world started with).
+- Intel Iris Xe graphics (and drivers like it) on 1.0.0 to 1.7.10: the item in hand, dropped
+  items and the hotbar no longer turn black or invisible (this happened without the mod too).
+- Block cracks of the recording player on every version: breaking a block now shows the
+  cracks in the replay and in videos. The server never sends them to the player breaking, so
+  they were missing; from 1.3.2 they are recorded as the packet other players get, before
+  1.3 (no such packet) the recording writes its own. Recordings made before this have none.
+- Quick Mode on every version (Q, on by default): the replay bar can be dragged and the
+  world follows live, going back too, with no reload. Markers, Left/Right and keyframe jumps
+  use it as well, and so do camera paths when they play; dragging the keyframe row's cursor
+  shows the moment its time keyframes give. Held items, entity states, riding, rain, blown up blocks and chunks
+  unloaded since come back too. Videos still start from an exact world.
+- Minecraft 1.13.2: recording (singleplayer and multiplayer), replay, camera paths, spectator
+  keyframes, video rendering and every 0.2.0 tool, like the other versions.
+- Render screen like Replay Mod's on every version: while a video renders, the window shows each
+  frame with a progress bar (frames, percentage, elapsed and remaining time). The video itself is
+  unchanged.
+
 ## 0.2.0
 
 More of Replay Mod's camera and render tools, on every supported version.

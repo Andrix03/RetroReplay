@@ -37,6 +37,12 @@ public final class PathStore {
 				entry.getKey(), p.x, p.y, p.z, p.yaw, p.pitch, p.roll, p.isSpectator() ? "," + p.spectated : ""));
 			first = false;
 		}
+		json.append("],\"segments\":[");
+		first = true;
+		for (Map.Entry<Long, CameraPath.Interpolation> entry : path.segments().entrySet()) {
+			json.append(first ? "" : ",").append('[').append(entry.getKey()).append(",\"").append(entry.getValue().name()).append("\"]");
+			first = false;
+		}
 		json.append("],\"times\":[");
 		first = true;
 		for (Map.Entry<Long, Integer> entry : path.times().entrySet()) {
@@ -62,6 +68,18 @@ public final class PathStore {
 				path.putPosition(Long.parseLong(v[0].trim()), new CameraPath.Position(Double.parseDouble(v[1]), Double.parseDouble(v[2]),
 					Double.parseDouble(v[3]), Float.parseFloat(v[4]), Float.parseFloat(v[5]), Float.parseFloat(v[6]),
 					v.length == 8 ? Integer.parseInt(v[7].trim()) : CameraPath.Position.NO_ENTITY));
+			}
+		}
+		rows = ROW.matcher(array(json, "segments"));
+		while (rows.find()) {
+			String[] v = rows.group(1).split(",");
+			if (v.length == 2) {
+				String name = v[1].trim().replace("\"", "");
+				for (CameraPath.Interpolation type : CameraPath.Interpolation.values()) {
+					if (type.name().equals(name)) {
+						path.setSegmentInterpolation(Long.parseLong(v[0].trim()), type);
+					}
+				}
 			}
 		}
 		rows = ROW.matcher(array(json, "times"));

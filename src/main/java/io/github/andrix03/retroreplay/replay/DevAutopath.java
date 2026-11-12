@@ -4,6 +4,7 @@ import java.io.File;
 
 import io.github.andrix03.retroreplay.RetroReplay;
 import io.github.andrix03.retroreplay.compat.Mc;
+import io.github.andrix03.retroreplay.compat.Platform;
 import io.github.andrix03.retroreplay.gui.EditKeyframeScreen;
 import io.github.andrix03.retroreplay.gui.PathingOverlay;
 import io.github.andrix03.retroreplay.gui.RenderSettingsScreen;
@@ -72,6 +73,12 @@ public final class DevAutopath {
 						state.path.putPosition(1000, Spectator.positionOf(player, spectated));
 						state.path.putPosition(3000, Spectator.positionOf(player, spectated));
 						RetroReplay.LOGGER.info("Autopath: spectator keyframes on entity " + spectated);
+						StringBuilder way = new StringBuilder();
+						for (long t = 1000; t <= 3000; t += 500) {
+							double[] at = ReplayHandler.get().entityPositionAt(spectated, state.path.replayTimeAt(t));
+							way.append(at == null ? "none" : String.format(java.util.Locale.ROOT, "%.1f,%.1f,%.1f", at[0], at[1], at[2])).append(' ');
+						}
+						RetroReplay.LOGGER.info("Autopath: spectated way for the preview: " + way);
 					}
 					state.path.putTime(0, 3000);
 					state.path.putTime(4000, 7000);
@@ -126,14 +133,9 @@ public final class DevAutopath {
 					CameraPath copy = new CameraPath();
 					state.presets.load("Autopath", copy);
 					// Copy then Paste, as the repository buttons do
-					java.awt.datatransfer.StringSelection text = new java.awt.datatransfer.StringSelection(state.presets.all().get("Autopath"));
-					java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(text, text);
-					try {
-						String back = (String) java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().getData(java.awt.datatransfer.DataFlavor.stringFlavor);
-						RetroReplay.LOGGER.info("Autopath: clipboard round trip " + (back.equals(state.presets.all().get("Autopath")) ? "ok" : "different"));
-					} catch (Exception e) {
-						RetroReplay.LOGGER.error("Autopath: clipboard failed", e);
-					}
+					Platform.setClipboard(state.presets.all().get("Autopath"));
+					String back = Platform.getClipboard();
+					RetroReplay.LOGGER.info("Autopath: clipboard round trip " + (state.presets.all().get("Autopath").equals(back) ? "ok" : "different: " + back));
 					RetroReplay.LOGGER.info("Autopath: preset holds " + copy.positions().size() + " position and " + copy.times().size() + " time keyframes");
 					stage = 3;
 					waitTicks = 0;
@@ -193,6 +195,7 @@ public final class DevAutopath {
 						settings.height = Integer.parseInt(size.split("x")[1]);
 					}
 					settings.output = renderOutput(minecraft);
+					renderExtras(settings);
 					RetroReplay.LOGGER.info("Autopath: rendering " + settings.preset.title);
 					renderStart = System.currentTimeMillis();
 					VideoRenderer.schedule(settings);
@@ -220,6 +223,9 @@ public final class DevAutopath {
 				}
 				break;
 			case 4:
+				if (minecraft.player == null) {
+					break; // a seek is rebuilding the world: the camera comes back with the login packet
+				}
 				if (!checkedMiddle && PathPlayer.time() >= 2000) {
 					checkedMiddle = true;
 					check(minecraft, "middle", PathPlayer.time());
@@ -270,6 +276,8 @@ public final class DevAutopath {
 				return RenderSettings.Preset.WEBM_CUSTOM;
 			case "mkv":
 				return RenderSettings.Preset.MKV_LOSSLESS;
+			case "exr":
+				return RenderSettings.Preset.EXR;
 			default:
 				return RenderSettings.Preset.PNG;
 		}
@@ -279,7 +287,26 @@ public final class DevAutopath {
 		RenderSettings.Preset preset = renderPreset();
 		String name = "autorender_" + RENDER;
 		File folder = new File(minecraft.gameDir, "replay_videos");
-		return preset == RenderSettings.Preset.PNG ? new File(folder, name) : new File(folder, name + "." + preset.extension);
+		String mode = System.getenv("RETROREPLAY_AUTORENDER_MODE");
+		if (mode != null) {
+			name += "_" + mode;
+		}
+		return preset.isSequence() ? new File(folder, name) : new File(folder, name + "." + preset.extension);
+	}
+
+	/**
+	 * RETROREPLAY_AUTORENDER_MODE (stereo, cubic, equirect, equirect-still), _CHROMA (green),
+	 * _DEPTH (with exr) and _FAST (high performance) on top of the preset.
+	 */
+	private static void renderExtras(RenderSettings settings) {
+		String mode = System.getenv().getOrDefault("RETROREPLAY_AUTORENDER_MODE", "");
+		settings.mode = mode.equals("stereo") ? RenderSettings.Mode.STEREOSCOPIC
+			: mode.equals("cubic") ? RenderSettings.Mode.CUBIC
+			: mode.startsWith("equirect") ? RenderSettings.Mode.EQUIRECTANGULAR : RenderSettings.Mode.DEFAULT;
+		settings.followYaw = !mode.equals("equirect-still");
+		settings.chromaKey = System.getenv("RETROREPLAY_AUTORENDER_CHROMA") != null ? 0x00FF00 : -1;
+		settings.depthMap = System.getenv("RETROREPLAY_AUTORENDER_DEPTH") != null;
+		settings.highPerformance = System.getenv("RETROREPLAY_AUTORENDER_FAST") != null;
 	}
 
 	private static void next() {

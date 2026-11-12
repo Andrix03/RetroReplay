@@ -12,11 +12,11 @@ import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
-import org.lwjgl.Sys;
-import org.lwjgl.input.Mouse;
-
 import io.github.andrix03.retroreplay.RetroReplay;
+import io.github.andrix03.retroreplay.compat.Button;
 import io.github.andrix03.retroreplay.compat.Mc;
+import io.github.andrix03.retroreplay.compat.Platform;
+import io.github.andrix03.retroreplay.compat.RetroScreen;
 import io.github.andrix03.retroreplay.recording.Recorder;
 import io.github.andrix03.retroreplay.replay.ReplayHandler;
 import io.github.andrix03.retroreplay.replay.Thumbnail;
@@ -26,21 +26,21 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 
 /**
  * Replay Mod's GuiReplayViewer: the list of recordings (thumbnail, name, server, date, duration)
- * and, centered at the bottom, "Load" + "Open Replay Folder..." above "Rename", "Delete", "Cancel".
+ * and, centered at the bottom, "Load" + "Open Replay Folder..." above "Rename", "Delete", "Edit", "Cancel".
  */
-public class ReplayViewerScreen extends Screen {
+public class ReplayViewerScreen extends RetroScreen {
 
 	/** Why the last Load failed, shown under the title. */
 	private String error;
 
-	private static final int LOAD = 0, FOLDER = 1, RENAME = 2, DELETE = 3, CANCEL = 4;
+	private static final int LOAD = 0, FOLDER = 1, RENAME = 2, DELETE = 3, CANCEL = 4, EDIT = 5;
 	private static final int ENTRY_W = 300, ENTRY_H = 30, ENTRY_GAP = 4, THUMB_W = 30 * 16 / 9;
 
 	private final Screen parent;
 	private final List<Entry> entries = new ArrayList<>();
 	private int selected = -1;
 	private int scroll;
-	private ButtonWidget loadButton, renameButton, deleteButton;
+	private ButtonWidget loadButton, renameButton, deleteButton, editButton;
 
 	public ReplayViewerScreen(Screen parent) {
 		this.parent = parent;
@@ -51,12 +51,13 @@ public class ReplayViewerScreen extends Screen {
 		buttons.clear();
 		int panelTop = height - 10 - 45;
 		int upperX = width / 2 - (150 + 5 + 150) / 2;
-		buttons.add(loadButton = new ButtonWidget(LOAD, upperX, panelTop, 150, 20, "Load"));
-		buttons.add(new ButtonWidget(FOLDER, upperX + 155, panelTop, 150, 20, "Open Replay Folder..."));
-		int lowerX = width / 2 - (73 * 3 + 5 * 2) / 2;
-		buttons.add(renameButton = new ButtonWidget(RENAME, lowerX, panelTop + 25, 73, 20, "Rename"));
-		buttons.add(deleteButton = new ButtonWidget(DELETE, lowerX + 78, panelTop + 25, 73, 20, "Delete"));
-		buttons.add(new ButtonWidget(CANCEL, lowerX + 156, panelTop + 25, 73, 20, "Cancel"));
+		buttons.add(loadButton = new Button(LOAD, upperX, panelTop, 150, 20, "Load"));
+		buttons.add(new Button(FOLDER, upperX + 155, panelTop, 150, 20, "Open Replay Folder..."));
+		int lowerX = width / 2 - (73 * 4 + 5 * 3) / 2;
+		buttons.add(renameButton = new Button(RENAME, lowerX, panelTop + 25, 73, 20, "Rename"));
+		buttons.add(deleteButton = new Button(DELETE, lowerX + 78, panelTop + 25, 73, 20, "Delete"));
+		buttons.add(editButton = new Button(EDIT, lowerX + 156, panelTop + 25, 73, 20, "Edit"));
+		buttons.add(new Button(CANCEL, lowerX + 234, panelTop + 25, 73, 20, "Cancel"));
 		reload();
 	}
 
@@ -94,6 +95,7 @@ public class ReplayViewerScreen extends Screen {
 		loadButton.active = one;
 		renameButton.active = one;
 		deleteButton.active = one;
+		editButton.active = one;
 	}
 
 	private File folder() {
@@ -120,10 +122,13 @@ public class ReplayViewerScreen extends Screen {
 				error = ReplayHandler.open(entries.get(selected).file);
 				break;
 			case FOLDER:
-				Sys.openURL("file://" + folder().getAbsolutePath());
+				Platform.openFolder(folder());
 				break;
 			case RENAME:
 				minecraft.openScreen(new RenameReplayScreen(this, entries.get(selected).file));
+				break;
+			case EDIT:
+				minecraft.openScreen(new ReplayEditorScreen(this, entries.get(selected).file));
 				break;
 			case DELETE:
 				minecraft.openScreen(Mc.confirmScreen(this, "Are you sure you want to delete this replay?",
@@ -171,7 +176,7 @@ public class ReplayViewerScreen extends Screen {
 	@Override
 	public void handleMouse() {
 		super.handleMouse();
-		int wheel = Mouse.getEventDWheel();
+		int wheel = Platform.eventWheel();
 		if (wheel != 0) {
 			int max = Math.max(0, entries.size() * (ENTRY_H + ENTRY_GAP) - (listBottom() - listTop()));
 			scroll = Math.max(0, Math.min(max, scroll - Integer.signum(wheel) * (ENTRY_H + ENTRY_GAP)));
@@ -222,8 +227,8 @@ public class ReplayViewerScreen extends Screen {
 
 	/** GL scissor in GUI coordinates (scaled, top-left origin). */
 	private void scissor(int x, int y, int w, int h) {
-		int scale = minecraft.width / width;
-		org.lwjgl.opengl.GL11.glScissor(x * scale, minecraft.height - (y + h) * scale, w * scale, h * scale);
+		int scale = Platform.width() / width;
+		org.lwjgl.opengl.GL11.glScissor(x * scale, Platform.height() - (y + h) * scale, w * scale, h * scale);
 	}
 
 	private static final class Entry {

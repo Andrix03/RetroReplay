@@ -1,20 +1,19 @@
 package io.github.andrix03.retroreplay.gui;
 
-import org.lwjgl.input.Keyboard;
-
-import io.github.andrix03.retroreplay.compat.Mc;
+import io.github.andrix03.retroreplay.compat.Button;
 import io.github.andrix03.retroreplay.compat.NoPauseScreen;
+import io.github.andrix03.retroreplay.compat.Platform;
+import io.github.andrix03.retroreplay.compat.TextField;
 import io.github.andrix03.retroreplay.pathing.PathingState;
 
 import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
 
 /** Replay Mod's GuiEditMarkerPopup (double click on a marker): its name, Save / Delete / Cancel. */
 public class EditMarkerScreen extends NoPauseScreen {
 
 	private final PathingState state;
 	private final int time;
-	private TextFieldWidget nameField;
+	private TextField nameField;
 
 	public EditMarkerScreen(PathingState state, int time) {
 		this.state = state;
@@ -23,20 +22,20 @@ public class EditMarkerScreen extends NoPauseScreen {
 
 	@Override
 	public void init() {
-		Keyboard.enableRepeatEvents(true);
+		Platform.enableRepeatEvents(true);
 		buttons.clear();
-		nameField = Mc.textField(this, width / 2 - 100, height / 2 - 10, 200, 20);
+		nameField = TextField.create(this, width / 2 - 100, height / 2 - 10, 200, 20);
 		String name = state.markers.all().get(time);
 		nameField.setText(name == null ? "" : name);
 		nameField.setFocused(true);
-		buttons.add(new ButtonWidget(0, width / 2 - 100, height / 2 + 20, 64, 20, "Save"));
-		buttons.add(new ButtonWidget(1, width / 2 - 32, height / 2 + 20, 64, 20, "Delete"));
-		buttons.add(new ButtonWidget(2, width / 2 + 36, height / 2 + 20, 64, 20, "Cancel"));
+		buttons.add(new Button(0, width / 2 - 100, height / 2 + 20, 64, 20, "Save"));
+		buttons.add(new Button(1, width / 2 - 32, height / 2 + 20, 64, 20, "Delete"));
+		buttons.add(new Button(2, width / 2 + 36, height / 2 + 20, 64, 20, "Cancel"));
 	}
 
 	@Override
 	public void removed() {
-		Keyboard.enableRepeatEvents(false);
+		Platform.enableRepeatEvents(false);
 	}
 
 	@Override
@@ -53,9 +52,9 @@ public class EditMarkerScreen extends NoPauseScreen {
 	@Override
 	protected void keyPressed(char chr, int key) {
 		nameField.keyPressed(chr, key);
-		if (key == Keyboard.KEY_ESCAPE) {
+		if (key == Platform.KEY_ESCAPE) {
 			minecraft.openScreen(new ReplayOverlayScreen());
-		} else if (key == Keyboard.KEY_RETURN) {
+		} else if (key == Platform.KEY_RETURN) {
 			buttonClicked((ButtonWidget) buttons.get(0));
 		}
 	}

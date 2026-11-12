@@ -1,5 +1,8 @@
 package io.github.andrix03.retroreplay.recording;
 
+import io.github.andrix03.retroreplay.compat.Mc;
+import io.github.andrix03.retroreplay.mixin.ClientPlayerInteractionManagerAccessor;
+import io.github.andrix03.retroreplay.replay.MiningCracks;
 import io.github.andrix03.retroreplay.mixin.MinecraftAccessor;
 
 import net.minecraft.client.Minecraft;
@@ -61,6 +64,7 @@ public final class LocalPlayerRecorder {
 	private static void record(LocalClientPlayerEntity player) {
 		if (player != spawned) {
 			spawned = player;
+			MiningCracks.resetRecording();
 			Recorder.record(new AddPlayerPacket(player));
 			EntityTeleportPacket teleport = new EntityTeleportPacket(player);
 			lastX = teleport.x;
@@ -109,6 +113,13 @@ public final class LocalPlayerRecorder {
 		if (flags != lastFlags) {
 			Recorder.record(new EntityDataPacket(player.networkId, player.getSyncedData(), true));
 			lastFlags = flags;
+		}
+
+		// block cracks: the server sends them to the other clients only, never to the one breaking
+		ClientPlayerInteractionManagerAccessor mining = (ClientPlayerInteractionManagerAccessor) Minecraft.getInstance().interactionManager;
+		if (mining != null) {
+			MiningCracks.recordTick(Mc.entityId(player), mining.retroreplay$isMining(), mining.retroreplay$getTargetX(), mining.retroreplay$getTargetY(),
+				mining.retroreplay$getTargetZ(), mining.retroreplay$getProgress());
 		}
 
 		// hurt flash and death animation, as the server reports them for other players

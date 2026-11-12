@@ -9,7 +9,8 @@
 		"ConnectionMixin",
 		"PacketDecoderMixin",
 		"PacketMixin",
-		"WorldCloseMixin"
+		"WorldCloseMixin",
+		"ClientPlayerInteractionManagerAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1

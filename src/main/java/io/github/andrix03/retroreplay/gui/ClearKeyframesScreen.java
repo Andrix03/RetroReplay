@@ -1,8 +1,8 @@
 package io.github.andrix03.retroreplay.gui;
 
-import org.lwjgl.input.Keyboard;
-
+import io.github.andrix03.retroreplay.compat.Button;
 import io.github.andrix03.retroreplay.compat.NoPauseScreen;
+import io.github.andrix03.retroreplay.compat.Platform;
 
 import net.minecraft.client.gui.widget.ButtonWidget;
 
@@ -12,8 +12,8 @@ public class ClearKeyframesScreen extends NoPauseScreen {
 	@Override
 	public void init() {
 		buttons.clear();
-		buttons.add(new ButtonWidget(0, width / 2 - 105, height / 2 + 10, 100, 20, "Yes"));
-		buttons.add(new ButtonWidget(1, width / 2 + 5, height / 2 + 10, 100, 20, "No"));
+		buttons.add(new Button(0, width / 2 - 105, height / 2 + 10, 100, 20, "Yes"));
+		buttons.add(new Button(1, width / 2 + 5, height / 2 + 10, 100, 20, "No"));
 	}
 
 	@Override
@@ -26,7 +26,7 @@ public class ClearKeyframesScreen extends NoPauseScreen {
 
 	@Override
 	protected void keyPressed(char chr, int key) {
-		if (key == Keyboard.KEY_ESCAPE) {
+		if (key == Platform.KEY_ESCAPE) {
 			minecraft.openScreen(null);
 		}
 	}

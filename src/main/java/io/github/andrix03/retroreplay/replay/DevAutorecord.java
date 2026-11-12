@@ -25,6 +25,16 @@ public final class DevAutorecord {
 	private static int deathTicks;
 	/** "quit" or "crash": end the game in the middle of the world instead of leaving it. */
 	private static final String EXIT = System.getenv("RETROREPLAY_AUTORECORD_EXIT");
+	/** RETROREPLAY_AUTORECORD_MENU: open the world the way the world screens do (they close right after). */
+	/** RETROREPLAY_AUTORECORD_BREAK: break the block under the player at the spawn (use with GAMEMODE=1). */
+	private static final boolean BREAK = System.getenv("RETROREPLAY_AUTORECORD_BREAK") != null;
+	private static int[] breakAt;
+	/** RETROREPLAY_AUTORECORD_MINE: in survival, stands still looking down for 9 s while the left button is held from outside (block cracks). */
+	private static final boolean MINE = System.getenv("RETROREPLAY_AUTORECORD_MINE") != null;
+	private static int[] mineAt;
+	/** RETROREPLAY_AUTORECORD_FAR (with GAMEMODE=1): flies straight east, so the chunks left behind unload. */
+	private static final boolean FAR = System.getenv("RETROREPLAY_AUTORECORD_FAR") != null;
+	private static final boolean VIA_MENU = System.getenv("RETROREPLAY_AUTORECORD_MENU") != null;
 	/** How long the walk lasts, in ticks (default 240 = 12 s). */
 	private static final int LENGTH_TICKS = Integer.parseInt(System.getenv().getOrDefault("RETROREPLAY_AUTORECORD_TICKS", "240"));
 	/** Seconds spent in the pause menu (default 3; long pauses test connection timeouts). */
@@ -60,6 +70,9 @@ public final class DevAutorecord {
 				} else {
 					RetroReplay.LOGGER.info("Autorecord: opening " + WORLD);
 					Mc.startSelftestWorld(WORLD);
+					if (VIA_MENU) {
+						minecraft.openScreen(null); // what Create New World and Select World do right after
+					}
 				}
 			}
 			return;
@@ -79,6 +92,42 @@ public final class DevAutorecord {
 			return;
 		}
 		ticks++;
+		if (BREAK && ticks == 20) {
+			// the block under the feet, at the spawn (protected on old servers for non-operators)
+			breakAt = new int[] { (int) Math.floor(minecraft.player.x), (int) Math.floor(minecraft.player.y - Mc.feetOffset()) - 1, (int) Math.floor(minecraft.player.z) };
+			int before = Mc.blockState(breakAt[0], breakAt[1], breakAt[2]) >> 4;
+			RetroReplay.LOGGER.info("Autorecord: breaking block " + before + " at " + breakAt[0] + "," + breakAt[1] + "," + breakAt[2]);
+			call(minecraft.interactionManager, "startMiningBlock", breakAt[0], breakAt[1], breakAt[2], 1);
+			holdStone(minecraft);
+		}
+		if (BREAK && ticks == 50) {
+			int after = Mc.blockState(breakAt[0], breakAt[1], breakAt[2]) >> 4;
+			RetroReplay.LOGGER.info("Autorecord: block at the spawn " + (after == 0 ? "broken" : "still there (" + after + ")"));
+		}
+		if (MINE && ticks >= 20 && ticks < 200) {
+			// looking straight down, standing still: the left mouse button is held from outside (a real dig)
+			if (ticks == 20) {
+				mineAt = new int[] { (int) Math.floor(minecraft.player.x), (int) Math.floor(minecraft.player.y - Mc.feetOffset()) - 1, (int) Math.floor(minecraft.player.z) };
+				RetroReplay.LOGGER.info("Autorecord: hold the left mouse button now, block " + call(minecraft.world, "getBlock", mineAt[0], mineAt[1], mineAt[2]) + " at " + mineAt[0] + "," + mineAt[1] + "," + mineAt[2]);
+			}
+			minecraft.player.pitch = 90.0F;
+			minecraft.player.velocityX = 0;
+			minecraft.player.velocityZ = 0;
+			return;
+		}
+		if (MINE && ticks == 200) {
+			RetroReplay.LOGGER.info("Autorecord: mined block now " + call(minecraft.world, "getBlock", mineAt[0], mineAt[1], mineAt[2]));
+		}
+		if (ticks == 40 && System.getenv("RETROREPLAY_AUTORECORD_DIFFICULTY") != null) {
+			// what the options screen's difficulty button does (by name: the field is not on every version)
+			try {
+				java.lang.reflect.Field field = minecraft.options.getClass().getField("difficulty");
+				field.setInt(minecraft.options, Integer.parseInt(System.getenv("RETROREPLAY_AUTORECORD_DIFFICULTY")));
+				RetroReplay.LOGGER.info("Autorecord: options difficulty set to " + field.getInt(minecraft.options));
+			} catch (ReflectiveOperationException e) {
+				RetroReplay.LOGGER.error("Autorecord: cannot set the difficulty", e);
+			}
+		}
 		if (ticks == 60) {
 			Mc.screenshot("autorecord_recording.png");
 			Recorder.addMarker(); // what the M key does
@@ -102,6 +151,27 @@ public final class DevAutorecord {
 			minecraft.openScreen(new GameMenuScreen());
 			return;
 		}
+		if (FAR && ticks > 40) {
+			minecraft.player.abilities.flying = true;
+			// straight up first (nothing in the way up there), then east
+			boolean high = minecraft.player.y >= 100;
+			minecraft.player.noClip = !high; // through the trees it often spawns under
+			if (ticks % 40 == 0) {
+				RetroReplay.LOGGER.info("Autorecord far: tick " + ticks + " at " + (int) minecraft.player.x + "," + (int) minecraft.player.y + "," + (int) minecraft.player.z
+					+ " flying=" + minecraft.player.abilities.flying + " canFly=" + minecraft.player.abilities.canFly);
+			}
+			minecraft.player.velocityX = high ? 1.5 : 0;
+			minecraft.player.velocityY = high ? 0 : 0.8;
+			minecraft.player.velocityZ = 0;
+			if (ticks >= LENGTH_TICKS) {
+				finished = true;
+				RetroReplay.LOGGER.info("Autorecord: done at " + (int) minecraft.player.x + "," + (int) minecraft.player.y + "," + (int) minecraft.player.z);
+				minecraft.world.disconnect();
+				minecraft.setWorld(null);
+				minecraft.openScreen(new TitleScreen());
+			}
+			return;
+		}
 		minecraft.player.yaw += LENGTH_TICKS > 240 ? 0.05F : 3.0F; // a long session explores: new chunks all the time
 		double rad = Math.toRadians(minecraft.player.yaw);
 		minecraft.player.velocityX = -Math.sin(rad) * 0.2;
@@ -110,7 +180,7 @@ public final class DevAutorecord {
 			minecraft.player.velocityY = 0.42;
 		}
 		if (ticks % 30 == 0) {
-			minecraft.player.swingArm();
+			Mc.swingArm();
 		}
 		if (ticks >= LENGTH_TICKS) {
 			finished = true;
@@ -122,6 +192,46 @@ public final class DevAutorecord {
 	}
 
 	/** By name (dev mappings only): the method sits on a player class whose package differs between versions. */
+	/** Dev only: 8 stone in the first hotbar slot (the hand, the hotbar and items must render normally). */
+	private static void holdStone(Minecraft minecraft) {
+		try {
+			Object inventory = minecraft.player.getClass().getField("inventory").get(minecraft.player);
+			Class<?> stackClass = Class.forName("net.minecraft.item.ItemStack");
+			Object stack = stackClass.getConstructor(int.class, int.class, int.class).newInstance(1, 8, 0);
+			for (java.lang.reflect.Field field : inventory.getClass().getFields()) {
+				if (field.getType().isArray() && field.getType().getComponentType() == stackClass) {
+					java.lang.reflect.Array.set(field.get(inventory), 0, stack);
+					return;
+				}
+			}
+		} catch (ReflectiveOperationException e) {
+			RetroReplay.LOGGER.error("Autorecord: cannot give stone", e);
+		}
+	}
+
+	/** Dev mappings only: an int-argument method by name (its owner's class differs between versions). */
+	private static Object call(Object target, String method, int... args) {
+		try {
+			Class<?>[] types = new Class<?>[args.length];
+			Object[] values = new Object[args.length];
+			for (int i = 0; i < args.length; i++) {
+				types[i] = int.class;
+				values[i] = args[i];
+			}
+			for (Class<?> type = target.getClass(); type != null; type = type.getSuperclass()) {
+				try {
+					return type.getMethod(method, types).invoke(target, values);
+				} catch (NoSuchMethodException e) {
+					// up the hierarchy
+				}
+			}
+			throw new NoSuchMethodException(method);
+		} catch (ReflectiveOperationException e) {
+			RetroReplay.LOGGER.error("Autorecord: cannot call " + method, e);
+			return -1;
+		}
+	}
+
 	private static void callPlayer(Minecraft minecraft, String method, Object... args) {
 		try {
 			Class<?>[] types = new Class<?>[args.length];

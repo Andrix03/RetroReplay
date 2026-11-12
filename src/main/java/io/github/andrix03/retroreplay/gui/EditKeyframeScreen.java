@@ -3,15 +3,14 @@ package io.github.andrix03.retroreplay.gui;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.lwjgl.input.Keyboard;
-
-import io.github.andrix03.retroreplay.compat.Mc;
+import io.github.andrix03.retroreplay.compat.Button;
 import io.github.andrix03.retroreplay.compat.NoPauseScreen;
+import io.github.andrix03.retroreplay.compat.Platform;
+import io.github.andrix03.retroreplay.compat.TextField;
 import io.github.andrix03.retroreplay.pathing.CameraPath;
 import io.github.andrix03.retroreplay.pathing.PathingState;
 
 import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
 
 /**
  * Replay Mod's GuiEditKeyframe (double click on a keyframe): the timeline position as
@@ -23,9 +22,11 @@ public class EditKeyframeScreen extends NoPauseScreen {
 	private final PathingState state;
 	private final PathingState.Kind kind;
 	private final long time;
-	private final List<TextFieldWidget> fields = new ArrayList<>();
+	private final List<TextField> fields = new ArrayList<>();
 	private String error;
 	private CameraPath.Interpolation interpolation;
+	/** This keyframe's segment (to the next one): its own interpolation, or null for the path's. */
+	private CameraPath.Interpolation segment;
 
 	public EditKeyframeScreen(PathingState state, PathingState.Kind kind, long time) {
 		this.state = state;
@@ -35,7 +36,7 @@ public class EditKeyframeScreen extends NoPauseScreen {
 
 	@Override
 	public void init() {
-		Keyboard.enableRepeatEvents(true);
+		Platform.enableRepeatEvents(true);
 		buttons.clear();
 		fields.clear();
 		int top = top();
@@ -49,7 +50,7 @@ public class EditKeyframeScreen extends NoPauseScreen {
 			int right = width / 2 + 5;
 			double[] values = { p.x, p.yaw, p.y, p.pitch, p.z, p.roll };
 			for (int i = 0; i < 6; i++) {
-				TextFieldWidget field = Mc.textField(this, i % 2 == 0 ? left : right, top + 54 + (i / 2) * 32, 90, 20);
+				TextField field = TextField.create(this, i % 2 == 0 ? left : right, top + 54 + (i / 2) * 32, 90, 20);
 				field.setText(format(values[i]));
 				fields.add(field);
 			}
@@ -57,15 +58,21 @@ public class EditKeyframeScreen extends NoPauseScreen {
 		int buttonsY = kind == PathingState.Kind.TIME ? top + 90 : top + 174;
 		if (kind == PathingState.Kind.POSITION) {
 			interpolation = state.path.interpolation();
-			// Replay Mod's interpolator choice (here for the whole position path)
-			buttons.add(new ButtonWidget(2, width / 2 - 100, top + 148, 200, 20, interpolationLabel()));
+			segment = state.path.segmentInterpolation(time);
+			// Replay Mod's interpolator choice: the whole path's, and this segment's own
+			buttons.add(new Button(2, width / 2 - 152, top + 148, 150, 20, interpolationLabel()));
+			buttons.add(new Button(3, width / 2 + 2, top + 148, 150, 20, segmentLabel()));
 		}
-		buttons.add(new ButtonWidget(0, width / 2 - 152, buttonsY, 150, 20, "Save"));
-		buttons.add(new ButtonWidget(1, width / 2 + 2, buttonsY, 150, 20, "Cancel"));
+		buttons.add(new Button(0, width / 2 - 152, buttonsY, 150, 20, "Save"));
+		buttons.add(new Button(1, width / 2 + 2, buttonsY, 150, 20, "Cancel"));
 	}
 
 	private String interpolationLabel() {
-		return "Interpolation: " + interpolation.title;
+		return "Path: " + interpolation.title;
+	}
+
+	private String segmentLabel() {
+		return "Next: " + (segment == null ? "Path's" : segment.title);
 	}
 
 	/** Top of the fields: the whole popup (title to Save / Cancel) centered, at least 20 px down. */
@@ -77,7 +84,7 @@ public class EditKeyframeScreen extends NoPauseScreen {
 	private void addTime(int x, int y, long ms) {
 		String[] parts = { Long.toString(ms / 60_000), Long.toString(ms / 1000 % 60), Long.toString(ms % 1000) };
 		for (int i = 0; i < 3; i++) {
-			TextFieldWidget field = Mc.textField(this, x + i * 54, y, 50, 20);
+			TextField field = TextField.create(this, x + i * 54, y, 50, 20);
 			field.setText(parts[i]);
 			fields.add(field);
 		}
@@ -90,11 +97,17 @@ public class EditKeyframeScreen extends NoPauseScreen {
 
 	@Override
 	public void removed() {
-		Keyboard.enableRepeatEvents(false);
+		Platform.enableRepeatEvents(false);
 	}
 
 	@Override
 	protected void buttonClicked(ButtonWidget button) {
+		if (button.id == 3) {
+			CameraPath.Interpolation[] types = CameraPath.Interpolation.values();
+			segment = segment == null ? types[0] : segment.ordinal() + 1 < types.length ? types[segment.ordinal() + 1] : null;
+			button.message = segmentLabel();
+			return;
+		}
 		if (button.id == 2) {
 			CameraPath.Interpolation[] types = CameraPath.Interpolation.values();
 			interpolation = types[(interpolation.ordinal() + 1) % types.length];
@@ -128,6 +141,7 @@ public class EditKeyframeScreen extends NoPauseScreen {
 			state.path.removePosition(time);
 			state.path.putPosition(newTime, new CameraPath.Position(v[0], v[2], v[4], (float) v[1], (float) v[3], (float) v[5], spectated));
 			state.path.setInterpolation(interpolation);
+			state.path.setSegmentInterpolation(newTime, segment);
 		}
 		state.select(kind, newTime);
 	}
@@ -142,12 +156,12 @@ public class EditKeyframeScreen extends NoPauseScreen {
 
 	@Override
 	protected void keyPressed(char chr, int key) {
-		for (TextFieldWidget field : fields) {
+		for (TextField field : fields) {
 			field.keyPressed(chr, key);
 		}
-		if (key == Keyboard.KEY_ESCAPE) {
+		if (key == Platform.KEY_ESCAPE) {
 			minecraft.openScreen(new ReplayOverlayScreen());
-		} else if (key == Keyboard.KEY_RETURN) {
+		} else if (key == Platform.KEY_RETURN) {
 			buttonClicked((ButtonWidget) buttons.get(0));
 		}
 	}
@@ -155,14 +169,14 @@ public class EditKeyframeScreen extends NoPauseScreen {
 	@Override
 	protected void mouseClicked(int mouseX, int mouseY, int button) {
 		super.mouseClicked(mouseX, mouseY, button);
-		for (TextFieldWidget field : fields) {
+		for (TextField field : fields) {
 			field.mouseClicked(mouseX, mouseY, button);
 		}
 	}
 
 	@Override
 	public void tick() {
-		for (TextFieldWidget field : fields) {
+		for (TextField field : fields) {
 			field.tick();
 		}
 	}
@@ -181,7 +195,7 @@ public class EditKeyframeScreen extends NoPauseScreen {
 				ReplayGui.text(labels[i], i % 2 == 0 ? width / 2 - 95 : width / 2 + 5, top + 43 + (i / 2) * 32, ReplayGui.LIGHT_GRAY);
 			}
 		}
-		for (TextFieldWidget field : fields) {
+		for (TextField field : fields) {
 			field.render();
 		}
 		if (error != null) {

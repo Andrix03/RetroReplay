@@ -69,7 +69,9 @@ public final class PathPlayer {
 			return;
 		}
 		if (replay == null) {
-			active = null;
+			if (!ReplayHandler.isSeeking()) {
+				active = null; // the replay was closed
+			}
 			return;
 		}
 		player.time = player.startTime + (System.nanoTime() - player.startNanos) / 1_000_000L;
@@ -134,7 +136,7 @@ public final class PathPlayer {
 	/** The camera now, as a keyframe position (feet y, like setPositionAndAngles takes it). */
 	public static CameraPath.Position cameraPosition() {
 		Minecraft minecraft = Mc.minecraft();
-		return new CameraPath.Position(minecraft.player.x, minecraft.player.y - minecraft.player.eyeHeight, minecraft.player.z,
+		return new CameraPath.Position(minecraft.player.x, minecraft.player.y - Mc.feetOffset(), minecraft.player.z,
 			minecraft.player.yaw, minecraft.player.pitch, CameraRoll.get());
 	}
 }

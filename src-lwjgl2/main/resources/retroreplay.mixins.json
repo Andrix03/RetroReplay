@@ -9,11 +9,13 @@
 		"GameGuiMixin",
 		"GameMenuScreenMixin",
 		"GameRendererMixin",
+		"TesselatorMixin",
 		"MinecraftAccessor",
 		"WorldRendererAccessor",
 		"MinecraftMixin",
 		"TitleScreenMixin",
-		"ToastGuiMixin"
+		"ToastGuiMixin",
+		"SkyMixin"
 	],
 	"server": [
 	],

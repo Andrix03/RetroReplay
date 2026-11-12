@@ -20,6 +20,7 @@ import org.lwjgl.opengl.GL12;
 
 import io.github.andrix03.retroreplay.RetroReplay;
 import io.github.andrix03.retroreplay.compat.Mc;
+import io.github.andrix03.retroreplay.compat.Platform;
 import io.github.andrix03.retroreplay.gui.ReplayOverlay;
 import io.github.andrix03.retroreplay.pathing.PathStore;
 
@@ -71,8 +72,8 @@ public final class Thumbnail {
 		if (replay == null) {
 			return;
 		}
-		int width = minecraft.width;
-		int height = minecraft.height;
+		int width = Platform.width();
+		int height = Platform.height();
 		ByteBuffer pixels = BufferUtils.createByteBuffer(width * height * 4);
 		GL11.glReadPixels(0, 0, width, height, GL12.GL_BGRA, GL11.GL_UNSIGNED_BYTE, pixels);
 		BufferedImage frame = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);

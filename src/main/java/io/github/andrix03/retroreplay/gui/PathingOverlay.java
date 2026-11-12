@@ -2,10 +2,10 @@ package io.github.andrix03.retroreplay.gui;
 
 import java.util.Map;
 
-import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.GL11;
 
 import io.github.andrix03.retroreplay.compat.Mc;
+import io.github.andrix03.retroreplay.compat.Platform;
 import io.github.andrix03.retroreplay.pathing.CameraPath;
 import io.github.andrix03.retroreplay.pathing.PathPlayer;
 import io.github.andrix03.retroreplay.pathing.PathingState;
@@ -48,6 +48,8 @@ public final class PathingOverlay {
 	private static long dragTime;
 	private static boolean dragChanged;
 	private static boolean draggingCursor;
+	/** The replay time follows the dragged cursor (Quick Mode, time keyframes). */
+	private static boolean cursorFollowed;
 	private static long lastClick;
 
 	private PathingOverlay() {
@@ -341,6 +343,7 @@ public final class PathingOverlay {
 			state.cursor = timeAt(state, mouseX, width);
 			state.clearSelection();
 			draggingCursor = true;
+			followCursor(state);
 		}
 		return true;
 	}
@@ -362,8 +365,7 @@ public final class PathingOverlay {
 				if (position == null || state.path.positions().containsKey(time)) {
 					return;
 				}
-				state.path.removePosition(dragTime);
-				state.path.putPosition(time, position);
+				state.path.movePosition(dragTime, time, position);
 			} else {
 				Integer replayTime = state.path.times().get(dragTime);
 				if (replayTime == null || state.path.times().containsKey(time)) {
@@ -376,12 +378,36 @@ public final class PathingOverlay {
 			state.select(dragKind, time);
 		} else if (draggingCursor) {
 			state.cursor = time;
+			followCursor(state);
+		}
+	}
+
+	/**
+	 * With Quick Mode the replay follows the cursor while it is dragged: it shows the moment the
+	 * time keyframes give for it (the camera stays where it is).
+	 */
+	private static void followCursor(PathingState state) {
+		ReplayHandler replay = ReplayHandler.get();
+		if (replay == null || !replay.hasQuickMode() || !ReplayHandler.isQuickMode()) {
+			return;
+		}
+		int replayTime = state.path.replayTimeAt(state.cursor);
+		if (replayTime >= 0) {
+			replay.scrubTo(replayTime);
+			cursorFollowed = true;
 		}
 	}
 
 	public static void release() {
 		dragKind = null;
 		draggingCursor = false;
+		if (cursorFollowed) {
+			cursorFollowed = false;
+			ReplayHandler replay = ReplayHandler.get();
+			if (replay != null) {
+				replay.endScrub(); // the replay goes on from the cursor's moment
+			}
+		}
 	}
 
 	/** Mouse wheel over the timeline: scrolls it, with Ctrl zooms around the mouse. */
@@ -391,7 +417,7 @@ public final class PathingOverlay {
 			return;
 		}
 		int steps = wheel > 0 ? 1 : -1;
-		if (Keyboard.isKeyDown(Keyboard.KEY_LCONTROL) || Keyboard.isKeyDown(Keyboard.KEY_RCONTROL)) {
+		if (Platform.isKeyDown(Platform.KEY_LCONTROL) || Platform.isKeyDown(Platform.KEY_RCONTROL)) {
 			state.setZoom(state.zoom * Math.pow(1.2, -steps), timeAt(state, mouseX, width));
 		} else {
 			state.scroll -= steps * state.visibleLength() / 10;
@@ -430,7 +456,7 @@ public final class PathingOverlay {
 				PathPlayer.placeCamera(position);
 			}
 		} else {
-			ReplayHandler.get().jumpTo(state.path.times().get(time));
+			ReplayHandler.get().quickJumpTo(state.path.times().get(time));
 		}
 	}
 
@@ -444,8 +470,8 @@ public final class PathingOverlay {
 			show("Camera path stopped");
 			return;
 		}
-		boolean shift = Keyboard.isKeyDown(Keyboard.KEY_LSHIFT) || Keyboard.isKeyDown(Keyboard.KEY_RSHIFT);
-		boolean ctrl = Keyboard.isKeyDown(Keyboard.KEY_LCONTROL) || Keyboard.isKeyDown(Keyboard.KEY_RCONTROL);
+		boolean shift = Platform.isKeyDown(Platform.KEY_LSHIFT) || Platform.isKeyDown(Platform.KEY_RSHIFT);
+		boolean ctrl = Platform.isKeyDown(Platform.KEY_LCONTROL) || Platform.isKeyDown(Platform.KEY_RCONTROL);
 		String problem = PathPlayer.start(state, shift, ctrl);
 		show(problem != null ? problem : "Camera path started");
 	}
@@ -530,7 +556,7 @@ public final class PathingOverlay {
 			return null;
 		}
 		double replayPassed = ReplayHandler.get().getTime() - keyframe.getValue();
-		boolean shift = Keyboard.isKeyDown(Keyboard.KEY_LSHIFT) || Keyboard.isKeyDown(Keyboard.KEY_RSHIFT);
+		boolean shift = Platform.isKeyDown(Platform.KEY_LSHIFT) || Platform.isKeyDown(Platform.KEY_RSHIFT);
 		double speed = shift ? 1 : ReplayHandler.speed(ReplayHandler.get().getSpeedStep());
 		return keyframe.getKey() + Math.round(replayPassed / speed);
 	}

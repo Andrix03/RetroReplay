@@ -16,6 +16,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Locale;
 import java.util.Properties;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
@@ -72,6 +73,7 @@ public final class LocalServer {
 
 	private static volatile State state = State.IDLE;
 	private static volatile String error;
+	private static volatile boolean worldRefused;
 	private static volatile int port;
 	private static Process process;
 	private static Thread worker;
@@ -116,6 +118,7 @@ public final class LocalServer {
 		}
 		Thread previous = worker;
 		error = null;
+		worldRefused = false;
 		state = State.STARTING;
 		worker = new Thread(() -> {
 			try {
@@ -157,7 +160,7 @@ public final class LocalServer {
 			RetroReplay.LOGGER.warn("Last local server session of " + dirName + " did not end cleanly, recovering the player");
 			copyPlayerBack();
 		}
-		NbtCompound level = readLevel();
+		NbtCompound level = readOwnLevel();
 		if (level != null) {
 			copyPlayerToServer(level);
 		}
@@ -180,6 +183,10 @@ public final class LocalServer {
 				RetroReplay.LOGGER.warn("Cannot clear " + list);
 			}
 		}
+		// these servers keep 16 blocks around the spawn unbreakable for everyone but operators (no
+		// setting turns it off), which singleplayer does not have: the player is the only operator
+		java.nio.file.Files.write(new File(folder, "ops.txt").toPath(),
+			(player.toLowerCase(Locale.ROOT) + "\n").getBytes(StandardCharsets.UTF_8));
 
 		File agent = new File(folder, "retroreplay-agent.jar");
 		writeAgentJar(agent);
@@ -198,6 +205,12 @@ public final class LocalServer {
 		while ((line = output.readLine()) != null) {
 			if (line.contains("FAILED TO BIND")) {
 				throw new IOException("The local server could not open port " + freePort);
+			}
+			// the old servers log a crash and then stay running with no world: stop waiting at once
+			if (line.contains("[SEVERE]") && line.toLowerCase(Locale.ROOT).contains("unexpected exception")) {
+				throw new IOException(newWorld != null
+					? "Minecraft " + Mc.VERSION + " crashed generating this world (a bug of the game with some seeds): create it again with another seed"
+					: "The local server crashed loading the world (see " + new File(folder, "server.log") + ")");
 			}
 			if (line.contains("Done (")) {
 				break;
@@ -273,6 +286,26 @@ public final class LocalServer {
 		if (now - lastKeepAlive >= KEEP_ALIVE_MS) {
 			lastKeepAlive = now;
 			handler.sendPacket(new KeepAlivePacket(0));
+		}
+	}
+
+	private static int difficulty = -1;
+
+	/**
+	 * Every client tick with the options' difficulty: a change while playing on the local server
+	 * is set on its worlds (vanilla servers of these versions read it only when they start).
+	 */
+	public static synchronized void followDifficulty(int options) {
+		if (process == null || state != State.RUNNING) {
+			difficulty = -1;
+			return;
+		}
+		if (difficulty < 0) {
+			difficulty = options; // what server.properties got
+		} else if (options != difficulty) {
+			difficulty = options;
+			command(PauseAgent.DIFFICULTY + options + " " + Mc.SERVER_WORLDS_FIELD + " " + Mc.SERVER_DIFFICULTY_FIELD);
+			RetroReplay.LOGGER.info("Local server difficulty set to " + options);
 		}
 	}
 
@@ -357,6 +390,50 @@ public final class LocalServer {
 				}
 			}
 		}
+	}
+
+	/**
+	 * The world's level.dat, refusing a world of a newer Minecraft version: this version cannot read
+	 * it (newer tag types) or would mix its own files in. The world screens of these versions do not
+	 * see such a folder, so "Create New World" may pick its name. Nothing in the folder is touched.
+	 */
+	private static NbtCompound readOwnLevel() throws IOException {
+		String refused = "saves/" + world.getName() + " holds a world of a newer Minecraft version: create this world with another name";
+		if (isNewerWorldFolder(world)) {
+			worldRefused = true;
+			throw new IOException(refused);
+		}
+		NbtCompound level;
+		try {
+			level = readLevel();
+		} catch (IOException | RuntimeException e) {
+			worldRefused = true;
+			throw new IOException(refused, e);
+		}
+		if (level != null) {
+			NbtCompound data = level.getCompound("Data");
+			if (data.contains("DataVersion") || data.getInt("version") > Mc.LEVEL_VERSION) {
+				worldRefused = true;
+				throw new IOException(refused);
+			}
+		}
+		return level;
+	}
+
+	/** Folders and files only newer versions write (1.2's Anvil regions, 1.7+ player data, 1.13+ data packs...). */
+	private static boolean isNewerWorldFolder(File folder) {
+		for (String newer : new String[] { "datapacks", "dimensions", "playerdata", "advancements", "stats", "generated", "entities", "poi" }) {
+			if (new File(folder, newer).exists()) {
+				return true;
+			}
+		}
+		File[] anvil = new File(folder, "region").listFiles((dir, name) -> name.endsWith(".mca"));
+		return Mc.LEVEL_VERSION < 19133 && anvil != null && anvil.length > 0;
+	}
+
+	/** The last start refused the world (another version's): opening it the vanilla way would damage it too. */
+	public static boolean isWorldRefused() {
+		return worldRefused;
 	}
 
 	private static NbtCompound readLevel() throws IOException {

@@ -5,6 +5,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import io.github.andrix03.retroreplay.compat.ActionButton;
 import io.github.andrix03.retroreplay.gui.ReplayGui;
 import io.github.andrix03.retroreplay.gui.ReplayViewerScreen;
 import io.github.andrix03.retroreplay.replay.DevAutoplay;
@@ -28,15 +29,15 @@ public abstract class TitleScreenMixin extends Screen {
 	@Inject(method = "init", at = @At("TAIL"))
 	private void retroreplay$addButton(CallbackInfo ci) {
 		ButtonWidget anchor = null;
-		for (Object element : buttons) {
-			ButtonWidget button = (ButtonWidget) element;
+		for (ButtonWidget button : buttons) {
 			if ((button.id == 1 || button.id == 2 || button.id == 14) && button.visible && (anchor == null || button.y > anchor.y)) {
 				anchor = button;
 			}
 		}
 		int x = anchor == null ? width - 25 : anchor.x + 200 + 4;
 		int y = anchor == null ? 5 : anchor.y;
-		buttons.add(retroreplay$button = new ButtonWidget(REPLAY_VIEWER_BUTTON, x, y, 20, 20, ""));
+		Screen self = this;
+		retroreplay$button = addButton(new ActionButton(REPLAY_VIEWER_BUTTON, x, y, 20, 20, "", () -> minecraft.openScreen(new ReplayViewerScreen(self))));
 		if (!DevAutorecord.onTitleScreen()) {
 			DevAutoplay.onTitleScreen();
 		}
@@ -52,14 +53,6 @@ public abstract class TitleScreenMixin extends Screen {
 				ReplayGui.fill(mouseX + 9, mouseY - 15, mouseX + 15 + w, mouseY - 1, 0xF0100010);
 				ReplayGui.text("Replay Viewer", mouseX + 12, mouseY - 12, ReplayGui.WHITE);
 			}
-		}
-	}
-
-	@Inject(method = "buttonClicked", at = @At("HEAD"), cancellable = true)
-	private void retroreplay$onButton(ButtonWidget button, CallbackInfo ci) {
-		if (button.id == REPLAY_VIEWER_BUTTON) {
-			ci.cancel();
-			minecraft.openScreen(new ReplayViewerScreen(this));
 		}
 	}
 }

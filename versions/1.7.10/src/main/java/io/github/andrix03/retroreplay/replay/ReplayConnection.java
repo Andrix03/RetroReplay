@@ -44,6 +44,10 @@ public final class ReplayConnection {
 		packet.handle(handler);
 	}
 
+	/** Packets are handled as they come here: nothing waits. */
+	public void flush() {
+	}
+
 	/** Whatever the client sends goes nowhere. */
 	private static final class SinkConnection extends Connection {
 

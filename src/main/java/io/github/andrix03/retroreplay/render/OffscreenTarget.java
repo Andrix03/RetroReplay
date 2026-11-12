@@ -3,11 +3,9 @@ package io.github.andrix03.retroreplay.render;
 import org.lwjgl.opengl.EXTFramebufferObject;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL14;
-import org.lwjgl.opengl.GLContext;
 
 import io.github.andrix03.retroreplay.compat.Mc;
-
-import net.minecraft.client.Minecraft;
+import io.github.andrix03.retroreplay.compat.Platform;
 
 /**
  * Renders a video at any size: before 1.7 the game draws straight to the window, so while a
@@ -32,7 +30,7 @@ final class OffscreenTarget {
 	}
 
 	static boolean isSupported() {
-		return GLContext.getCapabilities().GL_EXT_framebuffer_object;
+		return Platform.hasFramebuffers();
 	}
 
 	/** Null when the driver cannot do it (then the window size is used). */
@@ -45,8 +43,8 @@ final class OffscreenTarget {
 			return null;
 		}
 		OffscreenTarget target = new OffscreenTarget(width, height);
-		target.windowWidth = Mc.minecraft().width;
-		target.windowHeight = Mc.minecraft().height;
+		target.windowWidth = Platform.width();
+		target.windowHeight = Platform.height();
 		if (Mc.resizeGameTarget(width, height)) {
 			target.gameTarget = true;
 			return target;
@@ -75,11 +73,9 @@ final class OffscreenTarget {
 
 	/** Draw into the target from now on, at its size. */
 	void begin() {
-		Minecraft minecraft = Mc.minecraft();
-		windowWidth = minecraft.width;
-		windowHeight = minecraft.height;
-		minecraft.width = width;
-		minecraft.height = height;
+		windowWidth = Platform.width();
+		windowHeight = Platform.height();
+		Platform.setDrawSize(width, height);
 		if (gameTarget) {
 			Mc.bindGameTarget();
 		} else {
@@ -91,9 +87,7 @@ final class OffscreenTarget {
 	/** Back to the window (after the frame was read). */
 	void end() {
 		EXTFramebufferObject.glBindFramebufferEXT(EXTFramebufferObject.GL_FRAMEBUFFER_EXT, 0);
-		Minecraft minecraft = Mc.minecraft();
-		minecraft.width = windowWidth;
-		minecraft.height = windowHeight;
+		Platform.setDrawSize(windowWidth, windowHeight);
 		GL11.glViewport(0, 0, windowWidth, windowHeight);
 	}
 

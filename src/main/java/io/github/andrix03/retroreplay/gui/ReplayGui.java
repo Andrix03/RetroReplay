@@ -2,10 +2,10 @@ package io.github.andrix03.retroreplay.gui;
 
 import org.lwjgl.opengl.GL11;
 
+import io.github.andrix03.retroreplay.compat.Draw;
 import io.github.andrix03.retroreplay.compat.Mc;
 
 import net.minecraft.client.gui.GuiElement;
-import net.minecraft.client.render.vertex.Tesselator;
 
 /**
  * Drawing helpers with Replay Mod's own textures (replay_gui.png from Replay Mod, gui.png from
@@ -23,12 +23,16 @@ public final class ReplayGui {
 	public static final int LIGHT_GRAY = 0xFFC0C0C0;
 	public static final int HALF_TRANSPARENT = 0x80000000;
 
-	private static final GuiElement DRAW = new GuiElement();
+	private static final GuiElement DRAW = new GuiElement() {
+	};
 
 	private ReplayGui() {
 	}
 
+	/** Binds a texture for drawing, whatever the frame left behind (texturing off or lighting on draws it black). */
 	public static void bind(String texture) {
+		GL11.glEnable(GL11.GL_TEXTURE_2D);
+		GL11.glDisable(GL11.GL_LIGHTING);
 		GL11.glColor4f(1, 1, 1, 1);
 		Mc.bindTexture(texture);
 	}
@@ -43,13 +47,7 @@ public final class ReplayGui {
 	/** The whole bound texture stretched over a rectangle (used for the logo). */
 	public static void stretched(int x, int y, int width, int height) {
 		GL11.glEnable(GL11.GL_BLEND);
-		Tesselator t = Tesselator.INSTANCE;
-		t.begin();
-		t.vertex(x, y + height, 0, 0, 1);
-		t.vertex(x + width, y + height, 0, 1, 1);
-		t.vertex(x + width, y, 0, 1, 0);
-		t.vertex(x, y, 0, 0, 0);
-		t.end();
+		Draw.texturedQuad(x, y, width, height);
 	}
 
 	/** A picture as a GL texture (linear filtering); the caller deletes it. */

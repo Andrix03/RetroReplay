@@ -1,6 +1,8 @@
 package io.github.andrix03.retroreplay.recording;
 
 import io.github.andrix03.retroreplay.compat.Mc;
+import io.github.andrix03.retroreplay.mixin.MultiplayerInteractionManagerAccessor;
+import io.github.andrix03.retroreplay.replay.MiningCracks;
 import io.github.andrix03.retroreplay.server.LocalServer;
 
 import net.minecraft.client.Minecraft;
@@ -41,6 +43,7 @@ public final class LocalPlayerRecorder {
 		// singleplayer runs on the local server: its world and the recording clock pause together
 		LocalServer.setPaused(LocalServer.isJoined() && minecraft.world != null && minecraft.paused);
 		LocalServer.keepAlive(minecraft.getNetworkHandler());
+		LocalServer.followDifficulty(minecraft.options.difficulty);
 		Recorder.setPaused(minecraft.paused);
 		if (!Recorder.isRecording()) {
 			spawned = null;
@@ -64,6 +67,7 @@ public final class LocalPlayerRecorder {
 	private static void record(ClientPlayerEntity player) {
 		if (player != spawned) {
 			spawned = player;
+			MiningCracks.resetRecording();
 			Recorder.record(new AddPlayerPacket(player));
 			EntityTeleportPacket teleport = new EntityTeleportPacket(player);
 			lastX = teleport.x;
@@ -107,6 +111,14 @@ public final class LocalPlayerRecorder {
 			int id = player.networkId;
 			Recorder.recordRaw(new byte[] { 0x28, (byte) (id >> 24), (byte) (id >> 16), (byte) (id >> 8), (byte) id, 0, flags, 0x7F });
 			lastFlags = flags;
+		}
+
+		// block cracks: no packet for them before 1.3, the replay draws them from ours
+		Object manager = Mc.minecraft().interactionManager;
+		if (manager instanceof MultiplayerInteractionManagerAccessor) {
+			MultiplayerInteractionManagerAccessor mining = (MultiplayerInteractionManagerAccessor) manager;
+			MiningCracks.recordTick(Mc.entityId(player), mining.retroreplay$isMining(), mining.retroreplay$getTargetX(), mining.retroreplay$getTargetY(),
+				mining.retroreplay$getTargetZ(), mining.retroreplay$getProgress());
 		}
 
 		// hurt flash and death animation, as the server reports them for other players
