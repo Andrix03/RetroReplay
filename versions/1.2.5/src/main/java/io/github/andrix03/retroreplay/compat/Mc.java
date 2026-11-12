@@ -166,6 +166,11 @@ public final class Mc {
 		return minecraft().player.eyeHeight;
 	}
 
+	/** Dev self-test only: false, the player's own /kill is used. */
+	public static boolean selftestKill() {
+		return false;
+	}
+
 	/** Dev self-test only: opens (or creates, seed 1234) a survival singleplayer world. */
 	public static void startSelftestWorld(String name) {
 		minecraft().startGame(name, name, new net.minecraft.world.WorldSettings(1234L, Integer.parseInt(System.getenv().getOrDefault("RETROREPLAY_AUTORECORD_GAMEMODE", "0")), true, System.getenv("RETROREPLAY_AUTORECORD_HARDCORE") != null, net.minecraft.world.gen.WorldGeneratorType.DEFAULT));

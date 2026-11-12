@@ -134,7 +134,9 @@ public final class DevAutorecord {
 		}
 		if (ticks == 80 && DIE) {
 			RetroReplay.LOGGER.info("Autorecord: /kill");
-			callPlayer(minecraft, "sendChat", "/kill");
+			if (!Mc.selftestKill()) {
+				callPlayer(minecraft, "sendChat", "/kill");
+			}
 		}
 		if (ticks == 100 && EXIT != null) {
 			// leaving the game from inside a world: "quit" like closing the window, "crash" without any cleanup
