@@ -62,6 +62,8 @@ public final class NativeRecorder {
 	private static final int RADIUS = 10;
 	/** Chunks sent per tick after the first one (the first sends all the loaded ones). */
 	private static final int CHUNKS_PER_TICK = 16;
+	/** Time for new chunks in one tick (the first tick sends them all), so flying fast never stutters. */
+	private static final long CHUNK_NANOS_PER_TICK = 3_000_000L;
 	/** More block changes than this in one chunk and tick: the whole chunk goes again. */
 	private static final int CHANGES_PER_CHUNK = 64;
 	/** A full position now and then, as the server does, so small rounding errors never pile up. */
@@ -80,6 +82,11 @@ public final class NativeRecorder {
 	private static final Set<Integer> untracked = new HashSet<>();
 	private static final Map<Long, String> signs = new HashMap<>();
 	private static final Map<World, Boolean> listening = new WeakHashMap<>();
+	/** What recording costs the game: time spent per tick (logged when the recording ends). */
+	private static long costNanos;
+	private static long costMax;
+	private static long costFirst;
+	private static int costTicks;
 
 	private NativeRecorder() {
 	}
@@ -109,7 +116,16 @@ public final class NativeRecorder {
 			if (!Recorder.isRecording()) {
 				return;
 			}
+			long start = System.nanoTime();
 			update(minecraft, CHUNKS_PER_TICK);
+			long spent = System.nanoTime() - start;
+			costNanos += spent;
+			if (costTicks == 0) {
+				costFirst = spent;
+			} else {
+				costMax = Math.max(costMax, spent);
+			}
+			costTicks++;
 		} catch (IOException | RuntimeException e) {
 			RetroReplay.LOGGER.error("Native recording failed, stopping it", e);
 			Recorder.stop();
@@ -120,6 +136,12 @@ public final class NativeRecorder {
 
 	/** The world is closing: what changed in its last tick still goes in, before Recorder.stop. */
 	public static void finish() {
+		if (costTicks > 0) {
+			RetroReplay.LOGGER.info(String.format(java.util.Locale.ROOT, "Native recording cost: %.3f ms a tick on average, %.2f ms at most after the first tick (%.2f ms, all the loaded chunks), over %d ticks",
+				costNanos / 1e6 / costTicks, costMax / 1e6, costFirst / 1e6, costTicks));
+			costNanos = costMax = costFirst = 0;
+			costTicks = 0;
+		}
 		if (started && world != null && Recorder.isRecording()) {
 			try {
 				sendBlockChanges();
@@ -236,7 +258,8 @@ public final class NativeRecorder {
 				Recorder.recordRaw(preChunk(chunkX, chunkZ, false));
 			}
 		}
-		// nearest first, like the server
+		// nearest first, like the server; at most a few ms a tick (packing a chunk takes ~1 ms), the rest next tick
+		long deadline = budget == Integer.MAX_VALUE ? Long.MAX_VALUE : System.nanoTime() + CHUNK_NANOS_PER_TICK;
 		for (int ring = 0; ring <= RADIUS && budget > 0; ring++) {
 			for (int dx = -ring; dx <= ring && budget > 0; dx++) {
 				for (int dz = -ring; dz <= ring && budget > 0; dz++) {
@@ -256,6 +279,9 @@ public final class NativeRecorder {
 					sendChunk(chunk, true);
 					sentChunks.add(key);
 					budget--;
+					if (System.nanoTime() > deadline) {
+						return;
+					}
 				}
 			}
 		}
