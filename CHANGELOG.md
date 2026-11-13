@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0
 
 - 1.0.0, 1.1, 1.2.5: singleplayer is vanilla singleplayer again. The mod no longer opens
   the world on a hidden local server to record it: it records the world itself, writing the
