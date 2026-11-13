@@ -2,6 +2,7 @@ package io.github.andrix03.retroreplay.recording;
 
 import io.github.andrix03.retroreplay.compat.Mc;
 import io.github.andrix03.retroreplay.mixin.MultiplayerInteractionManagerAccessor;
+import io.github.andrix03.retroreplay.mixin.SurvivalInteractionManagerAccessor;
 import io.github.andrix03.retroreplay.replay.MiningCracks;
 import io.github.andrix03.retroreplay.server.LocalServer;
 
@@ -45,6 +46,7 @@ public final class LocalPlayerRecorder {
 		LocalServer.keepAlive(minecraft.getNetworkHandler());
 		LocalServer.followDifficulty(minecraft.options.difficulty);
 		Recorder.setPaused(minecraft.paused);
+		NativeRecorder.tick(); // vanilla singleplayer: the world's packets, before the player's
 		if (!Recorder.isRecording()) {
 			spawned = null;
 			return;
@@ -118,6 +120,10 @@ public final class LocalPlayerRecorder {
 		if (manager instanceof MultiplayerInteractionManagerAccessor) {
 			MultiplayerInteractionManagerAccessor mining = (MultiplayerInteractionManagerAccessor) manager;
 			MiningCracks.recordTick(Mc.entityId(player), mining.retroreplay$isMining(), mining.retroreplay$getTargetX(), mining.retroreplay$getTargetY(),
+				mining.retroreplay$getTargetZ(), mining.retroreplay$getProgress());
+		} else if (manager instanceof SurvivalInteractionManagerAccessor) {
+			SurvivalInteractionManagerAccessor mining = (SurvivalInteractionManagerAccessor) manager;
+			MiningCracks.recordTick(Mc.entityId(player), mining.retroreplay$getProgress() > 0, mining.retroreplay$getTargetX(), mining.retroreplay$getTargetY(),
 				mining.retroreplay$getTargetZ(), mining.retroreplay$getProgress());
 		}
 
