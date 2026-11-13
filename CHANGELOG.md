@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- 1.0.0, 1.1, 1.2.5: singleplayer is vanilla singleplayer again. The mod no longer opens
+  the world on a hidden local server to record it: it records the world itself, writing the
+  packets a server of that version would have sent (blocks, entities, world events). Redstone,
+  movement and every singleplayer behavior are the game's own; replays work as before.
+- 1.13.2: a video at the window's size showed the "Joining world..." screen instead of the
+  world when it started from a rebuilt world. Fixed.
+
 ## 0.3.0
 
 - Path preview (H): between two spectator keyframes the camera follows an entity; its way

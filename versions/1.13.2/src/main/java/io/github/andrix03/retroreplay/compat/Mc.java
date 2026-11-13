@@ -196,10 +196,21 @@ public final class Mc {
 		return minecraft().player.getEyeHeight();
 	}
 
+	/** Dev self-test only: kills the player from the server (its own /kill is refused on this version). */
+	public static boolean selftestKill() {
+		net.minecraft.server.MinecraftServer server = minecraft().getServer();
+		if (server == null) {
+			return false;
+		}
+		String name = server.getUsername();
+		server.executeTask(() -> server.getCommandHandler().run(server.createCommandSourceStack(), "kill " + name));
+		return true;
+	}
+
 	/** Dev self-test only: opens (or creates, seed 1234) a survival singleplayer world. */
 	public static void startSelftestWorld(String name) {
 		minecraft().startGame(name, name, new net.minecraft.world.WorldSettings(1234L, net.minecraft.world.GameMode.byId(Integer.parseInt(System.getenv().getOrDefault("RETROREPLAY_AUTORECORD_GAMEMODE", "0"))), true, false,
-			net.minecraft.world.gen.WorldGeneratorType.DEFAULT));
+			net.minecraft.world.gen.WorldGeneratorType.DEFAULT).enableCommands());
 	}
 
 	/** Dev self-test only. */

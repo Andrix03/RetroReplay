@@ -71,6 +71,11 @@ public final class Recorder {
 		return current != null;
 	}
 
+	/** The recording's clock now (ms), -1 when not recording: for the self-tests' logs. */
+	public static synchronized int elapsed() {
+		return current == null ? -1 : current.elapsedMs();
+	}
+
 	public static synchronized boolean isPaused() {
 		return current != null && current.pausedSince != 0;
 	}
