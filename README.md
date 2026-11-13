@@ -22,8 +22,7 @@ Ornithe (Fabric Loader + Mixin for old versions).
    you join a world.
 
 On 1.0.0, 1.1 and 1.2.5 do not add `osl-networking` yourself: it sends a handshake right after
-login that vanilla servers of those versions answer by dropping the connection, and
-singleplayer runs on one (see below).
+login that vanilla servers of those versions answer by dropping the connection.
 
 ## Status
 
@@ -82,17 +81,21 @@ singleplayer runs on one (see below).
 ### Singleplayer before 1.3
 
 Before 1.3 singleplayer runs the world inside the client, without packets, so there is
-nothing to record. On 1.0.0, 1.1 and 1.2.5 a singleplayer world therefore opens on the
-matching vanilla dedicated server, started in the background on a local port, and the client
-joins it. The world stays in `saves/` and keeps working without the mod.
+nothing a server would send to record. On 1.0.0, 1.1 and 1.2.5 the world still opens and
+plays the vanilla singleplayer way, untouched: while you play, the mod looks at it every tick
+and writes the packets a server of that version would have sent another client watching
+you (chunks around you, block changes, entities and their moves, explosions, pistons,
+doors and other world events, lightning, rain, time, signs). The replay reads them like any
+multiplayer recording.
 
-- The server jar is downloaded once into `.minecraft/retroreplay/` and checked by SHA-1:
-  1.2.5 from Mojang, 1.1 and 1.0.0 (which Mojang no longer lists) from the Omniarchive
-  archive, the same files Ornithe uses.
-- The pause menu pauses the server's world too, through a small Java agent the mod
-  writes next to the server (it redirects the server's clock, nothing else).
-- The game plays by that version's multiplayer rules (for example block updates come
-  from the server).
+- It only reads: a chunk goes into the recording only once the game has it loaded, so
+  recording never loads, generates or changes anything.
+- Entities are updated as often as that version's server does it (mobs every 3 ticks,
+  items and falling blocks every 20...), so a replay looks like a multiplayer one.
+- The pause menu stops the recording clock with the world.
+- Developers can still use the earlier way, the world on the matching vanilla dedicated
+  server started in the background, with `RETROREPLAY_LOCAL_SERVER=1` (or
+  `-Dretroreplay.localServer=true`), to compare the two.
 
 ## Development
 
