@@ -9,7 +9,12 @@
 		"GameMenuScreenLocalMixin",
 		"MinecraftInstanceAccessor",
 		"MinecraftWorldMixin",
-		"MultiplayerInteractionManagerAccessor"
+		"MultiplayerInteractionManagerAccessor",
+		"SurvivalInteractionManagerAccessor",
+		"WorldAccessor",
+		"NativeWorldMixin",
+		"NativeChunkMixin",
+		"NativePickupMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

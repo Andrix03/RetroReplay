@@ -90,7 +90,13 @@ public final class DevAutoplay {
 	}
 
 	/** Title screen and viewer stages, driven from the client tick. */
+	/** RETROREPLAY_AUTOPLAY_ENTITIES: every tick, where the replay shows each entity ("Replay entities ms=..."). */
+	private static final boolean ENTITY_LOG = System.getenv("RETROREPLAY_AUTOPLAY_ENTITIES") != null;
+
 	public static void tick() {
+		if (ENABLED && ENTITY_LOG) {
+			logEntities(Mc.minecraft());
+		}
 		if (!ENABLED || !armed) {
 			return;
 		}
@@ -190,6 +196,29 @@ public final class DevAutoplay {
 		} else if (tick == 49) {
 			shot(minecraft, "ambient_off");
 		}
+	}
+
+	private static void logEntities(Minecraft minecraft) {
+		ReplayHandler replay = ReplayHandler.get();
+		if (replay == null || minecraft.world == null) {
+			return;
+		}
+		StringBuilder line = new StringBuilder();
+		try {
+			java.lang.reflect.Field list = Class.forName("net.minecraft.world.World").getField("entities");
+			Class<?> entity = Class.forName("net.minecraft.entity.Entity");
+			for (Object e : new java.util.ArrayList<Object>((java.util.List<?>) list.get(minecraft.world))) {
+				if (e == minecraft.player) {
+					continue;
+				}
+				line.append(entity.getField("networkId").getInt(e)).append(':').append(e.getClass().getSimpleName()).append(':')
+					.append(String.format(java.util.Locale.ROOT, "%.3f:%.3f:%.3f", entity.getField("x").getDouble(e), entity.getField("y").getDouble(e),
+						entity.getField("z").getDouble(e))).append(';');
+			}
+		} catch (ReflectiveOperationException e) {
+			return;
+		}
+		RetroReplay.LOGGER.info("Replay entities ms=" + (int) replay.getTime() + " " + line);
 	}
 
 	private static void shot(Minecraft minecraft, String name) {

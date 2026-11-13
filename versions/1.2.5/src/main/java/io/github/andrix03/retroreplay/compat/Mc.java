@@ -166,14 +166,25 @@ public final class Mc {
 		return minecraft().player.eyeHeight;
 	}
 
-	/** Dev self-test only: false, the player's own /kill is used. */
+	/** Dev self-test only: vanilla singleplayer has no commands before 1.3, so the void's damage (the local server takes /kill). */
 	public static boolean selftestKill() {
-		return false;
+		if (io.github.andrix03.retroreplay.recording.NativeRecorder.LOCAL_SERVER) {
+			return false;
+		}
+		minecraft().player.takeDamage(net.minecraft.entity.damage.DamageSource.OUT_OF_WORLD, 1000);
+		return true;
 	}
 
 	/** Dev self-test only: opens (or creates, seed 1234) a survival singleplayer world. */
 	public static void startSelftestWorld(String name) {
+		// what the world screens do first (vanilla singleplayer needs it, the local server did not)
+		boolean creative = "1".equals(System.getenv("RETROREPLAY_AUTORECORD_GAMEMODE"));
+		minecraft().interactionManager = creative ? new net.minecraft.client.CreativeInteractionManager(minecraft())
+			: new net.minecraft.client.SurvivalInteractionManager(minecraft());
 		minecraft().startGame(name, name, new net.minecraft.world.WorldSettings(1234L, Integer.parseInt(System.getenv().getOrDefault("RETROREPLAY_AUTORECORD_GAMEMODE", "0")), true, System.getenv("RETROREPLAY_AUTORECORD_HARDCORE") != null, net.minecraft.world.gen.WorldGeneratorType.DEFAULT));
+		if (!io.github.andrix03.retroreplay.recording.NativeRecorder.LOCAL_SERVER) {
+			minecraft().openScreen(null); // what the world screens do right after (the title screen stays otherwise)
+		}
 	}
 
 	/** Dev self-test only. */

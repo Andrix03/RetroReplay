@@ -7,6 +7,7 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import io.github.andrix03.retroreplay.gui.LocalServerScreen;
+import io.github.andrix03.retroreplay.recording.NativeRecorder;
 import io.github.andrix03.retroreplay.recording.Recorder;
 import io.github.andrix03.retroreplay.replay.ReplayHandler;
 import io.github.andrix03.retroreplay.server.LocalServer;
@@ -17,7 +18,7 @@ import net.minecraft.entity.mob.player.PlayerEntity;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldSettings;
 
-/** Singleplayer worlds open on the local server; leaving a world ends recordings, replays and that server. */
+/** Singleplayer worlds open the vanilla way (or on the local server, RETROREPLAY_LOCAL_SERVER); leaving a world ends recordings, replays and that server. */
 @Mixin(Minecraft.class)
 public abstract class MinecraftWorldMixin {
 
@@ -31,8 +32,8 @@ public abstract class MinecraftWorldMixin {
 
 	@Inject(method = "startGame", at = @At("HEAD"), cancellable = true)
 	private void retroreplay$startOnLocalServer(String dirName, String displayName, WorldSettings settings, CallbackInfo ci) {
-		if (retroreplay$vanilla) {
-			return;
+		if (retroreplay$vanilla || !NativeRecorder.LOCAL_SERVER) {
+			return; // vanilla singleplayer, recorded by NativeRecorder
 		}
 		Minecraft minecraft = (Minecraft) (Object) this;
 		ci.cancel();
@@ -61,7 +62,9 @@ public abstract class MinecraftWorldMixin {
 	@Inject(method = "setWorld(Lnet/minecraft/world/World;Ljava/lang/String;Lnet/minecraft/entity/mob/player/PlayerEntity;)V", at = @At("HEAD"))
 	private void retroreplay$leaveWorld(World world, String message, PlayerEntity player, CallbackInfo ci) {
 		if (world == null) {
+			NativeRecorder.finish();
 			Recorder.stop();
+			NativeRecorder.reset();
 			ReplayHandler.stop();
 			LocalServer.left();
 		}
