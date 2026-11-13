@@ -479,8 +479,11 @@ public final class NativeRecorder {
 			Recorder.record(new AddPaintingPacket((PaintingEntity) entity));
 			return state; // never moves
 		} else if (entity instanceof ExperienceOrbEntity) {
-			state.interval = 20;
+			state.interval = 2; // it flies to the player: followed closely (a server: 20)
 			Recorder.record(new AddExperienceOrbPacket((ExperienceOrbEntity) entity));
+			// the client puts a new orb at the packet's numbers without dividing them by 32 (before 1.3):
+			// its real place right away, or a still orb would stay far away
+			Recorder.recordRaw(teleport(entity.networkId, state));
 		} else {
 			int[] vehicle = NativeProtocol.vehicle(entity);
 			if (vehicle == null) {
@@ -505,12 +508,22 @@ public final class NativeRecorder {
 			state.vz = vehicle[4];
 		}
 		if (state.data == null) {
+			// like the server: the data goes only when it changes from what the entity was spawned with
 			state.data = data(entity);
-			sendData(entity.networkId, state.data);
 		}
-		if (!(entity instanceof MobEntity) && !(entity instanceof PaintingEntity)) {
-			// the angles the add packets leave out
-			Recorder.recordRaw(teleport(entity.networkId, state));
+		if (!(entity instanceof MobEntity)) {
+			// and its velocity right after the spawn (EntityTrackerEntry), so the client moves it the same way;
+			// no position packet: the client would push a falling block out of the ground and lose it
+			state.vx = velocity(entity.velocityX);
+			state.vy = velocity(entity.velocityY);
+			state.vz = velocity(entity.velocityZ);
+			int id = entity.networkId;
+			Recorder.recordRaw(bytes(0x1C, out -> {
+				out.writeInt(id);
+				out.writeShort(state.vx);
+				out.writeShort(state.vy);
+				out.writeShort(state.vz);
+			}));
 		}
 		return state;
 	}
@@ -576,15 +589,22 @@ public final class NativeRecorder {
 			// velocity: knockback, throws and falls start the client's own motion the same way
 			int vx = velocity(entity.velocityX), vy = velocity(entity.velocityY), vz = velocity(entity.velocityZ);
 			int change = Math.abs(vx - state.vx) + Math.abs(vy - state.vy) + Math.abs(vz - state.vz);
+			if (!moved && change > 0) {
+				// it stands still but the replay has another velocity (a boat or minecart still coasting
+				// there): its exact velocity and place once, or it would drift on with nothing to correct it
+				change = Integer.MAX_VALUE;
+				state.sinceTeleport = 0;
+				Recorder.recordRaw(teleport(id, state));
+			}
 			if (change > 160) { // 0.02 blocks a tick, the server's threshold
 				state.vx = vx;
 				state.vy = vy;
 				state.vz = vz;
 				Recorder.recordRaw(bytes(0x1C, out -> {
 					out.writeInt(id);
-					out.writeShort(vx);
-					out.writeShort(vy);
-					out.writeShort(vz);
+					out.writeShort(state.vx);
+					out.writeShort(state.vy);
+					out.writeShort(state.vz);
 				}));
 			}
 		}
@@ -612,10 +632,8 @@ public final class NativeRecorder {
 			case 11:
 			case 12:
 				return 3;
-			case 90: // fishing bobber
-				return 5;
-			case 50: // primed TNT
-			case 61: // snowball, egg, fireballs, ender pearl and eye, potions, bottles
+			case 60: // projectiles: more often than a server (10 or 20 ticks), the replay follows their flight closely
+			case 61:
 			case 62:
 			case 63:
 			case 64:
@@ -623,10 +641,13 @@ public final class NativeRecorder {
 			case 72:
 			case 73:
 			case 75:
+			case 90:
+				return 2;
+			case 50: // primed TNT
 				return 10;
 			case 51: // ender crystal: never moves
 				return Integer.MAX_VALUE;
-			default: // arrows, falling blocks
+			default: // falling blocks (a moved one is pushed out of the ground by the client: the server's pace)
 				return 20;
 		}
 	}

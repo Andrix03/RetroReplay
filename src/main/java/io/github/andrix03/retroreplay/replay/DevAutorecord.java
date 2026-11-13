@@ -41,6 +41,13 @@ public final class DevAutorecord {
 	 * switched on and off at fixed ticks, every block of it logged each tick ("Redstone t=...").
 	 */
 	private static final boolean REDSTONE = System.getenv("RETROREPLAY_AUTORECORD_REDSTONE") != null;
+	/**
+	 * RETROREPLAY_AUTORECORD_ENTITIES (1.0-1.2.5): mobs, items, an orb, a minecart, a boat and a
+	 * snowball on a platform in the air at tick 20; every 2 ticks the position of every entity
+	 * near it is logged ("Entities t=..."), to compare with the replay.
+	 */
+	private static final boolean ENTITIES = System.getenv("RETROREPLAY_AUTORECORD_ENTITIES") != null;
+	private static int[] pen;
 	private static int[] bench;
 	private static int benchStart = -1;
 	/** What the bench logs, from its corner: the circuit along x, water along z = 4, sand at z = 2. */
@@ -109,6 +116,9 @@ public final class DevAutorecord {
 		ticks++;
 		if (REDSTONE) {
 			redstone(minecraft);
+		}
+		if (ENTITIES) {
+			entities(minecraft);
 		}
 		if (BREAK && ticks == 20) {
 			// the block under the feet, at the spawn (protected on old servers for non-operators)
@@ -301,6 +311,107 @@ public final class DevAutorecord {
 			}
 			RetroReplay.LOGGER.info("Redstone t=" + b + " ms=" + io.github.andrix03.retroreplay.recording.Recorder.elapsed() + " time=" + call(minecraft.world, "getTime") + " q=" + scheduledTicks(minecraft.world) + " " + line);
 		}
+	}
+
+	private static void entities(Minecraft minecraft) {
+		if (ticks == 20) {
+			pen = new int[] { (int) Math.floor(minecraft.player.x) - 8, 100, (int) Math.floor(minecraft.player.z) + 6 };
+			int x = pen[0], y = pen[1], z = pen[2];
+			for (int dx = -1; dx <= 17; dx++) {
+				for (int dz = -1; dz <= 9; dz++) {
+					set(minecraft, x + dx, y - 1, z + dz, 1, 0);
+				}
+			}
+			String[][] mobs = { { "net.minecraft.entity.mob.animal.PigEntity", "net.minecraft.entity.mob.passive.animal.PigEntity" },
+				{ "net.minecraft.entity.mob.animal.CowEntity", "net.minecraft.entity.mob.passive.animal.CowEntity" },
+				{ "net.minecraft.entity.mob.animal.ChickenEntity", "net.minecraft.entity.mob.passive.animal.ChickenEntity" },
+				{ "net.minecraft.entity.mob.monster.ZombieEntity", "net.minecraft.entity.mob.hostile.ZombieEntity" },
+				{ "net.minecraft.entity.mob.monster.SkeletonEntity", "net.minecraft.entity.mob.hostile.SkeletonEntity" } };
+			int spawned = 0;
+			for (int i = 0; i < mobs.length; i++) {
+				for (int copy = 0; copy < 2; copy++) {
+					spawned += spawn(minecraft, mobs[i], x + 2 + i * 3, y, z + 2 + copy * 4) ? 1 : 0;
+				}
+			}
+			try {
+				Class<?> world = Class.forName("net.minecraft.world.World");
+				Class<?> stack = Class.forName("net.minecraft.item.ItemStack");
+				for (int i = 0; i < 5; i++) {
+					Object item = Class.forName("net.minecraft.entity.ItemEntity").getConstructor(world, double.class, double.class, double.class, stack)
+						.newInstance(minecraft.world, x + 4.5 + i, y + 3.0, z + 8.5, stack.getConstructor(int.class, int.class, int.class).newInstance(4, 1 + i, 0));
+					velocity(item, 0.1 * (i - 2), 0.3, -0.1);
+					add(minecraft, item);
+					spawned++;
+				}
+				add(minecraft, Class.forName("net.minecraft.entity.ExperienceOrbEntity").getConstructor(world, double.class, double.class, double.class, int.class)
+					.newInstance(minecraft.world, x + 12.5, y + 1.0, z + 8.5, 7));
+				Object cart = Class.forName("net.minecraft.entity.vehicle.MinecartEntity").getConstructor(world, double.class, double.class, double.class, int.class)
+					.newInstance(minecraft.world, x + 1.5, y + 0.5, z + 0.5, 0);
+				velocity(cart, 0.6, 0, 0);
+				add(minecraft, cart);
+				add(minecraft, Class.forName("net.minecraft.entity.vehicle.BoatEntity").getConstructor(world, double.class, double.class, double.class)
+					.newInstance(minecraft.world, x + 15.5, y + 0.5, z + 4.5));
+				Object snowball = Class.forName("net.minecraft.entity.projectile.SnowballEntity").getConstructor(world, double.class, double.class, double.class)
+					.newInstance(minecraft.world, x + 0.5, y + 2.0, z + 4.5);
+				velocity(snowball, 1.2, 0.4, 0);
+				add(minecraft, snowball);
+				spawned += 4;
+			} catch (ReflectiveOperationException e) {
+				RetroReplay.LOGGER.error("Autorecord: cannot add the entities", e);
+			}
+			RetroReplay.LOGGER.info("Autorecord: entity pen at " + x + "," + y + "," + z + " with " + spawned + " entities");
+		}
+		if (pen != null && ticks % 2 == 0 && ticks <= 420) {
+			StringBuilder line = new StringBuilder();
+			try {
+				java.lang.reflect.Field list = Class.forName("net.minecraft.world.World").getField("entities");
+				Class<?> entity = Class.forName("net.minecraft.entity.Entity");
+				for (Object e : new java.util.ArrayList<Object>((java.util.List<?>) list.get(minecraft.world))) {
+					if (e == minecraft.player) {
+						continue;
+					}
+					double ex = entity.getField("x").getDouble(e), ey = entity.getField("y").getDouble(e), ez = entity.getField("z").getDouble(e);
+					if (Math.abs(ex - pen[0] - 8) > 40 || Math.abs(ez - pen[2] - 4) > 40) {
+						continue;
+					}
+					line.append(entity.getField("networkId").getInt(e)).append(':').append(e.getClass().getSimpleName()).append(':')
+						.append(String.format(java.util.Locale.ROOT, "%.3f:%.3f:%.3f", ex, ey, ez)).append(';');
+				}
+			} catch (ReflectiveOperationException e) {
+				RetroReplay.LOGGER.error("Autorecord: cannot list the entities", e);
+			}
+			RetroReplay.LOGGER.info("Entities t=" + ticks + " ms=" + io.github.andrix03.retroreplay.recording.Recorder.elapsed() + " " + line);
+		}
+	}
+
+	private static boolean spawn(Minecraft minecraft, String[] names, double x, double y, double z) {
+		for (String name : names) {
+			try {
+				Object mob = Class.forName(name).getConstructor(Class.forName("net.minecraft.world.World")).newInstance(minecraft.world);
+				Class.forName("net.minecraft.entity.Entity").getMethod("setPositionAndAngles", double.class, double.class, double.class, float.class, float.class)
+					.invoke(mob, x + 0.5, y, z + 0.5, 0.0F, 0.0F);
+				add(minecraft, mob);
+				return true;
+			} catch (ClassNotFoundException e) {
+				// another version's package
+			} catch (ReflectiveOperationException e) {
+				RetroReplay.LOGGER.error("Autorecord: cannot add " + name, e);
+				return false;
+			}
+		}
+		RetroReplay.LOGGER.error("Autorecord: no class among " + java.util.Arrays.toString(names));
+		return false;
+	}
+
+	private static void add(Minecraft minecraft, Object entity) throws ReflectiveOperationException {
+		minecraft.world.getClass().getMethod("addEntity", Class.forName("net.minecraft.entity.Entity")).invoke(minecraft.world, entity);
+	}
+
+	private static void velocity(Object entity, double x, double y, double z) throws ReflectiveOperationException {
+		Class<?> type = Class.forName("net.minecraft.entity.Entity");
+		type.getField("velocityX").setDouble(entity, x);
+		type.getField("velocityY").setDouble(entity, y);
+		type.getField("velocityZ").setDouble(entity, z);
 	}
 
 	/** The world's queue of scheduled block ticks (dev only, by name); 0 for a multiplayer world's copy. */
