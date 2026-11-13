@@ -62,6 +62,7 @@ public abstract class MinecraftWorldMixin {
 	@Inject(method = "setWorld(Lnet/minecraft/world/World;Ljava/lang/String;Lnet/minecraft/entity/mob/player/PlayerEntity;)V", at = @At("HEAD"))
 	private void retroreplay$leaveWorld(World world, String message, PlayerEntity player, CallbackInfo ci) {
 		if (world == null) {
+			NativeRecorder.finish();
 			Recorder.stop();
 			NativeRecorder.reset();
 			ReplayHandler.stop();

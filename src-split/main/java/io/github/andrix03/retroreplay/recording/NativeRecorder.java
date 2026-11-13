@@ -115,6 +115,17 @@ public final class NativeRecorder {
 		}
 	}
 
+	/** The world is closing: what changed in its last tick still goes in, before Recorder.stop. */
+	public static void finish() {
+		if (started && world != null && Recorder.isRecording()) {
+			try {
+				sendBlockChanges();
+			} catch (IOException | RuntimeException e) {
+				RetroReplay.LOGGER.error("Native recording: last block changes lost", e);
+			}
+		}
+	}
+
 	/** The world closed: the recording is over (Recorder.stop is called with it). */
 	public static void reset() {
 		started = false;
@@ -165,6 +176,7 @@ public final class NativeRecorder {
 		clearWorldState();
 		listen(world);
 		Recorder.recordRaw(NativeProtocol.respawn(world, gameMode(minecraft), world.difficulty));
+		LocalPlayerRecorder.reset(); // the replay's world starts empty: the player is added again, even the same one
 		raining = world.isRaining();
 		Recorder.recordRaw(new byte[] { 0x46, (byte) (raining ? 1 : 2), 0 });
 		update(minecraft, Integer.MAX_VALUE);

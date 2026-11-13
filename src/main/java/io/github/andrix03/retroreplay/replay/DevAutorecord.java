@@ -34,6 +34,10 @@ public final class DevAutorecord {
 	private static int[] mineAt;
 	/** RETROREPLAY_AUTORECORD_FAR (with GAMEMODE=1): flies straight east, so the chunks left behind unload. */
 	private static final boolean FAR = System.getenv("RETROREPLAY_AUTORECORD_FAR") != null;
+	/** RETROREPLAY_AUTORECORD_TNT (1.0-1.2.5): primed TNT 6 blocks east of the player at tick 30. */
+	private static final boolean TNT = System.getenv("RETROREPLAY_AUTORECORD_TNT") != null;
+	/** RETROREPLAY_AUTORECORD_NETHER (1.0-1.2.5 singleplayer): into the Nether at tick 100, like a portal. */
+	private static final boolean NETHER = System.getenv("RETROREPLAY_AUTORECORD_NETHER") != null;
 	private static final boolean VIA_MENU = System.getenv("RETROREPLAY_AUTORECORD_MENU") != null;
 	/** How long the walk lasts, in ticks (default 240 = 12 s). */
 	private static final int LENGTH_TICKS = Integer.parseInt(System.getenv().getOrDefault("RETROREPLAY_AUTORECORD_TICKS", "240"));
@@ -152,6 +156,21 @@ public final class DevAutorecord {
 			pauseStart = System.nanoTime();
 			minecraft.openScreen(new GameMenuScreen());
 			return;
+		}
+		if (TNT && ticks == 30) {
+			// by name: the class and its constructor exist only before 1.3 in this form (dev self-test)
+			try {
+				Object tnt = Class.forName("net.minecraft.entity.PrimedTntEntity").getConstructor(Class.forName("net.minecraft.world.World"), double.class, double.class, double.class)
+					.newInstance(minecraft.world, minecraft.player.x + 6, minecraft.player.y - Mc.feetOffset(), minecraft.player.z);
+				minecraft.world.getClass().getMethod("addEntity", Class.forName("net.minecraft.entity.Entity")).invoke(minecraft.world, tnt);
+				RetroReplay.LOGGER.info("Autorecord: primed TNT at " + (int) (minecraft.player.x + 6) + "," + (int) minecraft.player.y + "," + (int) minecraft.player.z);
+			} catch (ReflectiveOperationException e) {
+				RetroReplay.LOGGER.error("Autorecord: cannot prime TNT", e);
+			}
+		}
+		if (NETHER && ticks == 100) {
+			RetroReplay.LOGGER.info("Autorecord: into the Nether");
+			call(minecraft, "changeDimension", -1);
 		}
 		if (FAR && ticks > 40) {
 			minecraft.player.abilities.flying = true;
