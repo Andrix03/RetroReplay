@@ -55,6 +55,9 @@ public final class NativeRecorder {
 	public static final boolean LOCAL_SERVER = System.getenv("RETROREPLAY_LOCAL_SERVER") != null
 		|| Boolean.getBoolean("retroreplay.localServer");
 
+	/** Dev comparisons: vanilla singleplayer with the mod, recording nothing (RETROREPLAY_NO_RECORD). */
+	private static final boolean NO_RECORD = System.getenv("RETROREPLAY_NO_RECORD") != null;
+
 	/** Chunks around the player, like a server's view distance (10, the default). */
 	private static final int RADIUS = 10;
 	/** Chunks sent per tick after the first one (the first sends all the loaded ones). */
@@ -89,7 +92,7 @@ public final class NativeRecorder {
 	/** Every client tick, before LocalPlayerRecorder (the login comes before the player). */
 	public static void tick() {
 		Minecraft minecraft = Mc.minecraft();
-		boolean want = !LOCAL_SERVER && minecraft.world != null && minecraft.player != null && !minecraft.isMultiplayer()
+		boolean want = !LOCAL_SERVER && !NO_RECORD && minecraft.world != null && minecraft.player != null && !minecraft.isMultiplayer()
 			&& !minecraft.world.isMultiplayer && !ReplayHandler.isActive();
 		if (!want) {
 			if (started) {

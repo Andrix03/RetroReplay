@@ -36,6 +36,17 @@ public final class DevAutorecord {
 	private static final boolean FAR = System.getenv("RETROREPLAY_AUTORECORD_FAR") != null;
 	/** RETROREPLAY_AUTORECORD_TNT (1.0-1.2.5): primed TNT 6 blocks east of the player at tick 30. */
 	private static final boolean TNT = System.getenv("RETROREPLAY_AUTORECORD_TNT") != null;
+	/**
+	 * RETROREPLAY_AUTORECORD_REDSTONE (1.0-1.2.5): a redstone bench in the air next to the player,
+	 * switched on and off at fixed ticks, every block of it logged each tick ("Redstone t=...").
+	 */
+	private static final boolean REDSTONE = System.getenv("RETROREPLAY_AUTORECORD_REDSTONE") != null;
+	private static int[] bench;
+	private static int benchStart = -1;
+	/** What the bench logs, from its corner: the circuit along x, water along z = 4, sand at z = 2. */
+	private static final int[][] BENCH_LOG = { { 0, 0, 0 }, { 1, 0, 0 }, { 5, 0, 0 }, { 6, 0, 0 }, { 7, 0, 0 }, { 8, 0, 0 }, { 9, 0, 0 },
+		{ 10, 0, 0 }, { 11, 0, 0 }, { 12, 0, 0 }, { 13, 0, 0 }, { 0, 0, 4 }, { 1, 0, 4 }, { 3, 0, 4 }, { 5, 0, 4 }, { 7, 0, 4 },
+		{ 1, 0, 6 }, { 3, 0, 2 }, { 3, 2, 2 }, { 3, 4, 2 } };
 	/** RETROREPLAY_AUTORECORD_NETHER (1.0-1.2.5 singleplayer): into the Nether at tick 100, like a portal. */
 	private static final boolean NETHER = System.getenv("RETROREPLAY_AUTORECORD_NETHER") != null;
 	private static final boolean VIA_MENU = System.getenv("RETROREPLAY_AUTORECORD_MENU") != null;
@@ -96,6 +107,9 @@ public final class DevAutorecord {
 			return;
 		}
 		ticks++;
+		if (REDSTONE) {
+			redstone(minecraft);
+		}
 		if (BREAK && ticks == 20) {
 			// the block under the feet, at the spawn (protected on old servers for non-operators)
 			breakAt = new int[] { (int) Math.floor(minecraft.player.x), (int) Math.floor(minecraft.player.y - Mc.feetOffset()) - 1, (int) Math.floor(minecraft.player.z) };
@@ -231,6 +245,80 @@ public final class DevAutorecord {
 	}
 
 	/** Dev mappings only: an int-argument method by name (its owner's class differs between versions). */
+	private static void redstone(Minecraft minecraft) {
+		if (benchStart < 0) {
+			// a new world first works through the falls its generation scheduled (100 000s on 1.0):
+			// the bench waits for that, as it would in a world played for a while
+			int queued = scheduledTicks(minecraft.world);
+			if (ticks % 100 == 0) {
+				RetroReplay.LOGGER.info("Autorecord: redstone bench waits, " + queued + " scheduled ticks");
+			}
+			if (ticks < 20 || queued > 50) {
+				return;
+			}
+			benchStart = ticks;
+			RetroReplay.LOGGER.info("Autorecord: redstone bench starts with " + queued + " scheduled ticks queued");
+		}
+		int b = ticks - benchStart;
+		if (b == 0) {
+			bench = new int[] { (int) Math.floor(minecraft.player.x) + 3, 100, (int) Math.floor(minecraft.player.z) - 2 };
+			int x = bench[0], y = bench[1], z = bench[2];
+			for (int dx = -1; dx <= 15; dx++) {
+				for (int dz = -1; dz <= 7; dz++) {
+					set(minecraft, x + dx, y - 1, z + dz, 1, 0); // stone platform
+				}
+			}
+			set(minecraft, x + 1, y, z, 55, 0); // redstone dust
+			set(minecraft, x + 2, y, z, 55, 0);
+			set(minecraft, x + 3, y, z, 55, 0);
+			set(minecraft, x + 4, y, z, 55, 0);
+			set(minecraft, x + 5, y, z, 55, 0);
+			set(minecraft, x + 6, y, z, 93, 1); // repeater, input west, 1 tick
+			set(minecraft, x + 7, y, z, 55, 0);
+			set(minecraft, x + 8, y, z, 93, 1 | 3 << 2); // repeater, 4 ticks
+			set(minecraft, x + 9, y, z, 55, 0);
+			set(minecraft, x + 10, y, z, 55, 0);
+			set(minecraft, x + 11, y, z, 29, 5); // sticky piston facing east
+			set(minecraft, x + 12, y, z, 4, 0); // the block it pushes
+			RetroReplay.LOGGER.info("Autorecord: redstone bench at " + x + "," + y + "," + z + " from tick " + ticks);
+		}
+		int x = bench[0], y = bench[1], z = bench[2];
+		if (b == 20) {
+			set(minecraft, x, y, z, 76, 5); // redstone torch on the floor: on
+			set(minecraft, x, y, z + 4, 8, 0); // water source
+			set(minecraft, x + 3, y + 4, z + 2, 12, 0); // sand in the air
+		}
+		if (b == 60 || b == 140) {
+			set(minecraft, x, y, z, 0, 0); // torch off
+		}
+		if (b == 90) {
+			set(minecraft, x, y, z, 76, 5); // and on again
+		}
+		if (b <= 210) {
+			StringBuilder line = new StringBuilder();
+			for (int[] at : BENCH_LOG) {
+				line.append(line.length() == 0 ? "" : ",").append(Mc.blockState(x + at[0], y + at[1], z + at[2]));
+			}
+			RetroReplay.LOGGER.info("Redstone t=" + b + " ms=" + io.github.andrix03.retroreplay.recording.Recorder.elapsed() + " time=" + call(minecraft.world, "getTime") + " q=" + scheduledTicks(minecraft.world) + " " + line);
+		}
+	}
+
+	/** The world's queue of scheduled block ticks (dev only, by name); 0 for a multiplayer world's copy. */
+	private static int scheduledTicks(Object world) {
+		try {
+			java.lang.reflect.Field field = Class.forName("net.minecraft.world.World").getDeclaredField("scheduledTicksInOrder");
+			field.setAccessible(true);
+			Object queue = field.get(world);
+			return queue == null ? 0 : ((java.util.Collection<?>) queue).size();
+		} catch (ReflectiveOperationException | RuntimeException e) {
+			return 0;
+		}
+	}
+
+	private static void set(Minecraft minecraft, int x, int y, int z, int block, int metadata) {
+		call(minecraft.world, "setBlockWithMetadata", x, y, z, block, metadata);
+	}
+
 	private static Object call(Object target, String method, int... args) {
 		try {
 			Class<?>[] types = new Class<?>[args.length];
